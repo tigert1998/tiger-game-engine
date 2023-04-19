@@ -1,0 +1,4 @@
+.DS_Store
+build
+third_party/glad
+.vscode
