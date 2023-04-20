@@ -16,8 +16,6 @@
 class Model {
  public:
   Model() = delete;
-  Model(const std::string &path,
-        const std::vector<std::string> &filtered_node_names);
   Model(const std::string &path);
   ~Model();
   void Draw(Camera *camera_ptr, LightSources *light_sources,
@@ -35,7 +33,6 @@ class Model {
   inline glm::vec3 max() { return max_; }
 
  private:
-  std::vector<std::string> filtered_node_names_;
   std::string directory_path_;
   std::vector<std::shared_ptr<Mesh>> mesh_ptrs_;
   const aiScene *scene_;
@@ -58,11 +55,10 @@ class Model {
   static glm::mat4 InterpolateScalingMatrix(aiVectorKey *keys, uint32_t n,
                                             double ticks);
 
-  bool NodeShouldBeFiltered(const std::string &name);
   void InternalDraw(bool animated, Camera *camera_ptr,
                     LightSources *light_sources,
                     const std::vector<glm::mat4> &model_matrices,
-                    glm::vec4 clip_plane, bool sort_meshes);
+                    glm::vec4 clip_plane);
 
   static const std::string kVsSource;
   static const std::string kFsSource;

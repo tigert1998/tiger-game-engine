@@ -23,12 +23,12 @@ using std::vector;
 using namespace Assimp;
 using namespace glm;
 
+constexpr int MAX_BONES = 170;  // please change the shader's MAX_BONES as well
+
 std::shared_ptr<Shader> Model::kShader = nullptr;
 
-Model::Model(const std::string &path,
-             const std::vector<std::string> &filtered_node_names)
-    : directory_path_(ParentPath(ParentPath(path))),
-      filtered_node_names_(filtered_node_names) {
+Model::Model(const std::string &path)
+    : directory_path_(ParentPath(ParentPath(path))) {
   LOG(INFO) << "loading model at: \"" << path << "\"";
   scene_ = aiImportFile(path.c_str(), aiProcess_GlobalScale |
                                           aiProcess_CalcTangentSpace |
@@ -55,53 +55,46 @@ Model::Model(const std::string &path,
   min_ = vec3(INFINITY);
   max_ = -min_;
   RecursivelyInitNodes(scene_->mRootNode, mat4(1));
+
+  if (bone_namer_.total() > MAX_BONES) {
+    throw MaxBoneExceededError();
+  }
   bone_matrices_.resize(bone_namer_.total());
 
   LOG(INFO) << "min: (" << min_.x << ", " << min_.y << ", " << min_.z << "), "
             << "max: (" << max_.x << ", " << max_.y << ", " << max_.z << ")";
 }
 
-Model::Model(const std::string &path)
-    : Model(path, std::vector<std::string>({})) {}
-
 Model::~Model() {
   aiReleaseImport(scene_);
   glDeleteBuffers(1, &vbo_);
 }
 
-bool Model::NodeShouldBeFiltered(const std::string &name) {
-  for (int i = 0; i < filtered_node_names_.size(); i++) {
-    if (name == filtered_node_names_[i]) return true;
-  }
-  return false;
-}
-
 void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
-  auto transform =
-      parent_transform * Mat4FromAimatrix4x4(node->mTransformation);
+  auto node_transform = Mat4FromAimatrix4x4(node->mTransformation);
+  auto transform = parent_transform * node_transform;
 
-  if (!NodeShouldBeFiltered(node->mName.C_Str())) {
-    LOG(INFO) << "initializing node \"" << node->mName.C_Str() << "\"";
-    for (int i = 0; i < node->mNumMeshes; i++) {
-      int id = node->mMeshes[i];
-      if (mesh_ptrs_[id] == nullptr) {
-        auto mesh = scene_->mMeshes[id];
-        try {
-          mesh_ptrs_[id] = make_shared<Mesh>(directory_path_, mesh, scene_,
-                                             bone_namer_, bone_offsets_);
-          max_ = (glm::max)(max_, mesh_ptrs_[id]->max());
-          min_ = (glm::min)(min_, mesh_ptrs_[id]->min());
-        } catch (std::exception &e) {
-          mesh_ptrs_[id] = nullptr;
-          LOG(WARNING) << "not loading mesh \"" << mesh->mName.C_Str()
-                       << "\" because an exception is thrown: " << e.what();
-        }
-      }
-      if (mesh_ptrs_[id] != nullptr) {
-        mesh_ptrs_[id]->AppendTransform(transform);
+  LOG(INFO) << "initializing node \"" << node->mName.C_Str() << "\"";
+  for (int i = 0; i < node->mNumMeshes; i++) {
+    int id = node->mMeshes[i];
+    if (mesh_ptrs_[id] == nullptr) {
+      auto mesh = scene_->mMeshes[id];
+      try {
+        mesh_ptrs_[id] = make_shared<Mesh>(directory_path_, mesh, scene_,
+                                           bone_namer_, bone_offsets_);
+        max_ = (glm::max)(max_, mesh_ptrs_[id]->max());
+        min_ = (glm::min)(min_, mesh_ptrs_[id]->min());
+      } catch (std::exception &e) {
+        mesh_ptrs_[id] = nullptr;
+        LOG(WARNING) << "not loading mesh \"" << mesh->mName.C_Str()
+                     << "\" because an exception is thrown: " << e.what();
       }
     }
+    if (mesh_ptrs_[id] != nullptr) {
+      mesh_ptrs_[id]->AppendTransform(transform);
+    }
   }
+
   for (int i = 0; i < node->mNumChildren; i++) {
     RecursivelyInitNodes(node->mChildren[i], transform);
   }
@@ -230,26 +223,25 @@ void Model::Draw(uint32_t animation_id, double time, Camera *camera_ptr,
       animation_id, scene_->mRootNode, mat4(1),
       time * scene_->mAnimations[animation_id]->mTicksPerSecond);
   InternalDraw(true, camera_ptr, light_sources,
-               std::vector<glm::mat4>{model_matrix}, clip_plane, false);
+               std::vector<glm::mat4>{model_matrix}, clip_plane);
 }
 
 void Model::Draw(Camera *camera_ptr, LightSources *light_sources,
                  const std::vector<glm::mat4> &model_matrices,
                  vec4 clip_plane) {
-  InternalDraw(false, camera_ptr, light_sources, model_matrices, clip_plane,
-               false);
+  InternalDraw(false, camera_ptr, light_sources, model_matrices, clip_plane);
 }
 
 void Model::Draw(Camera *camera_ptr, LightSources *light_sources,
                  mat4 model_matrix) {
   InternalDraw(false, camera_ptr, light_sources,
-               std::vector<glm::mat4>{model_matrix}, glm::vec4(0), false);
+               std::vector<glm::mat4>{model_matrix}, glm::vec4(0));
 }
 
 void Model::InternalDraw(bool animated, Camera *camera_ptr,
                          LightSources *light_sources,
                          const std::vector<glm::mat4> &model_matrices,
-                         glm::vec4 clip_plane, bool sort_meshes) {
+                         glm::vec4 clip_plane) {
   shader_ptr_->Use();
   if (light_sources != nullptr) {
     light_sources->Set(shader_ptr_.get());
@@ -278,32 +270,10 @@ void Model::InternalDraw(bool animated, Camera *camera_ptr,
     mesh_ptr->Draw(shader_ptr, model_matrices.size());
   };
 
-  if (sort_meshes) {
-    // sort meshes does not fit well to instancing
-    std::vector<std::pair<int, glm::vec3>> order;
-    order.reserve(mesh_ptrs_.size());
-    for (int i = 0; i < mesh_ptrs_.size(); i++)
-      if (mesh_ptrs_[i] != nullptr) {
-        glm::vec3 pos =
-            camera_ptr->view_matrix() * model_matrices[0] *
-            vec4(mesh_ptrs_[i]->center(animated ? &bone_matrices_[0] : nullptr),
-                 1);
-        order.emplace_back(i, pos);
-      }
-    std::sort(order.begin(), order.end(), [](const auto &x, const auto &y) {
-      return x.second.z < y.second.z;
-    });
-
-    for (int i = 0; i < order.size(); i++) {
-      shader_ptr_->SetUniform<int32_t>("uAnimated", animated);
-      draw_mesh(mesh_ptrs_[order[i].first].get(), shader_ptr_.get());
-    }
-  } else {
-    for (int i = 0; i < mesh_ptrs_.size(); i++) {
-      if (mesh_ptrs_[i] == nullptr) continue;
-      shader_ptr_->SetUniform<int32_t>("uAnimated", animated);
-      draw_mesh(mesh_ptrs_[i].get(), shader_ptr_.get());
-    }
+  for (int i = 0; i < mesh_ptrs_.size(); i++) {
+    if (mesh_ptrs_[i] == nullptr) continue;
+    shader_ptr_->SetUniform<int32_t>("uAnimated", animated);
+    draw_mesh(mesh_ptrs_[i].get(), shader_ptr_.get());
   }
 }
 
@@ -314,7 +284,7 @@ void Model::set_default_shading(bool default_shading) {
 const std::string Model::kVsSource = R"(
 #version 410 core
 
-const int MAX_BONES = 100;
+const int MAX_BONES = 170;
 const int MAX_INSTANCES = 20;
 
 layout (location = 0) in vec3 aPosition;
@@ -359,9 +329,9 @@ mat4 CalcBoneMatrix() {
 void main() {
     mat4 transform;
     if (uAnimated) {
-      transform = CalcBoneMatrix();
+        transform = CalcBoneMatrix();
     } else {
-      transform = uTransform;
+        transform = uTransform;
     }
     gl_Position = uProjectionMatrix * uViewMatrix * aModelMatrix * transform * vec4(aPosition, 1);
     vPosition = vec3(aModelMatrix * transform * vec4(aPosition, 1));

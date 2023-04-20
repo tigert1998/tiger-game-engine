@@ -102,7 +102,7 @@ void ImGuiWindow() {
   if (ImGui::InputText("model path", buf, sizeof(buf),
                        ImGuiInputTextFlags_EnterReturnsTrue)) {
     LOG(INFO) << "loading model: " << buf;
-    model_ptr.reset(new Model(buf, std::vector<std::string>()));
+    model_ptr.reset(new Model(buf));
     animation_time = 0;
   }
   ImGui::InputInt("animation id", &animation_id, 1, 1);
@@ -169,10 +169,7 @@ void Init() {
       make_unique<Directional>(vec3(0, 0, -1), vec3(1, 1, 1)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.4)));
 
-  model_ptr = make_unique<Model>(
-      "resources/sprite/source/sprite.fbx",
-      std::vector<std::string>(
-          {"Plane001", "Plane002", "obj53002_LynM001", "objTwoHand13_SM"}));
+  model_ptr = make_unique<Model>("resources/phoenix-bird/source/fly.fbx");
   camera_ptr = make_unique<Camera>(vec3(0.5, 0.25, 1),
                                    static_cast<double>(width) / height);
   camera_ptr->set_front(-camera_ptr->position());

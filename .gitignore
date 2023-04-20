@@ -2,3 +2,5 @@
 build
 third_party/glad
 .vscode
+imgui.ini
+resources
