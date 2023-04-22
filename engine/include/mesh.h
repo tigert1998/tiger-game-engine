@@ -58,11 +58,12 @@ class Mesh {
   glm::vec3 center_, min_, max_;
 
   struct TextureRecord {
-    bool enabled;
-    uint32_t id;
-    int32_t op;
+    bool enabled;  // whether the model contains this kind of texture
+    uint32_t id;   // OpenGL texture ID
+    int32_t op;    // ASSIMP aiTextureOp, not used yet in the shader
     float blend;
-    glm::vec3 base_color;
+    glm::vec3 base_color;  // the base color for this kind of texture, not used
+                           // yet in the shader
   };
 
 #define REGISTER(name)                        \

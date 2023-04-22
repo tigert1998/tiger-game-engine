@@ -25,18 +25,25 @@ using namespace glm;
 
 constexpr int MAX_BONES = 170;  // please change the shader's MAX_BONES as well
 
-std::shared_ptr<Shader> Model::kShader = nullptr;
+std::map<bool, std::shared_ptr<Shader>> Model::kShader = {};
 
-Model::Model(const std::string &path)
-    : directory_path_(ParentPath(ParentPath(path))) {
+Model::Model(const std::string &path, OITRenderQuad *oit_render_quad)
+    : directory_path_(ParentPath(ParentPath(path))),
+      oit_render_quad_(oit_render_quad) {
   LOG(INFO) << "loading model at: \"" << path << "\"";
   scene_ = aiImportFile(path.c_str(), aiProcess_GlobalScale |
                                           aiProcess_CalcTangentSpace |
                                           aiProcess_Triangulate);
-  if (kShader == nullptr) {
-    kShader.reset(new Shader(Model::kVsSource, Model::kFsSource));
+
+  bool enable_oit = oit_render_quad != nullptr;
+  if (kShader.count(enable_oit) == 0) {
+    std::string fs_source = enable_oit
+                                ? Model::kFsSource + Model::kFsOITMainSource
+                                : Model::kFsSource + Model::kFsMainSource;
+    kShader[enable_oit] =
+        std::shared_ptr<Shader>(new Shader(Model::kVsSource, fs_source));
   }
-  shader_ptr_ = kShader;
+  shader_ptr_ = kShader[enable_oit];
   glGenBuffers(1, &vbo_);
 
   animation_channel_map_.clear();
@@ -243,6 +250,9 @@ void Model::InternalDraw(bool animated, Camera *camera_ptr,
                          const std::vector<glm::mat4> &model_matrices,
                          glm::vec4 clip_plane) {
   shader_ptr_->Use();
+  if (oit_render_quad_ != nullptr) {
+    oit_render_quad_->Set(shader_ptr_.get());
+  }
   if (light_sources != nullptr) {
     light_sources->Set(shader_ptr_.get());
   }
@@ -342,7 +352,7 @@ void main() {
 )";
 
 const std::string Model::kFsSource = R"(
-#version 410 core
+#version 420 core
 
 const float zero = 0.00000001;
 
@@ -365,9 +375,7 @@ REG_TEX(BaseColor)
 )" + LightSources::kFsSource + R"(
 uniform bool uDefaultShading;
 
-out vec4 fragColor;
-
-vec3 defaultShading() {
+vec3 CalcDefaultShading() {
     vec3 raw = vec3(0.9608f, 0.6784f, 0.2588f);
     return calcPhoneLighting(
         vec3(1), vec3(1), vec3(1),
@@ -377,10 +385,9 @@ vec3 defaultShading() {
     );
 }
 
-void main() {
+vec4 CalcFragColor() {
     if (uDefaultShading) {
-        fragColor = vec4(defaultShading(), 1);
-        return;
+        return vec4(CalcDefaultShading(), 1);
     }
     float alpha = 1.0f;
 
@@ -411,6 +418,35 @@ void main() {
         color += texture(uEmissiveTexture, vTexCoord).rgb;
     }
 
-    fragColor = vec4(color, alpha);
+    return vec4(color, alpha);
+}
+)";
+
+const std::string Model::kFsMainSource = R"(
+out vec4 fragColor;
+
+void main() {
+    fragColor = CalcFragColor();
+}
+)";
+
+const std::string Model::kFsOITMainSource = R"(
+layout (r32ui) uniform uimage2D uHeadPointers;
+layout (binding = 0) uniform atomic_uint uListSize;
+layout (rgba32ui) uniform uimageBuffer uList;
+
+void AppendToList(vec4 fragColor) {
+    uint index = atomicCounterIncrement(uListSize);
+    uint prevHead = imageAtomicExchange(uHeadPointers, ivec2(gl_FragCoord.xy), index);
+    uvec4 item;
+    item.x = prevHead;
+    item.y = packUnorm4x8(fragColor);
+    item.z = floatBitsToUint(gl_FragCoord.z);
+    imageStore(uList, int(index), item);
+}
+
+void main() {
+    vec4 fragColor = CalcFragColor();
+    AppendToList(fragColor);
 }
 )";

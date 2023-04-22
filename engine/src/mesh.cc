@@ -61,6 +61,7 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
   }
 #define TRY_ADD_TEXTURE_WITH_BASE_COLOR(name)                              \
   if (material->GetTextureCount(aiTextureType_##name) >= 1) {              \
+    CHECK_EQ(material->GetTextureCount(aiTextureType_##name), 1);          \
     INTERNAL_ADD_TEXTURE(name);                                            \
     material->Get(AI_MATKEY_TEXBLEND_##name(0), textures_[#name].blend);   \
     material->Get(AI_MATKEY_TEXOP_##name(0), textures_[#name].op);         \

@@ -15,11 +15,12 @@
 #include "mouse.h"
 #include "skybox.h"
 
-uint32_t width = 1000, height = 600;
+uint32_t width = 1920, height = 1080;
 
 using namespace glm;
 using namespace std;
 
+std::unique_ptr<OITRenderQuad> oit_render_quad_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
@@ -55,6 +56,7 @@ void KeyCallback(GLFWwindow *window, int key, int, int action, int) {
 void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
   ::width = width;
   ::height = height;
+  oit_render_quad_ptr->Resize(width, height);
   camera_ptr->set_width_height_ratio(static_cast<double>(width) / height);
   glViewport(0, 0, width, height);
 }
@@ -102,7 +104,7 @@ void ImGuiWindow() {
   if (ImGui::InputText("model path", buf, sizeof(buf),
                        ImGuiInputTextFlags_EnterReturnsTrue)) {
     LOG(INFO) << "loading model: " << buf;
-    model_ptr.reset(new Model(buf));
+    model_ptr.reset(new Model(buf, oit_render_quad_ptr.get()));
     animation_time = 0;
   }
   ImGui::InputInt("animation id", &animation_id, 1, 1);
@@ -121,7 +123,7 @@ void ImGuiWindow() {
 void Init() {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
@@ -164,12 +166,15 @@ void Init() {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+  oit_render_quad_ptr = make_unique<OITRenderQuad>(width, height);
+
   light_sources_ptr = make_unique<LightSources>();
   light_sources_ptr->Add(
       make_unique<Directional>(vec3(0, 0, -1), vec3(1, 1, 1)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.4)));
 
-  model_ptr = make_unique<Model>("resources/phoenix-bird/source/fly.fbx");
+  model_ptr = make_unique<Model>("resources/phoenix-bird/source/fly.fbx",
+                                 oit_render_quad_ptr.get());
   camera_ptr = make_unique<Camera>(vec3(0.5, 0.25, 1),
                                    static_cast<double>(width) / height);
   camera_ptr->set_front(-camera_ptr->position());
@@ -197,12 +202,15 @@ int main(int argc, char *argv[]) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     skybox_ptr->Draw(camera_ptr.get());
+
+    oit_render_quad_ptr->ResetBeforeRender();
     if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
       model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(), mat4(1));
     } else {
       model_ptr->Draw(0, animation_time, camera_ptr.get(),
                       light_sources_ptr.get(), mat4(1), vec4(0));
     }
+    oit_render_quad_ptr->Draw();
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

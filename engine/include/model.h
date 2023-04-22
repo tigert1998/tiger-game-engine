@@ -4,6 +4,7 @@
 #include <assimp/scene.h>
 
 #include <glm/glm.hpp>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -11,12 +12,13 @@
 #include "camera.h"
 #include "light_sources.h"
 #include "mesh.h"
+#include "oit_render_quad.h"
 #include "shader.h"
 
 class Model {
  public:
   Model() = delete;
-  Model(const std::string &path);
+  Model(const std::string &path, OITRenderQuad *oit_render_quad);
   ~Model();
   void Draw(Camera *camera_ptr, LightSources *light_sources,
             glm::mat4 model_matrix);
@@ -33,6 +35,7 @@ class Model {
   inline glm::vec3 max() { return max_; }
 
  private:
+  OITRenderQuad *oit_render_quad_;
   std::string directory_path_;
   std::vector<std::shared_ptr<Mesh>> mesh_ptrs_;
   const aiScene *scene_;
@@ -62,7 +65,10 @@ class Model {
 
   static const std::string kVsSource;
   static const std::string kFsSource;
-  static std::shared_ptr<Shader> kShader;
+  static const std::string kFsMainSource;
+  static const std::string kFsOITMainSource;
+
+  static std::map<bool, std::shared_ptr<Shader>> kShader;
 };
 
 #endif
