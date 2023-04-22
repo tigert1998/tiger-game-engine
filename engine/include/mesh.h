@@ -74,8 +74,7 @@ class Mesh {
   std::map<std::string, TextureRecord> textures_ = {
       REGISTER(DIFFUSE),
       REGISTER(AMBIENT),
-      REGISTER(EMISSIVE),
-      REGISTER(BASE_COLOR),
+      REGISTER(SPECULAR),
   };
 
 #undef REGISTER

@@ -368,8 +368,7 @@ in vec3 vNormal;
 
 REG_TEX(Ambient)
 REG_TEX(Diffuse)
-REG_TEX(Emissive)
-REG_TEX(BaseColor)
+REG_TEX(Specular)
 
 #undef REG_TEX
 )" + LightSources::kFsSource + R"(
@@ -395,28 +394,32 @@ vec4 CalcFragColor() {
     vec3 diffuseColor = vec3(0);
     vec3 specularColor = vec3(0);
 
-    if (uAmbientEnabled) {
-        ambientColor = texture(uAmbientTexture, vTexCoord).rgb;
-    }
     if (uDiffuseEnabled) {
+        // diffuse texture must be enabled
         vec4 sampled = texture(uDiffuseTexture, vTexCoord);
         diffuseColor = sampled.rgb;
         alpha = sampled.a;
-    } else if (uBaseColorEnabled) {
-        vec4 sampled = texture(uBaseColorTexture, vTexCoord);
-        diffuseColor = sampled.rgb;
-        alpha = sampled.a;
     }
+
+    if (uAmbientEnabled) {
+        ambientColor = texture(uAmbientTexture, vTexCoord).rgb;
+    } else {
+        // use diffuse color as default
+        ambientColor = diffuseColor;
+    }
+    if (uSpecularEnabled) {
+        specularColor = texture(uSpecularTexture, vTexCoord).rgb;
+    } else {
+        // use diffuse color as default
+        specularColor = diffuseColor;
+    }
+
     vec3 color = calcPhoneLighting(
         vec3(1), vec3(1), vec3(1),
         vNormal, uCameraPosition, vPosition,
         20,
         ambientColor, diffuseColor, specularColor
     );
-
-    if (uEmissiveEnabled) {
-        color += texture(uEmissiveTexture, vTexCoord).rgb;
-    }
 
     return vec4(color, alpha);
 }
