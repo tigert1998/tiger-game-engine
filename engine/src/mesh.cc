@@ -53,7 +53,7 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     material->GetTexture(aiTextureType_##name, 0, &material_texture_path); \
     auto basename = BaseName(material_texture_path.C_Str());               \
     auto item = path + "/textures/" + basename;                            \
-    textures_[#name].id = TextureManager::LoadTexture(item);               \
+    textures_[#name].id = TextureManager::LoadTexture(item, GL_REPEAT);    \
   } while (0)
 #define TRY_ADD_TEXTURE(name)                                 \
   if (material->GetTextureCount(aiTextureType_##name) >= 1) { \
