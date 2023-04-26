@@ -33,8 +33,17 @@ AssimpError::AssimpError(const string &error_string) {
 
 const char *AssimpError::what() const noexcept { return error_message.c_str(); }
 
-ShaderSettingError::ShaderSettingError(const string &name) {
-  error_message = "[shader setting error] fail to set uniform variable " + name;
+ShaderSettingError::ShaderSettingError(
+    const std::string &name, const std::vector<std::string> &uniform_names) {
+  error_message = "[shader setting error] fail to set uniform variable " +
+                  name + ". Available uniform variables: {";
+  for (int i = 0; i < uniform_names.size(); i++) {
+    error_message += uniform_names[i];
+    if (i < uniform_names.size() - 1) {
+      error_message += ", ";
+    }
+  }
+  error_message += "}";
 }
 
 const char *ShaderSettingError::what() const noexcept {

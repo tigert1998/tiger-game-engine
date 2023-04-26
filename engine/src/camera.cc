@@ -55,7 +55,7 @@ void Camera::set_front(vec3 new_front) {
 }
 
 void Camera::Move(MoveDirectionType direction, float time) {
-  auto left = cross(up_, front());
+  auto left = normalize(cross(up_, front()));
   auto right = -left;
   switch (direction) {
     case MoveDirectionType::kForward:

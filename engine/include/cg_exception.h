@@ -2,6 +2,7 @@
 #define CG_EXCEPTION_H_
 
 #include <string>
+#include <vector>
 
 class ShaderCompileError : public std::exception {
  public:
@@ -52,7 +53,8 @@ class MaxBoneExceededError : public std::exception {
 class ShaderSettingError : public std::exception {
  public:
   ShaderSettingError() = delete;
-  ShaderSettingError(const std::string &name);
+  ShaderSettingError(const std::string &name,
+                     const std::vector<std::string> &uniform_names);
   const char *what() const noexcept;
 
  private:

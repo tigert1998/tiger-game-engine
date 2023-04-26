@@ -13,6 +13,7 @@ class Shader {
   void SetUniform(const std::string &identifier, const T &) const;
   template <typename T>
   T GetUniform(const std::string &identifier) const;
+  std::vector<std::string> GetUniformVariableVector() const;
 
  private:
   static uint32_t Compile(uint32_t type, const std::string &source,

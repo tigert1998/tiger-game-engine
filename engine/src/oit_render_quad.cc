@@ -156,7 +156,7 @@ out vec4 fragColor;
 uniform usampler2D uHeadPointers;
 uniform usamplerBuffer uList;
 
-const int MAX_FRAGMENTS = 15;
+const int MAX_FRAGMENTS = 16;
 uvec4 fragments[MAX_FRAGMENTS];
 
 int BuildLocalFragmentList() {

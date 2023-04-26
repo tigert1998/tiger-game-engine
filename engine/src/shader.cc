@@ -65,7 +65,8 @@ template <>
 void Shader::SetUniform<glm::vec3>(const std::string &identifier,
                                    const glm::vec3 &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0) throw ShaderSettingError(identifier);
+  if (location < 0)
+    throw ShaderSettingError(identifier, GetUniformVariableVector());
   glUniform3fv(location, 1, glm::value_ptr(value));
 }
 
@@ -73,7 +74,8 @@ template <>
 void Shader::SetUniform<glm::vec4>(const std::string &identifier,
                                    const glm::vec4 &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0) throw ShaderSettingError(identifier);
+  if (location < 0)
+    throw ShaderSettingError(identifier, GetUniformVariableVector());
   glUniform4fv(location, 1, glm::value_ptr(value));
 }
 
@@ -81,7 +83,8 @@ template <>
 void Shader::SetUniform<glm::mat4>(const std::string &identifier,
                                    const glm::mat4 &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0) throw ShaderSettingError(identifier);
+  if (location < 0)
+    throw ShaderSettingError(identifier, GetUniformVariableVector());
   glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
 }
 
@@ -89,14 +92,16 @@ template <>
 void Shader::SetUniform<int32_t>(const std::string &identifier,
                                  const int32_t &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0) throw ShaderSettingError(identifier);
+  if (location < 0)
+    throw ShaderSettingError(identifier, GetUniformVariableVector());
   glUniform1i(location, value);
 }
 
 template <>
 int32_t Shader::GetUniform(const std::string &identifier) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0) throw ShaderSettingError(identifier);
+  if (location < 0)
+    throw ShaderSettingError(identifier, GetUniformVariableVector());
   int32_t value;
   glGetUniformiv(id_, location, &value);
   return value;
@@ -106,7 +111,8 @@ template <>
 void Shader::SetUniform<float>(const std::string &identifier,
                                const float &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0) throw ShaderSettingError(identifier);
+  if (location < 0)
+    throw ShaderSettingError(identifier, GetUniformVariableVector());
   glUniform1f(location, value);
 }
 
@@ -114,8 +120,27 @@ template <>
 void Shader::SetUniform<std::vector<glm::mat4>>(
     const std::string &identifier, const std::vector<glm::mat4> &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0) throw ShaderSettingError(identifier);
+  if (location < 0)
+    throw ShaderSettingError(identifier, GetUniformVariableVector());
   if (value.size() == 0) return;
   glUniformMatrix4fv(location, value.size(), GL_FALSE,
                      glm::value_ptr(value[0]));
+}
+
+std::vector<std::string> Shader::GetUniformVariableVector() const {
+  const int32_t buf_size = 32;
+  char name[buf_size];
+  int32_t length;
+  int32_t size;
+  uint32_t type;
+  std::vector<std::string> names;
+
+  int32_t count;
+  glGetProgramiv(id_, GL_ACTIVE_UNIFORMS, &count);
+  for (int i = 0; i < count; i++) {
+    glGetActiveUniform(id_, i, buf_size, &length, &size, &type, name);
+    names.push_back(std::string(name, name + length));
+  }
+
+  return names;
 }
