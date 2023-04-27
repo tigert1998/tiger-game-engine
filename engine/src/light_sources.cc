@@ -92,21 +92,20 @@ vec3 calcSpecular(vec3 lightDirection, vec3 normal, vec3 viewDirection, float sh
     return specular * ks;
 }
 
-vec3 calcPhoneLighting(
+vec3 calcPhongLighting(
     vec3 ka, vec3 kd, vec3 ks,
     vec3 normal, vec3 cameraPosition, vec3 position,
-    float shininess,
-    vec3 ambientColor, vec3 diffuseColor, vec3 specularColor 
+    float shininess
 ) {
     vec3 color = vec3(0);
     for (int i = 0; i < uAmbientLightCount; i++) {
-        color += calcAmbient(ka) * uAmbientLights[i].color * ambientColor;
+        color += calcAmbient(ka) * uAmbientLights[i].color;
     }
     for (int i = 0; i < uDirectionalLightCount; i++) {
         color += calcDiffuse(-uDirectionalLights[i].dir, normal, kd) *
-            uDirectionalLights[i].color * diffuseColor;
+            uDirectionalLights[i].color;
         color += calcSpecular(-uDirectionalLights[i].dir, normal, cameraPosition - position, shininess, ks) *
-            uDirectionalLights[i].color * specularColor;
+            uDirectionalLights[i].color;
     }
     for (int i = 0; i < uPointLightCount; i++) {
         vec3 attenuation = uPointLights[i].attenuation;
@@ -114,9 +113,9 @@ vec3 calcPhoneLighting(
         vec3 pointLightColor = uPointLights[i].color /
             (attenuation.x + attenuation.y * dis + attenuation.z * pow(dis, 2));
         color += calcDiffuse(uPointLights[i].pos - position, normal, kd) *
-            pointLightColor * diffuseColor;
+            pointLightColor;
         color += calcSpecular(uPointLights[i].pos - position, normal, cameraPosition - position, shininess, ks) *
-            pointLightColor * specularColor;
+            pointLightColor;
     }
     return color;
 }

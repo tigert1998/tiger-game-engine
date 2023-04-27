@@ -46,21 +46,19 @@ uniform sampler2D uTerrainTexture;
 
 vec3 DefaultShading() {
     vec3 raw = vec3(0.9608f, 0.6784f, 0.2588f);
-    return calcPhoneLighting(
-        vec3(1), vec3(1), vec3(1),
+    return calcPhongLighting(
+        raw, raw, raw,
         vNormal, uCameraPosition, vPosition,
-        20,
-        raw, raw, raw
+        20
     );
 }
 
 void main() {
     vec3 raw = texture(uTerrainTexture, vTexCoord).rgb;
-    fragColor = vec4(calcPhoneLighting(
-        vec3(0.2), vec3(0.8), vec3(zero),
+    fragColor = vec4(calcPhongLighting(
+        raw, raw, vec3(zero),
         vNormal, uCameraPosition, vPosition,
-        20,
-        raw, raw, vec3(zero)
+        20
     ), 1);
 }
 )";

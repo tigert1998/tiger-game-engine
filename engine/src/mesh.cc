@@ -47,6 +47,21 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
   {
     aiString material_texture_path;
     auto material = scene->mMaterials[mesh->mMaterialIndex];
+    {
+      aiColor3D color;
+      float value;
+      CHECK_EQ(material->Get(AI_MATKEY_COLOR_AMBIENT, color), AI_SUCCESS);
+      material_.ka = glm::vec3(color.r, color.g, color.b);
+      CHECK_EQ(material->Get(AI_MATKEY_COLOR_DIFFUSE, color), AI_SUCCESS);
+      material_.kd = glm::vec3(color.r, color.g, color.b);
+      if (material->Get(AI_MATKEY_SHININESS_STRENGTH, value) != AI_SUCCESS) {
+        value = 1;
+      }
+      CHECK_EQ(material->Get(AI_MATKEY_COLOR_SPECULAR, color), AI_SUCCESS);
+      material_.ks = glm::vec3(color.r, color.g, color.b) * value;
+      CHECK_EQ(material->Get(AI_MATKEY_SHININESS, value), AI_SUCCESS);
+      material_.shininess = value;
+    }
 #define INTERNAL_ADD_TEXTURE(name)                                         \
   do {                                                                     \
     textures_[#name].enabled = true;                                       \
@@ -201,15 +216,23 @@ void Mesh::Draw(Shader *shader_ptr, int num_instances) const {
   for (auto kv : textures_) {
     bool enabled = kv.second.enabled;
     std::string name = SnakeToPascal(kv.first);
-    shader_ptr->SetUniform<int32_t>(std::string("u") + name + "Enabled",
-                                    enabled);
+    name[0] = tolower(name[0]);  // e.g. "Ambient" -> "ambient"
+    shader_ptr->SetUniform<int32_t>(
+        std::string("uPhongMaterial.") + name + "TextureEnabled", enabled);
     if (enabled) {
       glActiveTexture(GL_TEXTURE0 + tot);
       glBindTexture(GL_TEXTURE_2D, kv.second.id);
-      shader_ptr->SetUniform<int32_t>(std::string("u") + name + "Texture", tot);
+      shader_ptr->SetUniform<int32_t>(
+          std::string("uPhongMaterial.") + name + "Texture", tot);
       tot++;
     }
   }
+
+  shader_ptr->SetUniform<glm::vec3>("uPhongMaterial.ka", material_.ka);
+  shader_ptr->SetUniform<glm::vec3>("uPhongMaterial.kd", material_.kd);
+  shader_ptr->SetUniform<glm::vec3>("uPhongMaterial.ks", material_.ks);
+  shader_ptr->SetUniform<float>("uPhongMaterial.shininess",
+                                material_.shininess);
 
   CHECK(transforms_.size() == 1);
   shader_ptr->SetUniform<glm::mat4>("uTransform", transforms_[0]);

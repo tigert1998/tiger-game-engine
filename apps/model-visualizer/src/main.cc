@@ -170,10 +170,10 @@ void Init() {
 
   light_sources_ptr = make_unique<LightSources>();
   light_sources_ptr->Add(
-      make_unique<Directional>(vec3(0, 0, -1), vec3(1, 1, 1)));
+      make_unique<Directional>(vec3(0, -1, -1), vec3(1, 1, 1)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.4)));
 
-  model_ptr = make_unique<Model>("resources/phoenix-bird/source/fly.fbx",
+  model_ptr = make_unique<Model>("resources/dragon/source/dragon.fbx",
                                  oit_render_quad_ptr.get());
   camera_ptr = make_unique<Camera>(vec3(0.5, 0.25, 1),
                                    static_cast<double>(width) / height);

@@ -77,6 +77,11 @@ class Mesh {
       REGISTER(SPECULAR),
   };
 
+  struct PhongMaterial {
+    glm::vec3 ka, kd, ks;
+    float shininess;
+  } material_;
+
 #undef REGISTER
 };
 

@@ -354,33 +354,35 @@ void main() {
 const std::string Model::kFsSource = R"(
 #version 420 core
 
-const float zero = 0.00000001;
+const float zero = 1e-6;
 
 uniform vec3 uCameraPosition;
 
 in vec3 vPosition;
 in vec2 vTexCoord;
 in vec3 vNormal;
-
-#define REG_TEX(name) \
-    uniform bool u##name##Enabled;      \
-    uniform sampler2D u##name##Texture;
-
-REG_TEX(Ambient)
-REG_TEX(Diffuse)
-REG_TEX(Specular)
-
-#undef REG_TEX
 )" + LightSources::kFsSource + R"(
 uniform bool uDefaultShading;
 
+struct PhongMaterial {
+    bool ambientTextureEnabled;
+    sampler2D ambientTexture;
+    bool diffuseTextureEnabled;
+    sampler2D diffuseTexture;
+    bool specularTextureEnabled;
+    sampler2D specularTexture;
+    vec3 ka, kd, ks;
+    float shininess;
+};
+
+uniform PhongMaterial uPhongMaterial;
+
 vec3 CalcDefaultShading() {
     vec3 raw = vec3(0.9608f, 0.6784f, 0.2588f);
-    return calcPhoneLighting(
-        vec3(1), vec3(1), vec3(1),
+    return calcPhongLighting(
+        raw, raw, raw,
         vNormal, uCameraPosition, vPosition,
-        20,
-        raw, raw, raw
+        20
     );
 }
 
@@ -390,35 +392,27 @@ vec4 CalcFragColor() {
     }
     float alpha = 1.0f;
 
-    vec3 ambientColor = vec3(0);
-    vec3 diffuseColor = vec3(0);
-    vec3 specularColor = vec3(0);
+    vec3 ka = vec3(uPhongMaterial.ka);
+    vec3 kd = vec3(uPhongMaterial.kd);
+    vec3 ks = vec3(uPhongMaterial.ks);
 
-    if (uDiffuseEnabled) {
-        // diffuse texture must be enabled
-        vec4 sampled = texture(uDiffuseTexture, vTexCoord);
-        diffuseColor = sampled.rgb;
+    if (uPhongMaterial.diffuseTextureEnabled) {
+        vec4 sampled = texture(uPhongMaterial.diffuseTexture, vTexCoord);
+        kd = sampled.rgb;
         alpha = sampled.a;
     }
 
-    if (uAmbientEnabled) {
-        ambientColor = texture(uAmbientTexture, vTexCoord).rgb;
-    } else {
-        // use diffuse color as default
-        ambientColor = diffuseColor;
+    if (uPhongMaterial.ambientTextureEnabled) {
+        ka = texture(uPhongMaterial.ambientTexture, vTexCoord).rgb;
     }
-    if (uSpecularEnabled) {
-        specularColor = texture(uSpecularTexture, vTexCoord).rgb;
-    } else {
-        // use diffuse color as default
-        specularColor = diffuseColor;
+    if (uPhongMaterial.specularTextureEnabled) {
+        ks = texture(uPhongMaterial.specularTexture, vTexCoord).rgb;
     }
 
-    vec3 color = calcPhoneLighting(
-        vec3(1), vec3(1), vec3(1),
+    vec3 color = calcPhongLighting(
+        ka, kd, ks,
         vNormal, uCameraPosition, vPosition,
-        20,
-        ambientColor, diffuseColor, specularColor
+        uPhongMaterial.shininess
     );
 
     return vec4(color, alpha);
