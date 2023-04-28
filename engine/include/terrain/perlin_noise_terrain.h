@@ -11,24 +11,17 @@
 class PerlinNoiseTerrain {
  private:
   std::unique_ptr<PerlinNoise> perlin_noise_;
-  int size_;
-  double length_;
+  int size_, subdiv_size_;
   double ratio_;
-  uint32_t vao_, vbo_, ebo_, indices_size_, texture_id_;
-  std::unique_ptr<Shader> shader_;
-
-  glm::vec3 get_normal(double x, double y);
-
-  static const std::string kVsSource, kFsSource;
+  glm::mat4 transform_;
 
  public:
-  PerlinNoiseTerrain(int size, double length, double ratio,
-                     const std::string &texture_path);
+  PerlinNoiseTerrain(int size, int subdiv_size, double ratio,
+                     glm::mat4 transform);
 
   double get_height(double x, double y);
 
-  void Draw(Camera *camera_ptr, LightSources *light_sources,
-            glm::mat4 model_matrix);
+  void ExportToOBJ(const std::string &file_path);
 };
 
 #endif

@@ -10,4 +10,7 @@ target_link_libraries(engine glfw glad imgui glm stb glog::glog assimp)
 target_include_directories(engine PUBLIC "engine/include")
 
 add_executable(model-visualizer "apps/model-visualizer/src/main.cc")
-target_link_libraries(model-visualizer engine glog::glog)
+target_link_libraries(model-visualizer engine)
+
+add_executable(grass-demo "apps/grass-demo/src/main.cc")
+target_link_libraries(grass-demo engine)

@@ -8,155 +8,63 @@
 #include "texture_manager.h"
 #include "vertex.h"
 
-const std::string PerlinNoiseTerrain::kVsSource = R"(
-#version 410 core
-layout (location = 0) in vec3 aPosition;
-layout (location = 1) in vec2 aTexCoord;
-layout (location = 2) in vec3 aNormal;
+PerlinNoiseTerrain::PerlinNoiseTerrain(int size, int subdiv_size, double ratio,
+                                       glm::mat4 transform)
+    : size_(size),
+      subdiv_size_(subdiv_size),
+      ratio_(ratio),
+      transform_(transform) {
+  CHECK(size_ % subdiv_size_ == 0);
 
-uniform mat4 uModelMatrix;
-uniform mat4 uViewMatrix;
-uniform mat4 uProjectionMatrix;
-
-out vec3 vPosition;
-out vec2 vTexCoord;
-out vec3 vNormal;
-
-void main() {
-    gl_Position = uProjectionMatrix * uViewMatrix * uModelMatrix * vec4(aPosition, 1);
-    vPosition = vec3(uModelMatrix * vec4(aPosition, 1));
-    vTexCoord = aTexCoord;
-    vNormal = aNormal;
-}
-)";
-
-const std::string PerlinNoiseTerrain::kFsSource = R"(
-#version 410 core
-
-const float zero = 1e-6;
-
-in vec3 vPosition;
-in vec2 vTexCoord;
-in vec3 vNormal;
-)" + LightSources::kFsSource + R"(
-out vec4 fragColor;
-
-uniform vec3 uCameraPosition;
-uniform sampler2D uTerrainTexture;
-
-vec3 DefaultShading() {
-    vec3 raw = vec3(0.9608f, 0.6784f, 0.2588f);
-    return calcPhongLighting(
-        raw, raw, raw,
-        vNormal, uCameraPosition, vPosition,
-        20
-    );
-}
-
-void main() {
-    vec3 raw = texture(uTerrainTexture, vTexCoord).rgb;
-    fragColor = vec4(calcPhongLighting(
-        raw, raw, vec3(zero),
-        vNormal, uCameraPosition, vPosition,
-        20
-    ), 1);
-}
-)";
-
-PerlinNoiseTerrain::PerlinNoiseTerrain(int size, double length, double ratio,
-                                       const std::string &texture_path)
-    : size_(size), length_(length), ratio_(ratio) {
   // size * size squares
   perlin_noise_.reset(new PerlinNoise(1024, 10086));
-  shader_.reset(new Shader(kVsSource, kFsSource));
-  texture_id_ = TextureManager::LoadTexture(texture_path, GL_REPEAT);
-
-  std::vector<Vertex<0>> vertices;
-  vertices.reserve((size_ + 1) * (size_ + 1));
-  for (int i = 0; i <= size_; i++)
-    for (int j = 0; j <= size_; j++) {
-      double x = 1.0 * i / size_;
-      double z = 1.0 * j / size_;
-      double y = get_height(x * length_, z * length_);
-      auto normal = get_normal(x * length_, z * length_);
-      Vertex<0> vertex;
-      vertex.position = glm::vec3(x * length_, y, z * length_);
-      vertex.tex_coord = glm::vec2(x * length_, z * length_);
-      vertex.normal = normal;
-      vertices.push_back(vertex);
-    }
-
-  std::vector<int> indices;
-  indices.reserve(size * size * 6);
-  for (int i = 0; i < size; i++)
-    for (int j = 0; j < size; j++) {
-      int a = i * (size + 1) + j;
-      int b = i * (size + 1) + j + 1;
-      int c = (i + 1) * (size + 1) + j;
-      int d = (i + 1) * (size + 1) + j + 1;
-      indices.push_back(a);
-      indices.push_back(b);
-      indices.push_back(c);
-      indices.push_back(b);
-      indices.push_back(c);
-      indices.push_back(d);
-    }
-
-  indices_size_ = indices.size();
-
-  glGenVertexArrays(1, &vao_);
-  glGenBuffers(1, &vbo_);
-  glGenBuffers(1, &ebo_);
-
-  glBindVertexArray(vao_);
-
-  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex<0>) * vertices.size(),
-               vertices.data(), GL_STATIC_DRAW);
-
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * indices.size(),
-               indices.data(), GL_STATIC_DRAW);
-
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Vertex<0>),
-                        (void *)offsetof(Vertex<0>, position));
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 2, GL_FLOAT, false, sizeof(Vertex<0>),
-                        (void *)offsetof(Vertex<0>, tex_coord));
-  glEnableVertexAttribArray(2);
-  glVertexAttribPointer(2, 3, GL_FLOAT, false, sizeof(Vertex<0>),
-                        (void *)offsetof(Vertex<0>, normal));
-
-  glBindVertexArray(0);
 }
 
 double PerlinNoiseTerrain::get_height(double x, double y) {
   return perlin_noise_->Noise(x * ratio_, y * ratio_, 0);
 }
 
-glm::vec3 PerlinNoiseTerrain::get_normal(double x, double y) {
-  auto vec = perlin_noise_->DerivativeNoise(x * ratio_, y * ratio_, 0);
-  return glm::normalize(glm::vec3(-vec.x * ratio_, 1, -vec.y * ratio_));
-}
+void PerlinNoiseTerrain::ExportToOBJ(const std::string &file_path) {
+  int32_t num_subdivs = size_ / subdiv_size_;
 
-void PerlinNoiseTerrain::Draw(Camera *camera_ptr, LightSources *light_sources,
-                              glm::mat4 model_matrix) {
-  shader_->Use();
-  if (light_sources != nullptr) {
-    light_sources->Set(shader_.get());
-  }
-  shader_->SetUniform<glm::mat4>("uModelMatrix", model_matrix);
-  shader_->SetUniform<glm::mat4>("uViewMatrix", camera_ptr->view_matrix());
-  shader_->SetUniform<glm::mat4>("uProjectionMatrix",
-                                 camera_ptr->projection_matrix());
-  shader_->SetUniform<glm::vec3>("uCameraPosition", camera_ptr->position());
+  auto fp = fopen(file_path.c_str(), "w");
 
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, texture_id_);
-  shader_->SetUniform<int32_t>("uTerrainTexture", 0);
+  int32_t num_vertices = 0;
+  for (int i = 0; i < num_subdivs; i++)
+    for (int j = 0; j < num_subdivs; j++) {
+      fprintf(fp, "o mesh_%d_%d\n", i, j);
+      std::vector<glm::vec3> v;
 
-  glBindVertexArray(vao_);
-  glDrawElements(GL_TRIANGLES, indices_size_, GL_UNSIGNED_INT, nullptr);
-  glBindVertexArray(0);
+      for (int k = i * subdiv_size_; k <= (i + 1) * subdiv_size_; k++)
+        for (int l = j * subdiv_size_; l <= (j + 1) * subdiv_size_; l++) {
+          double x = 1.0 * k / size_;
+          double z = 1.0 * l / size_;
+          double y = get_height(x, z);
+          v.emplace_back(glm::vec3(transform_ * glm::vec4(x, y, z, 1)));
+        }
+
+      for (auto vec : v) {
+        fprintf(fp, "v %.6f %.6f %.6f\n", vec.x, vec.y, vec.z);
+      }
+
+      for (int k = 0; k <= subdiv_size_; k++)
+        for (int l = 0; l <= subdiv_size_; l++) {
+          int a = k * (subdiv_size_ + 1) + l;
+          int b = k * (subdiv_size_ + 1) + l + 1;
+          int c = (k + 1) * (subdiv_size_ + 1) + l;
+          int d = (k + 1) * (subdiv_size_ + 1) + l + 1;
+
+          a += num_vertices + 1;
+          b += num_vertices + 1;
+          c += num_vertices + 1;
+          d += num_vertices + 1;
+
+          fprintf(fp, "f %d %d %d\n", a, b, c);
+          fprintf(fp, "f %d %d %d\n", c, b, d);
+        }
+
+      num_vertices += v.size();
+    }
+
+  fclose(fp);
 }
