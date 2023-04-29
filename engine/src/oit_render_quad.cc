@@ -95,6 +95,7 @@ void OITRenderQuad::ResetBeforeRender() {
 
 void OITRenderQuad::Set(Shader *shader) {
   shader->SetUniform<int32_t>("uHeadPointers", 0);
+  glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, atomic_counter_buffer_);
   // uListSize must have binding = 0
   shader->SetUniform<int32_t>("uList", 1);
 }

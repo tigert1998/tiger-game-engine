@@ -98,6 +98,15 @@ void Shader::SetUniform<int32_t>(const std::string &identifier,
 }
 
 template <>
+void Shader::SetUniform<uint32_t>(const std::string &identifier,
+                                  const uint32_t &value) const {
+  auto location = glGetUniformLocation(id_, identifier.c_str());
+  if (location < 0)
+    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  glUniform1ui(location, value);
+}
+
+template <>
 int32_t Shader::GetUniform(const std::string &identifier) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
   if (location < 0)

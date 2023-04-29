@@ -47,8 +47,8 @@ void PerlinNoiseTerrain::ExportToOBJ(const std::string &file_path) {
         fprintf(fp, "v %.6f %.6f %.6f\n", vec.x, vec.y, vec.z);
       }
 
-      for (int k = 0; k <= subdiv_size_; k++)
-        for (int l = 0; l <= subdiv_size_; l++) {
+      for (int k = 0; k < subdiv_size_; k++)
+        for (int l = 0; l < subdiv_size_; l++) {
           int a = k * (subdiv_size_ + 1) + l;
           int b = k * (subdiv_size_ + 1) + l + 1;
           int c = (k + 1) * (subdiv_size_ + 1) + l;
@@ -59,8 +59,7 @@ void PerlinNoiseTerrain::ExportToOBJ(const std::string &file_path) {
           c += num_vertices + 1;
           d += num_vertices + 1;
 
-          fprintf(fp, "f %d %d %d\n", a, b, c);
-          fprintf(fp, "f %d %d %d\n", c, b, d);
+          fprintf(fp, "f %d %d %d %d\n", a, b, d, c);
         }
 
       num_vertices += v.size();

@@ -12,5 +12,7 @@ target_include_directories(engine PUBLIC "engine/include")
 add_executable(model-visualizer "apps/model-visualizer/src/main.cc")
 target_link_libraries(model-visualizer engine)
 
+add_executable(grass-demo-generate-terrain "apps/grass-demo/src/generate_terrain.cc")
+target_link_libraries(grass-demo-generate-terrain engine)
 add_executable(grass-demo "apps/grass-demo/src/main.cc")
 target_link_libraries(grass-demo engine)
