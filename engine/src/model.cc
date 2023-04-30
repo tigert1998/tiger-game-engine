@@ -346,7 +346,7 @@ void main() {
     gl_Position = uProjectionMatrix * uViewMatrix * aModelMatrix * transform * vec4(aPosition, 1);
     vPosition = vec3(aModelMatrix * transform * vec4(aPosition, 1));
     vTexCoord = aTexCoord;
-    vNormal = vec3(aModelMatrix * transform * vec4(aNormal, 0));
+    vNormal = vec3(transpose(inverse(aModelMatrix * transform)) * vec4(aNormal, 0));
     gl_ClipDistance[0] = dot(vec4(vPosition, 1), uClipPlane);
 }
 )";

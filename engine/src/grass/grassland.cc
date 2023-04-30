@@ -32,6 +32,12 @@ layout (binding = 0) uniform atomic_uint uNumBlades;
 
 uniform uint uNumTriangles;
 
+// https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+float PHI = 1.61803398874989484820459;
+float GoldNoise(in vec2 xy, in float seed){
+    return fract(tan(distance(xy * PHI, xy) * seed) * xy.x);
+}
+
 void main() {
     if (gl_GlobalInvocationID.x >= uNumTriangles) {
         return;
@@ -42,12 +48,22 @@ void main() {
 
     uint index = atomicCounterIncrement(uNumBlades);
 
+    float seed = float(gl_GlobalInvocationID.x);
+    float width = mix(0.1, 0.2, GoldNoise(vec2(0, 0.0), seed));
+    float height = mix(0.3, 1.2, GoldNoise(vec2(1, 0.0), seed));
+    float depth = mix(0.1, 0.4, GoldNoise(vec2(2, 0.0), seed));
+
     vec3 triangleCenter = (vertices[a] + vertices[b] + vertices[c]) / 3.0;
     bladeTransforms[index] = mat4(
         vec4(1.0, 0.0, 0.0, 0.0),
         vec4(0.0, 1.0, 0.0, 0.0),
         vec4(0.0, 0.0, 1.0, 0.0),
         vec4(triangleCenter, 1.0)
+    ) * mat4(
+        vec4(width, 0.0, 0.0, 0.0),
+        vec4(0.0, height, 0.0, 0.0),
+        vec4(0.0, 0.0, depth, 0.0),
+        vec4(0.0, 0.0, 0.0, 1.0)
     );
 }
 )";
@@ -57,6 +73,7 @@ constexpr float kBladesPerTriangle = 3;
 Grassland::Grassland(const std::string& terrain_model_path) {
   calc_blade_transforms_shader_.reset(
       new Shader({{GL_COMPUTE_SHADER, Grassland::kCsSource}}));
+  blade_.reset(new Blade());
 
   LOG(INFO) << "loading terrain at: \"" << terrain_model_path << "\"";
   const aiScene* scene =
@@ -85,7 +102,7 @@ Grassland::Grassland(const std::string& terrain_model_path) {
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, vertices_ssbo_);
   glBufferData(GL_SHADER_STORAGE_BUFFER, vertices.size() * sizeof(glm::vec4),
                glm::value_ptr(vertices[0]), GL_STATIC_DRAW);
-  // SSBO set vec3 alignment to 4N, so we must pass glm::vec4
+  // OpenGL sets vec3 alignment to 4N for SSBO, so we must pass glm::vec4
 
   glGenBuffers(1, &indices_ssbo_);
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, indices_ssbo_);
@@ -105,6 +122,8 @@ Grassland::Grassland(const std::string& terrain_model_path) {
   glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(uint32_t), nullptr,
                GL_DYNAMIC_READ);
   glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+
+  glGenBuffers(1, &vbo_);
 }
 
 Grassland::~Grassland() {
@@ -112,6 +131,7 @@ Grassland::~Grassland() {
   glDeleteBuffers(1, &indices_ssbo_);
   glDeleteBuffers(1, &blade_transforms_ssbo_);
   glDeleteBuffers(1, &num_blades_buffer_);
+  glDeleteBuffers(1, &vbo_);
 }
 
 void Grassland::CalcBladeTransforms() {
@@ -140,4 +160,51 @@ void Grassland::CalcBladeTransforms() {
   glDispatchCompute((num_triangles_ + 63) / 64, 1, 1);
   glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT |
                   GL_ATOMIC_COUNTER_BARRIER_BIT);
+}
+
+void Grassland::Draw(Camera* camera, LightSources* light_sources) {
+  CalcBladeTransforms();
+
+  // copy blade_transforms_ssbo_ to vbo
+  glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, num_blades_buffer_);
+  uint32_t num_blades = 0;
+  glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(num_blades),
+                     &num_blades);
+  glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo_);
+  glm::mat4* buffer =
+      (glm::mat4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+  glBindVertexArray(blade_->vao());
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+  glBufferData(GL_ARRAY_BUFFER, num_blades * sizeof(glm::mat4), buffer,
+               GL_DYNAMIC_DRAW);
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
+  // draw blades with calculated transforms
+  blade_->shader()->Use();
+  light_sources->Set(blade_->shader());
+  // bind vbo to glsl
+  glBindVertexArray(blade_->vao());
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+  for (int i = 0; i < 4; i++) {
+    uint32_t location = 3 + i;
+    glEnableVertexAttribArray(location);
+    glVertexAttribPointer(location, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4),
+                          (void*)(i * sizeof(glm::vec4)));
+    glVertexAttribDivisor(location, 1);
+  }
+  // set uniforms
+  blade_->shader()->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
+  blade_->shader()->SetUniform<glm::mat4>("uProjectionMatrix",
+                                          camera->projection_matrix());
+  blade_->shader()->SetUniform<glm::vec3>("uCameraPosition",
+                                          camera->position());
+  // draw blades
+  glDrawElementsInstanced(GL_TRIANGLES, blade_->indices_size(), GL_UNSIGNED_INT,
+                          0, num_blades);
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
