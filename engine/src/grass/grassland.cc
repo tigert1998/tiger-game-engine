@@ -50,7 +50,7 @@ void main() {
 
     float width = mix(0.15, 0.3, rands[gl_GlobalInvocationID.x * 56 + 0]);
     float height = mix(0.5, 1.2, rands[gl_GlobalInvocationID.x * 56 + 1]);
-    float bend = mix(-PI / 3, PI / 3, rands[gl_GlobalInvocationID.x * 56 + 2]);
+    float bend = mix(-PI / 6, PI / 6, rands[gl_GlobalInvocationID.x * 56 + 2]);
     float theta = mix(0, 2 * PI, rands[gl_GlobalInvocationID.x * 56 + 3]);
 
     vec3 coord = vec3(

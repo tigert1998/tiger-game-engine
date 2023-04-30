@@ -70,14 +70,17 @@ in vec3 vNormal;
 out vec4 fragColor;
 
 vec4 CalcFragColor() {
-    vec3 lightGreen = vec3(181.0, 230.0, 29.0) / 255.0;
-    vec3 darkGreen = vec3(34.0, 177.0, 76.0) / 255.0;
+    vec3 lightGreen = vec3(139.0, 205.0, 80.0) / 255.0;
+    vec3 darkGreen = vec3(53.0, 116.0, 32.0) / 255.0;
     vec3 green = mix(darkGreen, lightGreen, vTexCoord.y);
 
+    float facing = dot(vPosition - uCameraPosition, -vNormal);
+    vec3 normal = facing > 0 ? vNormal : -vNormal;
+
     vec3 color = calcPhongLighting(
-        green, green, green * zero,
-        vNormal, uCameraPosition, vPosition,
-        20
+        green, green, vec3(zero),
+        normal, uCameraPosition, vPosition,
+        0
     );
 
     return vec4(color, 1.0);
