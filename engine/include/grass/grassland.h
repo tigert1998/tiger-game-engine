@@ -19,7 +19,7 @@ class Grassland {
 
  private:
   uint32_t vertices_ssbo_, indices_ssbo_, blade_transforms_ssbo_,
-      num_blades_buffer_, vbo_;
+      num_blades_buffer_, vbo_, rands_ssbo_;
   uint32_t num_triangles_;
 
   static const std::string kCsSource;

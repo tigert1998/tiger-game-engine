@@ -14,11 +14,11 @@
 const std::string Blade::kOBJSource = R"(
 v -0.5 0 0
 v 0.5 0 0
-v -0.4 0.35 0.3
-v 0.4 0.35 0.3
-v -0.25 0.72 0.6
-v 0.25 0.72 0.6
-v 0 1 1
+v -0.4 0.35 0
+v 0.4 0.35 0
+v -0.25 0.72 0
+v 0.25 0.72 0
+v 0 1 0
 # we only use tex coords' y axis
 vt -0.5 0
 vt 0.5 0

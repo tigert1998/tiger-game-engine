@@ -9,6 +9,7 @@
 #include <assimp/Importer.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
+#include <random>
 
 #include "utils.h"
 #include "vertex.h"
@@ -27,16 +28,15 @@ layout (binding = 1) buffer indicesBuffer {
 layout (binding = 2) buffer bladeTransformsBuffer {
     mat4 bladeTransforms[];
 };
+layout (binding = 3) buffer randsBuffer {
+    float rands[];
+};
 
 layout (binding = 0) uniform atomic_uint uNumBlades;
 
 uniform uint uNumTriangles;
 
-// https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
-float PHI = 1.61803398874989484820459;
-float GoldNoise(in vec2 xy, in float seed){
-    return fract(tan(distance(xy * PHI, xy) * seed) * xy.x);
-}
+const float PI = radians(180);
 
 void main() {
     if (gl_GlobalInvocationID.x >= uNumTriangles) {
@@ -48,21 +48,39 @@ void main() {
 
     uint index = atomicCounterIncrement(uNumBlades);
 
-    float seed = float(gl_GlobalInvocationID.x);
-    float width = mix(0.1, 0.2, GoldNoise(vec2(0, 0.0), seed));
-    float height = mix(0.3, 1.2, GoldNoise(vec2(1, 0.0), seed));
-    float depth = mix(0.1, 0.4, GoldNoise(vec2(2, 0.0), seed));
+    float width = mix(0.15, 0.3, rands[gl_GlobalInvocationID.x * 56 + 0]);
+    float height = mix(0.5, 1.2, rands[gl_GlobalInvocationID.x * 56 + 1]);
+    float bend = mix(-PI / 3, PI / 3, rands[gl_GlobalInvocationID.x * 56 + 2]);
+    float theta = mix(0, 2 * PI, rands[gl_GlobalInvocationID.x * 56 + 3]);
 
-    vec3 triangleCenter = (vertices[a] + vertices[b] + vertices[c]) / 3.0;
-    bladeTransforms[index] = mat4(
+    vec3 coord = vec3(
+        rands[gl_GlobalInvocationID.x * 56 + 4],
+        rands[gl_GlobalInvocationID.x * 56 + 5],
+        rands[gl_GlobalInvocationID.x * 56 + 6]
+    );
+    vec3 trianglePosition = mat3(vertices[a], vertices[b], vertices[c]) *
+        (coord / (coord.x + coord.y + coord.z));
+
+    bladeTransforms[gl_GlobalInvocationID.x] =
+    mat4(
         vec4(1.0, 0.0, 0.0, 0.0),
         vec4(0.0, 1.0, 0.0, 0.0),
         vec4(0.0, 0.0, 1.0, 0.0),
-        vec4(triangleCenter, 1.0)
+        vec4(trianglePosition, 1.0)
+    ) * mat4(
+        vec4(cos(theta), 0.0, -sin(theta), 0.0),
+        vec4(0.0, 1.0, 0.0, 0.0),
+        vec4(sin(theta), 0.0, cos(theta), 0.0),
+        vec4(0.0, 0.0, 0.0, 1.0)
+    ) * mat4(
+        vec4(1.0, 0.0, 0.0, 0.0),
+        vec4(0.0, cos(bend), sin(bend), 0.0),
+        vec4(0.0, -sin(bend), cos(bend), 0.0),
+        vec4(0.0, 0.0, 0.0, 1.0)
     ) * mat4(
         vec4(width, 0.0, 0.0, 0.0),
         vec4(0.0, height, 0.0, 0.0),
-        vec4(0.0, 0.0, depth, 0.0),
+        vec4(0.0, 0.0, 1.0, 0.0),
         vec4(0.0, 0.0, 0.0, 1.0)
     );
 }
@@ -97,6 +115,11 @@ Grassland::Grassland(const std::string& terrain_model_path) {
       indices.push_back(face.mIndices[j]);
   }
   num_triangles_ = indices.size() / 3;
+  std::vector<float> rands(num_triangles_ * 56);
+  std::mt19937 rd;
+  for (int i = 0; i < rands.size(); i++) {
+    rands[i] = std::uniform_real_distribution<float>(0, 1)(rd);
+  }
 
   glGenBuffers(1, &vertices_ssbo_);
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, vertices_ssbo_);
@@ -115,6 +138,11 @@ Grassland::Grassland(const std::string& terrain_model_path) {
       GL_SHADER_STORAGE_BUFFER,
       (int32_t)(num_triangles_ * kBladesPerTriangle) * sizeof(glm::mat4),
       nullptr, GL_STATIC_READ);
+
+  glGenBuffers(1, &rands_ssbo_);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, rands_ssbo_);
+  glBufferData(GL_SHADER_STORAGE_BUFFER, rands.size() * sizeof(float),
+               rands.data(), GL_STATIC_READ);
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
   glGenBuffers(1, &num_blades_buffer_);
@@ -132,6 +160,7 @@ Grassland::~Grassland() {
   glDeleteBuffers(1, &blade_transforms_ssbo_);
   glDeleteBuffers(1, &num_blades_buffer_);
   glDeleteBuffers(1, &vbo_);
+  glDeleteBuffers(1, &rands_ssbo_);
 }
 
 void Grassland::CalcBladeTransforms() {
@@ -147,6 +176,10 @@ void Grassland::CalcBladeTransforms() {
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo_);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, blade_transforms_ssbo_);
   // blade_transforms must have binding = 2
+
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, rands_ssbo_);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, rands_ssbo_);
+  // blade_transforms must have binding = 3
 
   glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, num_blades_buffer_);
   glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, num_blades_buffer_);
