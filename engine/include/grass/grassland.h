@@ -1,10 +1,12 @@
 #ifndef GRASS_GRASS_H_
 #define GRASS_GRASS_H_
 
+#include <glm/glm.hpp>
 #include <memory>
 #include <string>
 
 #include "blade.h"
+#include "bvh.h"
 #include "camera.h"
 #include "light_sources.h"
 #include "shader.h"
@@ -18,16 +20,19 @@ class Grassland {
   ~Grassland();
 
  private:
-  uint32_t vertices_ssbo_, indices_ssbo_, blade_transforms_ssbo_,
-      num_blades_buffer_, vbo_, rands_ssbo_;
-  uint32_t num_triangles_;
+  struct VertexType {
+    glm::vec3 position;
+  };
+
+  uint32_t vbo_;
+  std::vector<VertexType> vertices_for_bvh_;
+  std::vector<glm::uvec3> triangles_for_bvh_;
+  std::vector<glm::mat4> blade_transforms_;
 
   static const std::string kCsSource;
 
-  std::unique_ptr<Shader> calc_blade_transforms_shader_;
   std::unique_ptr<Blade> blade_;
-
-  void CalcBladeTransforms();
+  std::unique_ptr<BVH<VertexType>> bvh_;
 };
 
 #endif

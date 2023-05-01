@@ -32,8 +32,6 @@ layout (binding = 3) buffer randsBuffer {
     float rands[];
 };
 
-layout (binding = 0) uniform atomic_uint uNumBlades;
-
 uniform uint uNumTriangles;
 
 const float PI = radians(180);
@@ -46,52 +44,51 @@ void main() {
     uint b = indices[gl_GlobalInvocationID.x * 3 + 1];
     uint c = indices[gl_GlobalInvocationID.x * 3 + 2];
 
-    uint index = atomicCounterIncrement(uNumBlades);
+    for (int i = 0; i < 8; i++) {
+        float width = mix(0.15, 0.3, rands[gl_GlobalInvocationID.x * 56 + i * 7 + 0]);
+        float height = mix(0.5, 1.2, rands[gl_GlobalInvocationID.x * 56 + i * 7 + 1]);
+        float bend = mix(-PI / 6, PI / 6, rands[gl_GlobalInvocationID.x * 56 + i * 7 + 2]);
+        float theta = mix(0, 2 * PI, rands[gl_GlobalInvocationID.x * 56 + i * 7 + 3]);
 
-    float width = mix(0.15, 0.3, rands[gl_GlobalInvocationID.x * 56 + 0]);
-    float height = mix(0.5, 1.2, rands[gl_GlobalInvocationID.x * 56 + 1]);
-    float bend = mix(-PI / 6, PI / 6, rands[gl_GlobalInvocationID.x * 56 + 2]);
-    float theta = mix(0, 2 * PI, rands[gl_GlobalInvocationID.x * 56 + 3]);
+        vec3 coord = vec3(
+            rands[gl_GlobalInvocationID.x * 56 + i * 7 + 4],
+            rands[gl_GlobalInvocationID.x * 56 + i * 7 + 5],
+            rands[gl_GlobalInvocationID.x * 56 + i * 7 + 6]
+        );
+        vec3 trianglePosition = mat3(vertices[a], vertices[b], vertices[c]) *
+            (coord / (coord.x + coord.y + coord.z));
 
-    vec3 coord = vec3(
-        rands[gl_GlobalInvocationID.x * 56 + 4],
-        rands[gl_GlobalInvocationID.x * 56 + 5],
-        rands[gl_GlobalInvocationID.x * 56 + 6]
-    );
-    vec3 trianglePosition = mat3(vertices[a], vertices[b], vertices[c]) *
-        (coord / (coord.x + coord.y + coord.z));
-
-    bladeTransforms[gl_GlobalInvocationID.x] =
-    mat4(
-        vec4(1.0, 0.0, 0.0, 0.0),
-        vec4(0.0, 1.0, 0.0, 0.0),
-        vec4(0.0, 0.0, 1.0, 0.0),
-        vec4(trianglePosition, 1.0)
-    ) * mat4(
-        vec4(cos(theta), 0.0, -sin(theta), 0.0),
-        vec4(0.0, 1.0, 0.0, 0.0),
-        vec4(sin(theta), 0.0, cos(theta), 0.0),
-        vec4(0.0, 0.0, 0.0, 1.0)
-    ) * mat4(
-        vec4(1.0, 0.0, 0.0, 0.0),
-        vec4(0.0, cos(bend), sin(bend), 0.0),
-        vec4(0.0, -sin(bend), cos(bend), 0.0),
-        vec4(0.0, 0.0, 0.0, 1.0)
-    ) * mat4(
-        vec4(width, 0.0, 0.0, 0.0),
-        vec4(0.0, height, 0.0, 0.0),
-        vec4(0.0, 0.0, 1.0, 0.0),
-        vec4(0.0, 0.0, 0.0, 1.0)
-    );
+        bladeTransforms[gl_GlobalInvocationID.x * 8 + i] =
+        mat4(
+            vec4(1.0, 0.0, 0.0, 0.0),
+            vec4(0.0, 1.0, 0.0, 0.0),
+            vec4(0.0, 0.0, 1.0, 0.0),
+            vec4(trianglePosition, 1.0)
+        ) * mat4(
+            vec4(cos(theta), 0.0, -sin(theta), 0.0),
+            vec4(0.0, 1.0, 0.0, 0.0),
+            vec4(sin(theta), 0.0, cos(theta), 0.0),
+            vec4(0.0, 0.0, 0.0, 1.0)
+        ) * mat4(
+            vec4(1.0, 0.0, 0.0, 0.0),
+            vec4(0.0, cos(bend), sin(bend), 0.0),
+            vec4(0.0, -sin(bend), cos(bend), 0.0),
+            vec4(0.0, 0.0, 0.0, 1.0)
+        ) * mat4(
+            vec4(width, 0.0, 0.0, 0.0),
+            vec4(0.0, height, 0.0, 0.0),
+            vec4(0.0, 0.0, 1.0, 0.0),
+            vec4(0.0, 0.0, 0.0, 1.0)
+        );
+    }
 }
 )";
 
-constexpr float kBladesPerTriangle = 3;
+constexpr int32_t kBladesPerTriangle = 8;
 
-Grassland::Grassland(const std::string& terrain_model_path) {
-  calc_blade_transforms_shader_.reset(
-      new Shader({{GL_COMPUTE_SHADER, Grassland::kCsSource}}));
-  blade_.reset(new Blade());
+Grassland::Grassland(const std::string& terrain_model_path)
+    : blade_(std::make_unique<Blade>()) {
+  // load mesh and prepare data
 
   LOG(INFO) << "loading terrain at: \"" << terrain_model_path << "\"";
   const aiScene* scene =
@@ -103,118 +100,115 @@ Grassland::Grassland(const std::string& terrain_model_path) {
 
   std::vector<glm::vec4> vertices;
   vertices.reserve(mesh->mNumVertices);
+  vertices_for_bvh_.reserve(mesh->mNumVertices);
   for (int i = 0; i < mesh->mNumVertices; i++) {
     vertices.emplace_back(mesh->mVertices[i].x, mesh->mVertices[i].y,
                           mesh->mVertices[i].z, 1);
+    vertices_for_bvh_.push_back({vertices.back()});
   }
   std::vector<uint32_t> indices;
   indices.reserve(mesh->mNumFaces * 3);
+  triangles_for_bvh_.reserve(mesh->mNumFaces);
   for (int i = 0; i < mesh->mNumFaces; i++) {
     auto face = mesh->mFaces[i];
     for (int j = 0; j < face.mNumIndices; j++)
       indices.push_back(face.mIndices[j]);
+    triangles_for_bvh_.emplace_back(face.mIndices[0], face.mIndices[1],
+                                    face.mIndices[2]);
   }
-  num_triangles_ = indices.size() / 3;
-  std::vector<float> rands(num_triangles_ * 56);
+  uint32_t num_triangles = triangles_for_bvh_.size();
+  std::vector<float> rands(num_triangles * kBladesPerTriangle * 7);
   std::mt19937 rd;
   for (int i = 0; i < rands.size(); i++) {
     rands[i] = std::uniform_real_distribution<float>(0, 1)(rd);
   }
 
-  glGenBuffers(1, &vertices_ssbo_);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, vertices_ssbo_);
+  // launch compute shader to calculate blade transforms once and for all
+
+  auto calc_blade_transforms_shader = std::unique_ptr<Shader>(
+      new Shader({{GL_COMPUTE_SHADER, Grassland::kCsSource}}));
+  uint32_t vertices_ssbo, indices_ssbo, blade_transforms_ssbo, rands_ssbo;
+
+  glGenBuffers(1, &vertices_ssbo);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, vertices_ssbo);
   glBufferData(GL_SHADER_STORAGE_BUFFER, vertices.size() * sizeof(glm::vec4),
                glm::value_ptr(vertices[0]), GL_STATIC_DRAW);
   // OpenGL sets vec3 alignment to 4N for SSBO, so we must pass glm::vec4
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertices_ssbo);
+  // vertices must have binding = 0
 
-  glGenBuffers(1, &indices_ssbo_);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, indices_ssbo_);
+  glGenBuffers(1, &indices_ssbo);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, indices_ssbo);
   glBufferData(GL_SHADER_STORAGE_BUFFER, indices.size() * sizeof(uint32_t),
                &indices[0], GL_STATIC_DRAW);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, indices_ssbo);
+  // indices must have binding = 1
 
-  glGenBuffers(1, &blade_transforms_ssbo_);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo_);
-  glBufferData(
-      GL_SHADER_STORAGE_BUFFER,
-      (int32_t)(num_triangles_ * kBladesPerTriangle) * sizeof(glm::mat4),
-      nullptr, GL_STATIC_READ);
+  glGenBuffers(1, &blade_transforms_ssbo);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo);
+  glBufferData(GL_SHADER_STORAGE_BUFFER,
+               num_triangles * kBladesPerTriangle * sizeof(glm::mat4), nullptr,
+               GL_STATIC_READ);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, blade_transforms_ssbo);
+  // blade_transforms must have binding = 2
 
-  glGenBuffers(1, &rands_ssbo_);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, rands_ssbo_);
+  glGenBuffers(1, &rands_ssbo);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, rands_ssbo);
   glBufferData(GL_SHADER_STORAGE_BUFFER, rands.size() * sizeof(float),
                rands.data(), GL_STATIC_READ);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, rands_ssbo);
+  // blade_transforms must have binding = 3
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
-  glGenBuffers(1, &num_blades_buffer_);
-  glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, num_blades_buffer_);
-  glBufferData(GL_ATOMIC_COUNTER_BUFFER, sizeof(uint32_t), nullptr,
-               GL_DYNAMIC_READ);
-  glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
+  calc_blade_transforms_shader->Use();
+  calc_blade_transforms_shader->SetUniform<uint32_t>("uNumTriangles",
+                                                     num_triangles);
+  glDispatchCompute((num_triangles + 63) / 64, 1, 1);
+  glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT |
+                  GL_ATOMIC_COUNTER_BARRIER_BIT);
+
+  // copy data from GPU memory to CPU memory
+
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo);
+  glm::mat4* buffer =
+      (glm::mat4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+  blade_transforms_.resize(kBladesPerTriangle * num_triangles);
+  std::copy(buffer, buffer + blade_transforms_.size(),
+            blade_transforms_.data());
+  glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+
+  // delete buffers
+
+  glDeleteBuffers(1, &vertices_ssbo);
+  glDeleteBuffers(1, &indices_ssbo);
+  glDeleteBuffers(1, &blade_transforms_ssbo);
+  glDeleteBuffers(1, &rands_ssbo);
+
+  bvh_.reset(new BVH<VertexType>(vertices_for_bvh_.data(),
+                                 triangles_for_bvh_.data(), num_triangles));
 
   glGenBuffers(1, &vbo_);
 }
 
-Grassland::~Grassland() {
-  glDeleteBuffers(1, &vertices_ssbo_);
-  glDeleteBuffers(1, &indices_ssbo_);
-  glDeleteBuffers(1, &blade_transforms_ssbo_);
-  glDeleteBuffers(1, &num_blades_buffer_);
-  glDeleteBuffers(1, &vbo_);
-  glDeleteBuffers(1, &rands_ssbo_);
-}
-
-void Grassland::CalcBladeTransforms() {
-  calc_blade_transforms_shader_->Use();
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, vertices_ssbo_);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertices_ssbo_);
-  // vertices must have binding = 0
-
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, indices_ssbo_);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, indices_ssbo_);
-  // indices must have binding = 1
-
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo_);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, blade_transforms_ssbo_);
-  // blade_transforms must have binding = 2
-
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, rands_ssbo_);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, rands_ssbo_);
-  // blade_transforms must have binding = 3
-
-  glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, num_blades_buffer_);
-  glBindBufferBase(GL_ATOMIC_COUNTER_BUFFER, 0, num_blades_buffer_);
-  // num_blades must have binding = 0
-  const uint32_t zero = 0;
-  glBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(zero), &zero);
-
-  calc_blade_transforms_shader_->SetUniform<uint32_t>("uNumTriangles",
-                                                      num_triangles_);
-
-  glDispatchCompute((num_triangles_ + 63) / 64, 1, 1);
-  glMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT |
-                  GL_ATOMIC_COUNTER_BARRIER_BIT);
-}
+Grassland::~Grassland() { glDeleteBuffers(1, &vbo_); }
 
 void Grassland::Draw(Camera* camera, LightSources* light_sources) {
-  CalcBladeTransforms();
+  // copy blade_transforms_ssbo to vbo
+  std::vector<glm::mat4> buffer;
+  bvh_->Search(camera->frustum(), [&](BVHNode* node) {
+    for (int i = 0; i < node->num_triangles; i++) {
+      uint32_t triangle_index = node->triangle_indices[i];
+      buffer.push_back(
+          this->blade_transforms_[triangle_index * kBladesPerTriangle]);
+    }
+  });
 
-  // copy blade_transforms_ssbo_ to vbo
-  glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, num_blades_buffer_);
-  uint32_t num_blades = 0;
-  glGetBufferSubData(GL_ATOMIC_COUNTER_BUFFER, 0, sizeof(num_blades),
-                     &num_blades);
-  glBindBuffer(GL_ATOMIC_COUNTER_BUFFER, 0);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo_);
-  glm::mat4* buffer =
-      (glm::mat4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
   glBindVertexArray(blade_->vao());
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-  glBufferData(GL_ARRAY_BUFFER, num_blades * sizeof(glm::mat4), buffer,
-               GL_DYNAMIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, buffer.size() * sizeof(glm::mat4),
+               glm::value_ptr(buffer[0]), GL_DYNAMIC_DRAW);
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
   // draw blades with calculated transforms
   blade_->shader()->Use();
@@ -237,7 +231,7 @@ void Grassland::Draw(Camera* camera, LightSources* light_sources) {
                                           camera->position());
   // draw blades
   glDrawElementsInstanced(GL_TRIANGLES, blade_->indices_size(), GL_UNSIGNED_INT,
-                          0, num_blades);
+                          0, buffer.size());
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 }

@@ -5,6 +5,33 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
+struct FrustumPlane {
+  // unit vector
+  glm::vec3 normal;
+  // distance from origin to the nearest point in the plane
+  float distance;
+
+  inline FrustumPlane() = default;
+
+  inline FrustumPlane(glm::vec3 normal, glm::vec3 point) {
+    this->normal = glm::normalize(normal);
+    this->distance = glm::dot(point, normal);
+  }
+
+  inline float GetSignedDistanceToPlane(glm::vec3 point) const {
+    return glm::dot(normal, point) - distance;
+  }
+};
+
+struct Frustum {
+  FrustumPlane top_plane;
+  FrustumPlane bottom_plane;
+  FrustumPlane right_plane;
+  FrustumPlane left_plane;
+  FrustumPlane far_plane;
+  FrustumPlane near_plane;
+};
+
 class Camera {
  public:
   enum class MoveDirectionType {
@@ -33,12 +60,14 @@ class Camera {
   void set_front(glm::vec3 new_front);
   glm::vec3 center() const;
   void set_center(glm::vec3 new_center);
+  Frustum frustum() const;
 
  private:
   static const double kMaxElevationAngle;
   const glm::vec3 up_ = glm::vec3(0, 1, 0);
   glm::vec3 position_;
   double alpha_, beta_, width_height_ratio_;
+  double fovy_ = glm::radians(60.f), near_ = 0.1, far_ = 1000;
 };
 
 #endif

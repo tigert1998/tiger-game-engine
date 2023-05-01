@@ -1,5 +1,6 @@
 #include "camera.h"
 
+#include <cmath>
 #include <glm/gtc/matrix_transform.hpp>
 
 using namespace glm;
@@ -7,8 +8,8 @@ using namespace glm;
 const double Camera::kMaxElevationAngle = 5 * pi<double>() / 12;
 
 mat4 Camera::projection_matrix() const {
-  return perspective(glm::radians(60.f), 1.0f * (float)width_height_ratio_,
-                     0.1f, 1000.0f);
+  return perspective((float)fovy_, (float)width_height_ratio_, (float)near_,
+                     (float)far_);
 }
 
 void Camera::set_width_height_ratio(double width_height_ratio) {
@@ -87,4 +88,26 @@ vec3 Camera::center() const { return position() + front(); }
 void Camera::set_center(vec3 new_center) {
   auto new_front = new_center - position_;
   set_front(new_front);
+}
+
+Frustum Camera::frustum() const {
+  Frustum frustum;
+  const float half_far_height = far_ * tan(fovy_ * 0.5);
+  const float half_far_width = half_far_height * width_height_ratio_;
+  const glm::vec3 far_vec = (float)far_ * front();
+  const glm::vec3 left = glm::normalize(glm::cross(up_, front()));
+  const glm::vec3 right = -left;
+
+  frustum.near_plane = {front(), position() + (float)near_ * front()};
+  frustum.far_plane = {-front(), position() + (float)far_ * front()};
+  frustum.left_plane = {glm::cross(far_vec + left * half_far_width, up_),
+                        position()};
+  frustum.right_plane = {glm::cross(up_, far_vec + right * half_far_width),
+                         position()};
+  frustum.bottom_plane = {glm::cross(right, far_vec - up_ * half_far_height),
+                          position()};
+  frustum.top_plane = {glm::cross(far_vec + up_ * half_far_height, right),
+                       position()};
+
+  return frustum;
 }
