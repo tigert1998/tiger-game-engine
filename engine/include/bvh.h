@@ -99,6 +99,16 @@ class BVH {
     return node;
   }
 
+  static void TraverseRecursively(
+      BVHNode* node, const std::function<void(BVHNode*)>& callback) {
+    if (node->split_axis == -1) {
+      callback(node);
+    } else {
+      TraverseRecursively(node->left.get(), callback);
+      TraverseRecursively(node->right.get(), callback);
+    }
+  }
+
   static void SearchRecursively(BVHNode* node, const Frustum& frustum,
                                 const std::function<void(BVHNode*)>& callback) {
     if (!node->aabb.IsOnFrustum(frustum)) return;
@@ -117,6 +127,10 @@ class BVH {
 
     root_ = BuildRecursively(vertices, triangles, triangle_indices_.data(),
                              num_triangles);
+  }
+
+  void Traverse(const std::function<void(BVHNode*)>& callback) {
+    TraverseRecursively(root_.get(), callback);
   }
 
   void Search(const Frustum& frustum,

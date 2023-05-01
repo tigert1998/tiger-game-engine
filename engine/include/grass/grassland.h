@@ -2,6 +2,7 @@
 #define GRASS_GRASS_H_
 
 #include <glm/glm.hpp>
+#include <map>
 #include <memory>
 #include <string>
 
@@ -27,12 +28,13 @@ class Grassland {
   uint32_t vbo_;
   std::vector<VertexType> vertices_for_bvh_;
   std::vector<glm::uvec3> triangles_for_bvh_;
-  std::vector<glm::mat4> blade_transforms_;
 
   static const std::string kCsSource;
 
   std::unique_ptr<Blade> blade_;
+
   std::unique_ptr<BVH<VertexType>> bvh_;
+  std::map<BVHNode *, std::vector<glm::mat4>> blade_transforms_;
 };
 
 #endif

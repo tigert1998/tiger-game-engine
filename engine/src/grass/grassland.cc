@@ -84,7 +84,7 @@ void main() {
 }
 )";
 
-constexpr int32_t kBladesPerTriangle = 8;
+constexpr int32_t kMaxLOD = 8;
 
 Grassland::Grassland(const std::string& terrain_model_path)
     : blade_(std::make_unique<Blade>()) {
@@ -117,7 +117,7 @@ Grassland::Grassland(const std::string& terrain_model_path)
                                     face.mIndices[2]);
   }
   uint32_t num_triangles = triangles_for_bvh_.size();
-  std::vector<float> rands(num_triangles * kBladesPerTriangle * 7);
+  std::vector<float> rands(num_triangles * kMaxLOD * 7);
   std::mt19937 rd;
   for (int i = 0; i < rands.size(); i++) {
     rands[i] = std::uniform_real_distribution<float>(0, 1)(rd);
@@ -147,7 +147,7 @@ Grassland::Grassland(const std::string& terrain_model_path)
   glGenBuffers(1, &blade_transforms_ssbo);
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo);
   glBufferData(GL_SHADER_STORAGE_BUFFER,
-               num_triangles * kBladesPerTriangle * sizeof(glm::mat4), nullptr,
+               num_triangles * kMaxLOD * sizeof(glm::mat4), nullptr,
                GL_STATIC_READ);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, blade_transforms_ssbo);
   // blade_transforms must have binding = 2
@@ -169,12 +169,21 @@ Grassland::Grassland(const std::string& terrain_model_path)
 
   // copy data from GPU memory to CPU memory
 
+  bvh_.reset(new BVH<VertexType>(vertices_for_bvh_.data(),
+                                 triangles_for_bvh_.data(), num_triangles));
+
   glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo);
   glm::mat4* buffer =
       (glm::mat4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-  blade_transforms_.resize(kBladesPerTriangle * num_triangles);
-  std::copy(buffer, buffer + blade_transforms_.size(),
-            blade_transforms_.data());
+  bvh_->Traverse([&](BVHNode* node) {
+    this->blade_transforms_[node] = {};
+    for (int lod = 0; lod < kMaxLOD; lod++) {
+      for (int i = 0; i < node->num_triangles; i++) {
+        this->blade_transforms_[node].push_back(
+            buffer[node->triangle_indices[i] * kMaxLOD + lod]);
+      }
+    }
+  });
   glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
 
   // delete buffers
@@ -183,9 +192,6 @@ Grassland::Grassland(const std::string& terrain_model_path)
   glDeleteBuffers(1, &indices_ssbo);
   glDeleteBuffers(1, &blade_transforms_ssbo);
   glDeleteBuffers(1, &rands_ssbo);
-
-  bvh_.reset(new BVH<VertexType>(vertices_for_bvh_.data(),
-                                 triangles_for_bvh_.data(), num_triangles));
 
   glGenBuffers(1, &vbo_);
 }
@@ -196,11 +202,10 @@ void Grassland::Draw(Camera* camera, LightSources* light_sources) {
   // copy blade_transforms_ssbo to vbo
   std::vector<glm::mat4> buffer;
   bvh_->Search(camera->frustum(), [&](BVHNode* node) {
-    for (int i = 0; i < node->num_triangles; i++) {
-      uint32_t triangle_index = node->triangle_indices[i];
-      buffer.push_back(
-          this->blade_transforms_[triangle_index * kBladesPerTriangle]);
-    }
+    auto lod = 1;
+    auto num_blades = node->num_triangles * lod;
+    buffer.insert(buffer.end(), this->blade_transforms_[node].data(),
+                  this->blade_transforms_[node].data() + num_blades);
   });
 
   glBindVertexArray(blade_->vao());
