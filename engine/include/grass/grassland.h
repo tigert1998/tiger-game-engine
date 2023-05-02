@@ -35,6 +35,7 @@ class Grassland {
 
   std::unique_ptr<BVH<VertexType>> bvh_;
   std::map<BVHNode *, std::vector<glm::mat4>> blade_transforms_;
+  std::vector<glm::mat4> blade_transforms_for_gpu_;
 };
 
 #endif

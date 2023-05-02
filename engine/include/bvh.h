@@ -33,7 +33,7 @@ struct BVHNode {
 template <typename V>
 class BVH {
  private:
-  static constexpr uint32_t kMinTrianglesInNode = 4096;
+  static constexpr uint32_t kMinTrianglesInNode = 1 << 12;
 
   std::unique_ptr<BVHNode> root_ = nullptr;
   std::vector<uint32_t> triangle_indices_;

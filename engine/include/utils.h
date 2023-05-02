@@ -2,11 +2,32 @@
 #define UTILS_H_
 
 #include <assimp/matrix4x4.h>
+#include <glog/logging.h>
 
+#include <chrono>
 #include <glm/glm.hpp>
 #include <iomanip>
 #include <ostream>
 #include <string>
+
+class Timer {
+ private:
+  std::string task_name_;
+  std::chrono::high_resolution_clock::time_point start_;
+
+ public:
+  inline Timer(const std::string &task_name) : task_name_(task_name) {
+    start_ = std::chrono::high_resolution_clock::now();
+  }
+  inline ~Timer() {
+    auto now = std::chrono::high_resolution_clock::now();
+    float ms =
+        std::chrono::duration_cast<std::chrono::microseconds>(now - start_)
+            .count() /
+        1e3;
+    LOG(INFO) << task_name_ << " consumes " << ms << "ms";
+  }
+};
 
 template <typename T>
 glm::mat4 Mat4FromAimatrix4x4(aiMatrix4x4t<T> matrix) {
