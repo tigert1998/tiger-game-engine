@@ -12,6 +12,7 @@
 #include <memory>
 
 #include "grass/grassland.h"
+#include "keyboard.h"
 #include "mouse.h"
 #include "skybox.h"
 
@@ -33,17 +34,11 @@ void CursorPosCallback(GLFWwindow *window, double x, double y) {
 }
 
 void ScrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
-  auto position = camera_ptr->position();
-  double distance = glm::distance(position, glm::vec3(0)) + yoffset * 0.2;
-  distance = std::max(distance, 0.1);
-  position = glm::normalize(position) * (float)distance;
-  camera_ptr->set_position(position);
+  camera_ptr->Move(Camera::MoveDirectionType::kUpward, yoffset * 0.2);
 }
 
 void KeyCallback(GLFWwindow *window, int key, int, int action, int) {
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-    glfwSetWindowShouldClose(window, GL_TRUE);
-  }
+  Keyboard::shared.Trigger(key, action);
 }
 
 void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
@@ -110,21 +105,27 @@ void Init() {
           double normalized_x = (x - lastx) / width;
           double normalized_y = (y - lasty) / height;
 
-          auto position = camera_ptr->position();
-          double distance = glm::distance(position, glm::vec3(0));
-          double theta = atan2(-position.z, position.x) - normalized_x * 2;
-          double gamma = -camera_ptr->beta() + normalized_y;
-
-          position.x = distance * cos(theta) * cos(gamma);
-          position.z = -distance * sin(theta) * cos(gamma);
-          position.y = distance * sin(gamma);
-
-          camera_ptr->set_position(position);
-          camera_ptr->set_front(-camera_ptr->position());
+          camera_ptr->set_alpha(camera_ptr->alpha() - normalized_x * 2);
+          camera_ptr->set_beta(camera_ptr->beta() + normalized_y);
         }
         lastx = x;
         lasty = y;
       });
+
+  Keyboard::shared.Register([](Keyboard::KeyboardState state, double delta) {
+    if (state[GLFW_KEY_ESCAPE]) {
+      glfwSetWindowShouldClose(window, GL_TRUE);
+    } else {
+      if (state[GLFW_KEY_W])
+        camera_ptr->Move(Camera::MoveDirectionType::kForward, delta);
+      if (state[GLFW_KEY_S])
+        camera_ptr->Move(Camera::MoveDirectionType::kBackward, delta);
+      if (state[GLFW_KEY_A])
+        camera_ptr->Move(Camera::MoveDirectionType::kLeftward, delta);
+      if (state[GLFW_KEY_D])
+        camera_ptr->Move(Camera::MoveDirectionType::kRightward, delta);
+    }
+  });
 
   glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
 
@@ -137,9 +138,10 @@ void Init() {
       std::make_unique<Directional>(glm::vec3(0, -1, -1), glm::vec3(1, 1, 1)));
   light_sources_ptr->Add(std::make_unique<Ambient>(glm::vec3(0.4)));
 
-  camera_ptr = std::make_unique<Camera>(glm::vec3(0.5, 0.25, 1),
+  camera_ptr = std::make_unique<Camera>(glm::vec3(0, 200, 0),
                                         static_cast<double>(width) / height);
-  camera_ptr->set_front(-camera_ptr->position());
+  camera_ptr->set_alpha(0);
+  camera_ptr->set_beta(-0.95);
   skybox_ptr = std::make_unique<Skybox>("resources/skyboxes/cloud", "png");
   grassland_ptr = std::make_unique<Grassland>("resources/terrain/sample.obj");
 
@@ -159,6 +161,8 @@ int main(int argc, char *argv[]) {
     double current_time = glfwGetTime();
     double delta_time = current_time - last_time;
     last_time = current_time;
+
+    Keyboard::shared.Elapse(delta_time);
 
     {
       fps += 1;

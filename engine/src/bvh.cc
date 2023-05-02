@@ -1,5 +1,7 @@
 #include "bvh.h"
 
+#include <iostream>
+
 bool AABB::IsOnOrForwardPlane(const FrustumPlane& plane) const {
   const float r = glm::dot(extents(), glm::abs(plane.normal));
   return plane.GetSignedDistanceToPlane(center()) >= -r;

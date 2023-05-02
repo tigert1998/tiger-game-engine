@@ -194,7 +194,14 @@ Grassland::Grassland(const std::string& terrain_model_path)
   glDeleteBuffers(1, &blade_transforms_ssbo);
   glDeleteBuffers(1, &rands_ssbo);
 
+  // create vbo
+
   glGenBuffers(1, &vbo_);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+  glBufferData(GL_ARRAY_BUFFER,
+               blade_transforms_for_gpu_.size() * sizeof(glm::mat4), nullptr,
+               GL_STREAM_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 Grassland::~Grassland() { glDeleteBuffers(1, &vbo_); }
@@ -210,19 +217,14 @@ void Grassland::Draw(Camera* camera, LightSources* light_sources) {
     num_blades += node->num_triangles * lod;
   });
 
-  glBindVertexArray(blade_->vao());
-  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-  glBufferData(GL_ARRAY_BUFFER, num_blades * sizeof(glm::mat4),
-               glm::value_ptr(blade_transforms_for_gpu_[0]), GL_STREAM_DRAW);
-  glBindVertexArray(0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-
   // draw blades with calculated transforms
   blade_->shader()->Use();
   light_sources->Set(blade_->shader());
   // bind vbo to glsl
   glBindVertexArray(blade_->vao());
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+  glBufferSubData(GL_ARRAY_BUFFER, 0, num_blades * sizeof(glm::mat4),
+                  glm::value_ptr(blade_transforms_for_gpu_[0]));
   for (int i = 0; i < 4; i++) {
     uint32_t location = 3 + i;
     glEnableVertexAttribArray(location);

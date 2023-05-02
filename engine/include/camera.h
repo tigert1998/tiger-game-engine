@@ -15,7 +15,7 @@ struct FrustumPlane {
 
   inline FrustumPlane(glm::vec3 normal, glm::vec3 point) {
     this->normal = glm::normalize(normal);
-    this->distance = glm::dot(point, normal);
+    this->distance = glm::dot(point, this->normal);
   }
 
   inline float GetSignedDistanceToPlane(glm::vec3 point) const {

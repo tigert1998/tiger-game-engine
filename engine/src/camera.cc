@@ -97,16 +97,17 @@ Frustum Camera::frustum() const {
   const glm::vec3 far_vec = (float)far_ * front();
   const glm::vec3 left = glm::normalize(glm::cross(up_, front()));
   const glm::vec3 right = -left;
+  const glm::vec3 up = glm::normalize(glm::cross(front(), left));
 
   frustum.near_plane = {front(), position() + (float)near_ * front()};
   frustum.far_plane = {-front(), position() + (float)far_ * front()};
-  frustum.left_plane = {glm::cross(far_vec + left * half_far_width, up_),
+  frustum.left_plane = {glm::cross(far_vec + left * half_far_width, up),
                         position()};
-  frustum.right_plane = {glm::cross(up_, far_vec + right * half_far_width),
+  frustum.right_plane = {glm::cross(up, far_vec + right * half_far_width),
                          position()};
-  frustum.bottom_plane = {glm::cross(right, far_vec - up_ * half_far_height),
+  frustum.bottom_plane = {glm::cross(right, far_vec - up * half_far_height),
                           position()};
-  frustum.top_plane = {glm::cross(far_vec + up_ * half_far_height, right),
+  frustum.top_plane = {glm::cross(far_vec + up * half_far_height, right),
                        position()};
 
   return frustum;

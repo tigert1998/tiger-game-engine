@@ -48,6 +48,19 @@ std::ostream &operator<<(std::ostream &os, const glm::mat<W, H, T, Q> &mat) {
   return os;
 }
 
+template <size_t N, typename T, glm::qualifier Q>
+std::ostream &operator<<(std::ostream &os, const glm::vec<N, T, Q> &vec) {
+  os << "(";
+  for (int i = 0; i < N; i++) {
+    os << std::setprecision(12) << vec[i];
+    if (i < N - 1) {
+      os << ", ";
+    }
+  }
+  os << ")";
+  return os;
+}
+
 std::string BaseName(const std::string &path);
 
 std::string ParentPath(const std::string &path);
