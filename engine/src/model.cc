@@ -253,9 +253,7 @@ void Model::InternalDraw(bool animated, Camera *camera_ptr,
   if (oit_render_quad_ != nullptr) {
     oit_render_quad_->Set(shader_ptr_.get());
   }
-  if (light_sources != nullptr) {
-    light_sources->Set(shader_ptr_.get());
-  }
+  light_sources->Set(shader_ptr_.get());
   shader_ptr_->SetUniform<vec4>("uClipPlane", clip_plane);
   shader_ptr_->SetUniform<mat4>("uViewMatrix", camera_ptr->view_matrix());
   shader_ptr_->SetUniform<mat4>("uProjectionMatrix",
@@ -361,7 +359,7 @@ uniform vec3 uCameraPosition;
 in vec3 vPosition;
 in vec2 vTexCoord;
 in vec3 vNormal;
-)" + LightSources::kFsSource + R"(
+)" + LightSources::FsSource() + R"(
 uniform bool uDefaultShading;
 
 struct PhongMaterial {

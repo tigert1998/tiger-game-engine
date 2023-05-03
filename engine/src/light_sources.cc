@@ -50,7 +50,8 @@ void LightSources::Set(Shader *shader) {
   }
 }
 
-std::string LightSources::kFsSource = R"(
+std::string LightSources::FsSource() {
+  return R"(
 struct AmbientLight {
     vec3 color;
 };
@@ -120,3 +121,4 @@ vec3 calcPhongLighting(
     return color;
 }
 )";
+}

@@ -13,6 +13,7 @@
 #include <iostream>
 #include <random>
 
+#include "texture_manager.h"
 #include "utils.h"
 #include "vertex.h"
 
@@ -21,20 +22,29 @@ const std::string Grassland::kCsSource = R"(
 
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 
+// inputs
 layout (binding = 0) buffer verticesBuffer {
     vec3 vertices[];
 };
 layout (binding = 1) buffer indicesBuffer {
     uint indices[];
 };
-layout (binding = 2) buffer bladeTransformsBuffer {
-    mat4 bladeTransforms[];
+layout (binding = 2) buffer texCoordsBuffer {
+    vec2 texCoords[];
 };
 layout (binding = 3) buffer randsBuffer {
     float rands[];
 };
-layout (binding = 4) buffer bladePositionsBuffer {
+
+// outputs
+layout (binding = 4) buffer bladeTransformsBuffer {
+    mat4 bladeTransforms[];
+};
+layout (binding = 5) buffer bladePositionsBuffer {
     vec3 bladePositions[];
+};
+layout (binding = 6) buffer bladeTexCoordsBuffer {
+    vec2 bladeTexCoords[];
 };
 
 uniform uint uNumTriangles;
@@ -60,9 +70,13 @@ void main() {
             rands[gl_GlobalInvocationID.x * 56 + i * 7 + 5],
             rands[gl_GlobalInvocationID.x * 56 + i * 7 + 6]
         );
+        coord = coord / (coord.x + coord.y + coord.z);
 
         bladePositions[gl_GlobalInvocationID.x * 8 + i] = 
-        mat3(vertices[a], vertices[b], vertices[c]) * (coord / (coord.x + coord.y + coord.z));
+        mat3(vertices[a], vertices[b], vertices[c]) * coord;
+
+        bladeTexCoords[gl_GlobalInvocationID.x * 8 + i] =
+        mat3x2(texCoords[a], texCoords[b], texCoords[c]) * coord;
 
         bladeTransforms[gl_GlobalInvocationID.x * 8 + i] =
         mat4(
@@ -98,8 +112,11 @@ uint32_t Grassland::CreateAndBindSSBO(uint32_t size, void* data, uint32_t usage,
   return ssbo;
 }
 
-Grassland::Grassland(const std::string& terrain_model_path)
+Grassland::Grassland(const std::string& terrain_model_path,
+                     const std::string& distortion_texture_path)
     : blade_(std::make_unique<Blade>()) {
+  distortion_texture_id_ = TextureManager::LoadTexture(distortion_texture_path);
+
   // load mesh and prepare data
 
   LOG(INFO) << "loading terrain at: \"" << terrain_model_path << "\"";
@@ -111,11 +128,15 @@ Grassland::Grassland(const std::string& terrain_model_path)
   auto mesh = scene->mMeshes[0];
 
   std::vector<glm::vec4> vertices;
+  std::vector<glm::vec2> tex_coords;
   vertices.reserve(mesh->mNumVertices);
+  tex_coords.reserve(mesh->mNumVertices);
   vertices_for_bvh_.reserve(mesh->mNumVertices);
   for (int i = 0; i < mesh->mNumVertices; i++) {
     vertices.emplace_back(mesh->mVertices[i].x, mesh->mVertices[i].y,
                           mesh->mVertices[i].z, 1);
+    tex_coords.emplace_back(mesh->mTextureCoords[0][i].x,
+                            mesh->mTextureCoords[0][i].y);
     vertices_for_bvh_.push_back({vertices.back()});
   }
   std::vector<uint32_t> indices;
@@ -144,12 +165,18 @@ Grassland::Grassland(const std::string& terrain_model_path)
       GL_STATIC_DRAW, 0);
   uint32_t indices_ssbo = Grassland::CreateAndBindSSBO(
       indices.size() * sizeof(uint32_t), &indices[0], GL_STATIC_DRAW, 1);
-  uint32_t blade_transforms_ssbo = Grassland::CreateAndBindSSBO(
-      num_triangles * kMaxLOD * sizeof(glm::mat4), nullptr, GL_STATIC_READ, 2);
+  uint32_t tex_coords_ssbo = Grassland::CreateAndBindSSBO(
+      tex_coords.size() * sizeof(glm::vec2), glm::value_ptr(tex_coords[0]),
+      GL_STATIC_DRAW, 2);
   uint32_t rands_ssbo = Grassland::CreateAndBindSSBO(
       rands.size() * sizeof(float), rands.data(), GL_STATIC_READ, 3);
+
+  uint32_t blade_transforms_ssbo = Grassland::CreateAndBindSSBO(
+      num_triangles * kMaxLOD * sizeof(glm::mat4), nullptr, GL_STATIC_READ, 4);
   uint32_t blade_positions_ssbo = Grassland::CreateAndBindSSBO(
-      num_triangles * kMaxLOD * sizeof(glm::vec4), nullptr, GL_STATIC_READ, 4);
+      num_triangles * kMaxLOD * sizeof(glm::vec4), nullptr, GL_STATIC_READ, 5);
+  uint32_t blade_tex_coords_ssbo = Grassland::CreateAndBindSSBO(
+      num_triangles * kMaxLOD * sizeof(glm::vec2), nullptr, GL_STATIC_READ, 6);
 
   calc_blade_transforms_shader->Use();
   calc_blade_transforms_shader->SetUniform<uint32_t>("uNumTriangles",
@@ -188,6 +215,20 @@ Grassland::Grassland(const std::string& terrain_model_path)
               buffer[node->triangle_indices[i] * kMaxLOD + lod];
         }
       }
+    });
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+  }
+  {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_tex_coords_ssbo);
+    glm::vec2* buffer =
+        (glm::vec2*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+    bvh_->Traverse([&](BVHNode* node) {
+      for (int lod = 0; lod < kMaxLOD; lod++) {
+        for (int i = 0; i < node->num_triangles; i++) {
+          blade_data_[node][lod * node->num_triangles + i].tex_coord =
+              buffer[node->triangle_indices[i] * kMaxLOD + lod];
+        }
+      }
       std::random_shuffle(blade_data_[node].begin(), blade_data_[node].end());
     });
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
@@ -197,9 +238,15 @@ Grassland::Grassland(const std::string& terrain_model_path)
 
   glDeleteBuffers(1, &vertices_ssbo);
   glDeleteBuffers(1, &indices_ssbo);
-  glDeleteBuffers(1, &blade_transforms_ssbo);
+  glDeleteBuffers(1, &tex_coords_ssbo);
   glDeleteBuffers(1, &rands_ssbo);
+  glDeleteBuffers(1, &blade_transforms_ssbo);
   glDeleteBuffers(1, &blade_positions_ssbo);
+  glDeleteBuffers(1, &blade_tex_coords_ssbo);
+
+  // release scene
+
+  aiReleaseImport(scene);
 
   // create vbo
 
@@ -212,9 +259,12 @@ Grassland::Grassland(const std::string& terrain_model_path)
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-Grassland::~Grassland() { glDeleteBuffers(1, &vbo_); }
+Grassland::~Grassland() {
+  glDeleteBuffers(1, &vbo_);
+  glDeleteTextures(1, &distortion_texture_id_);
+}
 
-void Grassland::Draw(Camera* camera, LightSources* light_sources) {
+void Grassland::Draw(Camera* camera, LightSources* light_sources, double time) {
   // copy blade_transforms to vbo
   uint32_t num_blades = 0;
   bvh_->Search(camera->frustum(), [&](BVHNode* node) {
@@ -224,7 +274,7 @@ void Grassland::Draw(Camera* camera, LightSources* light_sources) {
         this->blade_data_[node].data(),
         this->blade_data_[node].data() + (uint32_t)(node->num_triangles * lod),
         this->blade_data_for_gpu_.data() + num_blades);
-    num_blades += node->num_triangles * lod;
+    num_blades += (uint32_t)(node->num_triangles * lod);
   });
 
   // draw blades with calculated transforms
@@ -247,6 +297,10 @@ void Grassland::Draw(Camera* camera, LightSources* light_sources) {
   glVertexAttribPointer(7, 3, GL_FLOAT, GL_FALSE, sizeof(InstancingData),
                         (void*)offsetof(InstancingData, position));
   glVertexAttribDivisor(7, 1);
+  glEnableVertexAttribArray(8);
+  glVertexAttribPointer(8, 2, GL_FLOAT, GL_FALSE, sizeof(InstancingData),
+                        (void*)offsetof(InstancingData, tex_coord));
+  glVertexAttribDivisor(8, 1);
 
   // set uniforms
   blade_->shader()->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
@@ -254,6 +308,12 @@ void Grassland::Draw(Camera* camera, LightSources* light_sources) {
                                           camera->projection_matrix());
   blade_->shader()->SetUniform<glm::vec3>("uCameraPosition",
                                           camera->position());
+  blade_->shader()->SetUniform<glm::vec2>("uWindFrequency", glm::vec2(0.1));
+  blade_->shader()->SetUniform<float>("uTime", (float)time);
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, distortion_texture_id_);
+  blade_->shader()->SetUniform<int32_t>("uDistortionTexture", 0);
+
   // draw blades
   glDrawElementsInstanced(GL_TRIANGLES, blade_->indices_size(), GL_UNSIGNED_INT,
                           0, num_blades);

@@ -8,7 +8,7 @@
 #include "random/perlin_noise.h"
 #include "shader.h"
 
-class PerlinNoiseTerrain {
+class PerlinNoiseTerrainGenerator {
  private:
   std::unique_ptr<PerlinNoise> perlin_noise_;
   int size_, subdiv_size_;
@@ -16,8 +16,8 @@ class PerlinNoiseTerrain {
   glm::mat4 transform_;
 
  public:
-  PerlinNoiseTerrain(int size, int subdiv_size, double ratio,
-                     glm::mat4 transform);
+  PerlinNoiseTerrainGenerator(int size, int subdiv_size, double ratio,
+                              glm::mat4 transform);
 
   double get_height(double x, double y);
 

@@ -62,6 +62,15 @@ uint32_t Shader::Link(const std::vector<uint32_t> &ids) {
 void Shader::Use() const { glUseProgram(id_); }
 
 template <>
+void Shader::SetUniform<glm::vec2>(const std::string &identifier,
+                                   const glm::vec2 &value) const {
+  auto location = glGetUniformLocation(id_, identifier.c_str());
+  if (location < 0)
+    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  glUniform2fv(location, 1, glm::value_ptr(value));
+}
+
+template <>
 void Shader::SetUniform<glm::vec3>(const std::string &identifier,
                                    const glm::vec3 &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());

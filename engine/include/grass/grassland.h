@@ -16,9 +16,10 @@
 
 class Grassland {
  public:
-  Grassland(const std::string &terrain_model_path);
+  Grassland(const std::string &terrain_model_path,
+            const std::string &distortion_texture_path);
 
-  void Draw(Camera *camera, LightSources *light_sources);
+  void Draw(Camera *camera, LightSources *light_sources, double time);
 
   ~Grassland();
 
@@ -29,6 +30,7 @@ class Grassland {
   struct InstancingData {
     glm::mat4 transform;
     glm::vec3 position;
+    glm::vec2 tex_coord;
   };
 
   uint32_t vbo_;
@@ -42,6 +44,8 @@ class Grassland {
   std::unique_ptr<BVH<VertexType>> bvh_;
   std::map<BVHNode *, std::vector<InstancingData>> blade_data_;
   std::vector<InstancingData> blade_data_for_gpu_;
+
+  uint32_t distortion_texture_id_;
 
   static uint32_t CreateAndBindSSBO(uint32_t size, void *data, uint32_t usage,
                                     uint32_t index);

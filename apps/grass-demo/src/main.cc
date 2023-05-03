@@ -144,7 +144,8 @@ void Init() {
   camera_ptr->set_alpha(-0.5 * glm::pi<float>());
   camera_ptr->set_beta(0);
   skybox_ptr = std::make_unique<Skybox>("resources/skyboxes/cloud", "png");
-  grassland_ptr = std::make_unique<Grassland>("resources/terrain/sample.obj");
+  grassland_ptr = std::make_unique<Grassland>("resources/terrain/sample.obj",
+                                              "resources/distortion.png");
 
   ImGuiInit();
 }
@@ -183,7 +184,8 @@ int main(int argc, char *argv[]) {
 
     skybox_ptr->Draw(camera_ptr.get());
 
-    grassland_ptr->Draw(camera_ptr.get(), light_sources_ptr.get());
+    grassland_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
+                        current_time);
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

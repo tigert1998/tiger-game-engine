@@ -52,7 +52,7 @@ class LightSources : public Light {
   void Set(Shader *shader) override;
   inline ~LightSources() override {}
 
-  static std::string kFsSource;
+  static std::string FsSource();
 };
 
 #endif
