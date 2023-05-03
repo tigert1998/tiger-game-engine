@@ -1,6 +1,8 @@
 #ifndef GRASS_GRASS_H_
 #define GRASS_GRASS_H_
 
+#include <glad/glad.h>
+
 #include <glm/glm.hpp>
 #include <map>
 #include <memory>
@@ -24,6 +26,10 @@ class Grassland {
   struct VertexType {
     glm::vec3 position;
   };
+  struct InstancingData {
+    glm::mat4 transform;
+    glm::vec3 position;
+  };
 
   uint32_t vbo_;
   std::vector<VertexType> vertices_for_bvh_;
@@ -34,8 +40,11 @@ class Grassland {
   std::unique_ptr<Blade> blade_;
 
   std::unique_ptr<BVH<VertexType>> bvh_;
-  std::map<BVHNode *, std::vector<glm::mat4>> blade_transforms_;
-  std::vector<glm::mat4> blade_transforms_for_gpu_;
+  std::map<BVHNode *, std::vector<InstancingData>> blade_data_;
+  std::vector<InstancingData> blade_data_for_gpu_;
+
+  static uint32_t CreateAndBindSSBO(uint32_t size, void *data, uint32_t usage,
+                                    uint32_t index);
 };
 
 #endif

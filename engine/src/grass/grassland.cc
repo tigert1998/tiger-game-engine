@@ -1,11 +1,13 @@
+#define NOMINMAX
+
 #include "grass/grassland.h"
 
 #include <assimp/cimport.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#include <glad/glad.h>
 #include <glog/logging.h>
 
+#include <algorithm>
 #include <assimp/Importer.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
@@ -31,6 +33,9 @@ layout (binding = 2) buffer bladeTransformsBuffer {
 layout (binding = 3) buffer randsBuffer {
     float rands[];
 };
+layout (binding = 4) buffer bladePositionsBuffer {
+    vec3 bladePositions[];
+};
 
 uniform uint uNumTriangles;
 
@@ -55,16 +60,12 @@ void main() {
             rands[gl_GlobalInvocationID.x * 56 + i * 7 + 5],
             rands[gl_GlobalInvocationID.x * 56 + i * 7 + 6]
         );
-        vec3 trianglePosition = mat3(vertices[a], vertices[b], vertices[c]) *
-            (coord / (coord.x + coord.y + coord.z));
+
+        bladePositions[gl_GlobalInvocationID.x * 8 + i] = 
+        mat3(vertices[a], vertices[b], vertices[c]) * (coord / (coord.x + coord.y + coord.z));
 
         bladeTransforms[gl_GlobalInvocationID.x * 8 + i] =
         mat4(
-            vec4(1.0, 0.0, 0.0, 0.0),
-            vec4(0.0, 1.0, 0.0, 0.0),
-            vec4(0.0, 0.0, 1.0, 0.0),
-            vec4(trianglePosition, 1.0)
-        ) * mat4(
             vec4(cos(theta), 0.0, -sin(theta), 0.0),
             vec4(0.0, 1.0, 0.0, 0.0),
             vec4(sin(theta), 0.0, cos(theta), 0.0),
@@ -85,6 +86,17 @@ void main() {
 )";
 
 constexpr int32_t kMaxLOD = 8;
+
+uint32_t Grassland::CreateAndBindSSBO(uint32_t size, void* data, uint32_t usage,
+                                      uint32_t index) {
+  uint32_t ssbo;
+  glGenBuffers(1, &ssbo);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+  glBufferData(GL_SHADER_STORAGE_BUFFER, size, data, usage);
+  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index, ssbo);
+  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+  return ssbo;
+}
 
 Grassland::Grassland(const std::string& terrain_model_path)
     : blade_(std::make_unique<Blade>()) {
@@ -127,38 +139,17 @@ Grassland::Grassland(const std::string& terrain_model_path)
 
   auto calc_blade_transforms_shader = std::unique_ptr<Shader>(
       new Shader({{GL_COMPUTE_SHADER, Grassland::kCsSource}}));
-  uint32_t vertices_ssbo, indices_ssbo, blade_transforms_ssbo, rands_ssbo;
-
-  glGenBuffers(1, &vertices_ssbo);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, vertices_ssbo);
-  glBufferData(GL_SHADER_STORAGE_BUFFER, vertices.size() * sizeof(glm::vec4),
-               glm::value_ptr(vertices[0]), GL_STATIC_DRAW);
-  // OpenGL sets vec3 alignment to 4N for SSBO, so we must pass glm::vec4
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, vertices_ssbo);
-  // vertices must have binding = 0
-
-  glGenBuffers(1, &indices_ssbo);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, indices_ssbo);
-  glBufferData(GL_SHADER_STORAGE_BUFFER, indices.size() * sizeof(uint32_t),
-               &indices[0], GL_STATIC_DRAW);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, indices_ssbo);
-  // indices must have binding = 1
-
-  glGenBuffers(1, &blade_transforms_ssbo);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo);
-  glBufferData(GL_SHADER_STORAGE_BUFFER,
-               num_triangles * kMaxLOD * sizeof(glm::mat4), nullptr,
-               GL_STATIC_READ);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, blade_transforms_ssbo);
-  // blade_transforms must have binding = 2
-
-  glGenBuffers(1, &rands_ssbo);
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, rands_ssbo);
-  glBufferData(GL_SHADER_STORAGE_BUFFER, rands.size() * sizeof(float),
-               rands.data(), GL_STATIC_READ);
-  glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, rands_ssbo);
-  // blade_transforms must have binding = 3
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+  uint32_t vertices_ssbo = Grassland::CreateAndBindSSBO(
+      vertices.size() * sizeof(glm::vec4), glm::value_ptr(vertices[0]),
+      GL_STATIC_DRAW, 0);
+  uint32_t indices_ssbo = Grassland::CreateAndBindSSBO(
+      indices.size() * sizeof(uint32_t), &indices[0], GL_STATIC_DRAW, 1);
+  uint32_t blade_transforms_ssbo = Grassland::CreateAndBindSSBO(
+      num_triangles * kMaxLOD * sizeof(glm::mat4), nullptr, GL_STATIC_READ, 2);
+  uint32_t rands_ssbo = Grassland::CreateAndBindSSBO(
+      rands.size() * sizeof(float), rands.data(), GL_STATIC_READ, 3);
+  uint32_t blade_positions_ssbo = Grassland::CreateAndBindSSBO(
+      num_triangles * kMaxLOD * sizeof(glm::vec4), nullptr, GL_STATIC_READ, 4);
 
   calc_blade_transforms_shader->Use();
   calc_blade_transforms_shader->SetUniform<uint32_t>("uNumTriangles",
@@ -171,21 +162,36 @@ Grassland::Grassland(const std::string& terrain_model_path)
 
   bvh_.reset(new BVH<VertexType>(vertices_for_bvh_.data(),
                                  triangles_for_bvh_.data(), num_triangles));
-
-  glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo);
-  glm::mat4* buffer =
-      (glm::mat4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
-  bvh_->Traverse([&](BVHNode* node) {
-    this->blade_transforms_[node] = {};
-    for (int lod = 0; lod < kMaxLOD; lod++) {
-      for (int i = 0; i < node->num_triangles; i++) {
-        this->blade_transforms_[node].push_back(
-            buffer[node->triangle_indices[i] * kMaxLOD + lod]);
+  {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_transforms_ssbo);
+    glm::mat4* buffer =
+        (glm::mat4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+    bvh_->Traverse([&](BVHNode* node) {
+      blade_data_[node].resize(kMaxLOD * node->num_triangles);
+      for (int lod = 0; lod < kMaxLOD; lod++) {
+        for (int i = 0; i < node->num_triangles; i++) {
+          blade_data_[node][lod * node->num_triangles + i].transform =
+              buffer[node->triangle_indices[i] * kMaxLOD + lod];
+        }
       }
-    }
-  });
-  glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
-  blade_transforms_for_gpu_.resize(num_triangles * kMaxLOD);
+    });
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+  }
+  {
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, blade_positions_ssbo);
+    glm::vec4* buffer =
+        (glm::vec4*)glMapBuffer(GL_SHADER_STORAGE_BUFFER, GL_READ_ONLY);
+    bvh_->Traverse([&](BVHNode* node) {
+      for (int lod = 0; lod < kMaxLOD; lod++) {
+        for (int i = 0; i < node->num_triangles; i++) {
+          blade_data_[node][lod * node->num_triangles + i].position =
+              buffer[node->triangle_indices[i] * kMaxLOD + lod];
+        }
+      }
+      std::random_shuffle(blade_data_[node].begin(), blade_data_[node].end());
+    });
+    glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
+  }
 
   // delete buffers
 
@@ -193,27 +199,31 @@ Grassland::Grassland(const std::string& terrain_model_path)
   glDeleteBuffers(1, &indices_ssbo);
   glDeleteBuffers(1, &blade_transforms_ssbo);
   glDeleteBuffers(1, &rands_ssbo);
+  glDeleteBuffers(1, &blade_positions_ssbo);
 
   // create vbo
 
+  blade_data_for_gpu_.resize(num_triangles * kMaxLOD);
   glGenBuffers(1, &vbo_);
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);
   glBufferData(GL_ARRAY_BUFFER,
-               blade_transforms_for_gpu_.size() * sizeof(glm::mat4), nullptr,
-               GL_STREAM_DRAW);
+               blade_data_for_gpu_.size() * sizeof(blade_data_for_gpu_[0]),
+               nullptr, GL_STREAM_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 Grassland::~Grassland() { glDeleteBuffers(1, &vbo_); }
 
 void Grassland::Draw(Camera* camera, LightSources* light_sources) {
-  // copy blade_transforms_ssbo to vbo
+  // copy blade_transforms to vbo
   uint32_t num_blades = 0;
   bvh_->Search(camera->frustum(), [&](BVHNode* node) {
-    auto lod = 1;
-    std::copy(this->blade_transforms_[node].data(),
-              this->blade_transforms_[node].data() + node->num_triangles * lod,
-              this->blade_transforms_for_gpu_.data() + num_blades);
+    float distance = glm::distance(node->aabb.center(), camera->position());
+    float lod = std::max(1.0f, -distance * 4e-2f + 4.0f);
+    std::copy(
+        this->blade_data_[node].data(),
+        this->blade_data_[node].data() + (uint32_t)(node->num_triangles * lod),
+        this->blade_data_for_gpu_.data() + num_blades);
     num_blades += node->num_triangles * lod;
   });
 
@@ -223,15 +233,21 @@ void Grassland::Draw(Camera* camera, LightSources* light_sources) {
   // bind vbo to glsl
   glBindVertexArray(blade_->vao());
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-  glBufferSubData(GL_ARRAY_BUFFER, 0, num_blades * sizeof(glm::mat4),
-                  glm::value_ptr(blade_transforms_for_gpu_[0]));
+  glBufferSubData(GL_ARRAY_BUFFER, 0, num_blades * sizeof(InstancingData),
+                  &blade_data_for_gpu_[0]);
   for (int i = 0; i < 4; i++) {
     uint32_t location = 3 + i;
     glEnableVertexAttribArray(location);
-    glVertexAttribPointer(location, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4),
+    glVertexAttribPointer(location, 4, GL_FLOAT, GL_FALSE,
+                          sizeof(InstancingData),
                           (void*)(i * sizeof(glm::vec4)));
     glVertexAttribDivisor(location, 1);
   }
+  glEnableVertexAttribArray(7);
+  glVertexAttribPointer(7, 3, GL_FLOAT, GL_FALSE, sizeof(InstancingData),
+                        (void*)offsetof(InstancingData, position));
+  glVertexAttribDivisor(7, 1);
+
   // set uniforms
   blade_->shader()->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
   blade_->shader()->SetUniform<glm::mat4>("uProjectionMatrix",

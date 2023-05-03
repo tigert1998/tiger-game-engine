@@ -116,14 +116,15 @@ void Init() {
     if (state[GLFW_KEY_ESCAPE]) {
       glfwSetWindowShouldClose(window, GL_TRUE);
     } else {
+      float distance = delta * 10;
       if (state[GLFW_KEY_W])
-        camera_ptr->Move(Camera::MoveDirectionType::kForward, delta);
+        camera_ptr->Move(Camera::MoveDirectionType::kForward, distance);
       if (state[GLFW_KEY_S])
-        camera_ptr->Move(Camera::MoveDirectionType::kBackward, delta);
+        camera_ptr->Move(Camera::MoveDirectionType::kBackward, distance);
       if (state[GLFW_KEY_A])
-        camera_ptr->Move(Camera::MoveDirectionType::kLeftward, delta);
+        camera_ptr->Move(Camera::MoveDirectionType::kLeftward, distance);
       if (state[GLFW_KEY_D])
-        camera_ptr->Move(Camera::MoveDirectionType::kRightward, delta);
+        camera_ptr->Move(Camera::MoveDirectionType::kRightward, distance);
     }
   });
 
@@ -138,10 +139,10 @@ void Init() {
       std::make_unique<Directional>(glm::vec3(0, -1, -1), glm::vec3(1, 1, 1)));
   light_sources_ptr->Add(std::make_unique<Ambient>(glm::vec3(0.4)));
 
-  camera_ptr = std::make_unique<Camera>(glm::vec3(0, 200, 0),
+  camera_ptr = std::make_unique<Camera>(glm::vec3(0, 10, 0),
                                         static_cast<double>(width) / height);
-  camera_ptr->set_alpha(0);
-  camera_ptr->set_beta(-0.95);
+  camera_ptr->set_alpha(-0.5 * glm::pi<float>());
+  camera_ptr->set_beta(0);
   skybox_ptr = std::make_unique<Skybox>("resources/skyboxes/cloud", "png");
   grassland_ptr = std::make_unique<Grassland>("resources/terrain/sample.obj");
 

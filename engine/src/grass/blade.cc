@@ -38,7 +38,8 @@ const std::string Blade::kVsSource = R"(
 layout (location = 0) in vec3 aPosition;
 layout (location = 1) in vec2 aTexCoord;
 layout (location = 2) in vec3 aNormal;
-layout (location = 3) in mat4 aModelMatrix;
+layout (location = 3) in mat4 aBladeTransform;
+layout (location = 7) in vec3 aBladePosition;
 
 out vec3 vPosition;
 out vec2 vTexCoord;
@@ -48,10 +49,16 @@ uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;
 
 void main() {
-    gl_Position = uProjectionMatrix * uViewMatrix * aModelMatrix * vec4(aPosition, 1);
-    vPosition = vec3(aModelMatrix * vec4(aPosition, 1));
+    mat4 modelMatrix = mat4(
+        vec4(1.0, 0.0, 0.0, 0.0),
+        vec4(0.0, 1.0, 0.0, 0.0),
+        vec4(0.0, 0.0, 1.0, 0.0),
+        vec4(aBladePosition, 1.0)
+    ) * aBladeTransform;
+    gl_Position = uProjectionMatrix * uViewMatrix * modelMatrix * vec4(aPosition, 1);
+    vPosition = vec3(modelMatrix * vec4(aPosition, 1));
     vTexCoord = aTexCoord;
-    vNormal = vec3(transpose(inverse(aModelMatrix)) * vec4(aNormal, 0));
+    vNormal = vec3(transpose(inverse(modelMatrix)) * vec4(aNormal, 0));
 }
 )";
 
