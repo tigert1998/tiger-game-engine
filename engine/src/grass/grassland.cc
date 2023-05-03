@@ -115,7 +115,8 @@ uint32_t Grassland::CreateAndBindSSBO(uint32_t size, void* data, uint32_t usage,
 Grassland::Grassland(const std::string& terrain_model_path,
                      const std::string& distortion_texture_path)
     : blade_(std::make_unique<Blade>()) {
-  distortion_texture_id_ = TextureManager::LoadTexture(distortion_texture_path);
+  distortion_texture_id_ =
+      TextureManager::LoadTexture(distortion_texture_path, GL_REPEAT);
 
   // load mesh and prepare data
 

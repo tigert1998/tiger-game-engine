@@ -56,7 +56,7 @@ uniform mat4 uProjectionMatrix;
 )" + GLSLCommon::Source() + R"(
 
 mat4 CalcWindRotation() {
-    vec2 uv = fract(aBladeTexCoord + uWindFrequency * uTime);
+    vec2 uv = aBladeTexCoord + uWindFrequency * uTime;
     vec2 sampled = texture(uDistortionTexture, uv).xy * 2.0f - 1.0f;
     return Rotate(
         vec3(sampled.x, 0, sampled.y),
