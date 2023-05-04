@@ -54,7 +54,7 @@ void OITRenderQuad::Deallocate() {
 
 OITRenderQuad::OITRenderQuad(uint32_t width, uint32_t height)
     : width_(width), height_(height) {
-  Allocate(width, height, 8);
+  Allocate(width, height, 16);
 
   if (kShader == nullptr) {
     kShader.reset(new Shader({{GL_VERTEX_SHADER, kVsSource},
@@ -157,7 +157,7 @@ out vec4 fragColor;
 uniform usampler2D uHeadPointers;
 uniform usamplerBuffer uList;
 
-const int MAX_FRAGMENTS = 16;
+const int MAX_FRAGMENTS = 64;
 uvec4 fragments[MAX_FRAGMENTS];
 
 int BuildLocalFragmentList() {
