@@ -268,7 +268,7 @@ void Model::InternalDraw(bool animated, Camera *camera_ptr,
     glBufferData(GL_ARRAY_BUFFER, model_matrices.size() * sizeof(glm::mat4),
                  model_matrices.data(), GL_DYNAMIC_DRAW);
     for (int i = 0; i < 4; i++) {
-      uint32_t location = 9 + i;
+      uint32_t location = 10 + i;
       glEnableVertexAttribArray(location);
       glVertexAttribPointer(location, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4),
                             (void *)(i * sizeof(glm::vec4)));
@@ -298,17 +298,18 @@ const int MAX_INSTANCES = 20;
 layout (location = 0) in vec3 aPosition;
 layout (location = 1) in vec2 aTexCoord;
 layout (location = 2) in vec3 aNormal;
-layout (location = 3) in ivec4 aBoneIDs0;
-layout (location = 4) in ivec4 aBoneIDs1;
-layout (location = 5) in ivec4 aBoneIDs2;
-layout (location = 6) in vec4 aBoneWeights0;
-layout (location = 7) in vec4 aBoneWeights1;
-layout (location = 8) in vec4 aBoneWeights2;
-layout (location = 9) in mat4 aModelMatrix;
+layout (location = 3) in vec3 aTangent;
+layout (location = 4) in ivec4 aBoneIDs0;
+layout (location = 5) in ivec4 aBoneIDs1;
+layout (location = 6) in ivec4 aBoneIDs2;
+layout (location = 7) in vec4 aBoneWeights0;
+layout (location = 8) in vec4 aBoneWeights1;
+layout (location = 9) in vec4 aBoneWeights2;
+layout (location = 10) in mat4 aModelMatrix;
 
 out vec3 vPosition;
 out vec2 vTexCoord;
-out vec3 vNormal;
+out mat3 vTBN;
 
 uniform bool uAnimated;
 uniform mat4 uViewMatrix;
@@ -344,7 +345,14 @@ void main() {
     gl_Position = uProjectionMatrix * uViewMatrix * aModelMatrix * transform * vec4(aPosition, 1);
     vPosition = vec3(aModelMatrix * transform * vec4(aPosition, 1));
     vTexCoord = aTexCoord;
-    vNormal = vec3(transpose(inverse(aModelMatrix * transform)) * vec4(aNormal, 0));
+
+    mat3 normalMatrix = transpose(inverse(mat3(aModelMatrix * transform)));
+    vec3 T = normalize(normalMatrix * aTangent);
+    vec3 N = normalize(normalMatrix * aNormal);
+    T = normalize(T - dot(T, N) * N);
+    vec3 B = cross(N, T);
+    vTBN = mat3(T, B, N);
+
     gl_ClipDistance[0] = dot(vec4(vPosition, 1), uClipPlane);
 }
 )";
@@ -358,7 +366,7 @@ uniform vec3 uCameraPosition;
 
 in vec3 vPosition;
 in vec2 vTexCoord;
-in vec3 vNormal;
+in mat3 vTBN;
 )" + LightSources::FsSource() + R"(
 uniform bool uDefaultShading;
 
@@ -369,6 +377,8 @@ struct PhongMaterial {
     sampler2D diffuseTexture;
     bool specularTextureEnabled;
     sampler2D specularTexture;
+    bool normalsTextureEnabled;
+    sampler2D normalsTexture;
     vec3 ka, kd, ks;
     float shininess;
 };
@@ -379,7 +389,7 @@ vec3 CalcDefaultShading() {
     vec3 raw = vec3(0.9608f, 0.6784f, 0.2588f);
     return calcPhongLighting(
         raw, raw, raw,
-        vNormal, uCameraPosition, vPosition,
+        vTBN[2], uCameraPosition, vPosition,
         20
     );
 }
@@ -407,9 +417,15 @@ vec4 CalcFragColor() {
         ks = texture(uPhongMaterial.specularTexture, vTexCoord).rgb;
     }
 
+    vec3 normal = vTBN[2];
+    if (uPhongMaterial.normalsTextureEnabled) {
+        normal = texture(uPhongMaterial.normalsTexture, vTexCoord).xyz;
+        normal = normalize(vTBN * (normal * 2 - 1));
+    }
+
     vec3 color = calcPhongLighting(
         ka, kd, ks,
-        vNormal, uCameraPosition, vPosition,
+        normal, uCameraPosition, vPosition,
         uPhongMaterial.shininess
     );
 

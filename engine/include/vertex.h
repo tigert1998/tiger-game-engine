@@ -26,8 +26,20 @@
     bone_ids[i] = id;                                             \
   }
 
-template <int MaxBonesPerVertex, bool HasTexCoord = true>
+template <int MaxBonesPerVertex, bool HasTexCoord = true,
+          bool HasTangent = true>
 class Vertex {
+ public:
+  glm::vec3 position;
+  glm::vec2 tex_coord;
+  glm::vec3 normal;
+  glm::vec3 tangent;
+
+  IMPLEMENT_METHODS
+};
+
+template <int MaxBonesPerVertex>
+class Vertex<MaxBonesPerVertex, true, false> {
  public:
   glm::vec3 position;
   glm::vec2 tex_coord;
@@ -37,7 +49,7 @@ class Vertex {
 };
 
 template <int MaxBonesPerVertex>
-class Vertex<MaxBonesPerVertex, false> {
+class Vertex<MaxBonesPerVertex, false, false> {
  public:
   glm::vec3 position;
   glm::vec3 normal;
@@ -46,7 +58,16 @@ class Vertex<MaxBonesPerVertex, false> {
 };
 
 template <>
-class Vertex<0, true> {
+class Vertex<0, true, true> {
+ public:
+  glm::vec3 position;
+  glm::vec2 tex_coord;
+  glm::vec3 normal;
+  glm::vec3 tangent;
+};
+
+template <>
+class Vertex<0, true, false> {
  public:
   glm::vec3 position;
   glm::vec2 tex_coord;
@@ -54,7 +75,7 @@ class Vertex<0, true> {
 };
 
 template <>
-class Vertex<0, false> {
+class Vertex<0, false, false> {
  public:
   glm::vec3 position;
   glm::vec3 normal;

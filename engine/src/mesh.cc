@@ -50,16 +50,24 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     {
       aiColor3D color;
       float value;
-      CHECK_EQ(material->Get(AI_MATKEY_COLOR_AMBIENT, color), AI_SUCCESS);
+      if (material->Get(AI_MATKEY_COLOR_AMBIENT, color) != AI_SUCCESS) {
+        color = {0, 0, 0};
+      }
       material_.ka = glm::vec3(color.r, color.g, color.b);
-      CHECK_EQ(material->Get(AI_MATKEY_COLOR_DIFFUSE, color), AI_SUCCESS);
+      if (material->Get(AI_MATKEY_COLOR_DIFFUSE, color) != AI_SUCCESS) {
+        color = {0, 0, 0};
+      }
       material_.kd = glm::vec3(color.r, color.g, color.b);
       if (material->Get(AI_MATKEY_SHININESS_STRENGTH, value) != AI_SUCCESS) {
         value = 1;
       }
-      CHECK_EQ(material->Get(AI_MATKEY_COLOR_SPECULAR, color), AI_SUCCESS);
+      if (material->Get(AI_MATKEY_COLOR_SPECULAR, color) != AI_SUCCESS) {
+        color = {0, 0, 0};
+      }
       material_.ks = glm::vec3(color.r, color.g, color.b) * value;
-      CHECK_EQ(material->Get(AI_MATKEY_SHININESS, value), AI_SUCCESS);
+      if (material->Get(AI_MATKEY_SHININESS, value) != AI_SUCCESS) {
+        value = 0;
+      }
       material_.shininess = value;
     }
 #define INTERNAL_ADD_TEXTURE(name)                                         \
@@ -70,9 +78,12 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     auto item = path + "/textures/" + basename;                            \
     textures_[#name].id = TextureManager::LoadTexture(item, GL_REPEAT);    \
   } while (0)
-#define TRY_ADD_TEXTURE(name)                                 \
-  if (material->GetTextureCount(aiTextureType_##name) >= 1) { \
-    INTERNAL_ADD_TEXTURE(name);                               \
+#define TRY_ADD_TEXTURE(name)                                            \
+  if (material->GetTextureCount(aiTextureType_##name) >= 1) {            \
+    CHECK_EQ(material->GetTextureCount(aiTextureType_##name), 1);        \
+    INTERNAL_ADD_TEXTURE(name);                                          \
+    material->Get(AI_MATKEY_TEXBLEND_##name(0), textures_[#name].blend); \
+    material->Get(AI_MATKEY_TEXOP_##name(0), textures_[#name].op);       \
   }
 #define TRY_ADD_TEXTURE_WITH_BASE_COLOR(name)                              \
   if (material->GetTextureCount(aiTextureType_##name) >= 1) {              \
@@ -87,6 +98,7 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     TRY_ADD_TEXTURE_WITH_BASE_COLOR(DIFFUSE);
     TRY_ADD_TEXTURE_WITH_BASE_COLOR(AMBIENT);
     TRY_ADD_TEXTURE_WITH_BASE_COLOR(SPECULAR);
+    TRY_ADD_TEXTURE(NORMALS);
 #undef INTERNAL_ADD_TEXTURE
 #undef TRY_ADD_TEXTURE
 #undef TRY_ADD_TEXTURE_WITH_BASE_COLOR
@@ -118,6 +130,10 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     if (mesh->HasNormals()) {
       vertex.normal =
           vec3(mesh->mNormals[i].x, mesh->mNormals[i].y, mesh->mNormals[i].z);
+    }
+    if (mesh->HasTangentsAndBitangents()) {
+      vertex.tangent = vec3(mesh->mTangents[i].x, mesh->mTangents[i].y,
+                            mesh->mTangents[i].z);
     }
     vertices.push_back(vertex);
   }
@@ -171,16 +187,19 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
   glEnableVertexAttribArray(2);
   glVertexAttribPointer(2, 3, GL_FLOAT, false, sizeof(VertexWithBones),
                         (void *)offsetof(VertexWithBones, normal));
+  glEnableVertexAttribArray(3);
+  glVertexAttribPointer(3, 3, GL_FLOAT, false, sizeof(VertexWithBones),
+                        (void *)offsetof(VertexWithBones, tangent));
 
   for (int i = 0; i < kMaxBonesPerVertex / 4; i++) {
-    int location = 3 + i;
+    int location = 4 + i;
     glEnableVertexAttribArray(location);
     glVertexAttribIPointer(
         location, 4, GL_INT, sizeof(VertexWithBones),
         (void *)(offsetof(VertexWithBones, bone_ids) + i * 4 * sizeof(int)));
   }
   for (int i = 0; i < kMaxBonesPerVertex / 4; i++) {
-    int location = 3 + kMaxBonesPerVertex / 4 + i;
+    int location = 4 + kMaxBonesPerVertex / 4 + i;
     glEnableVertexAttribArray(location);
     glVertexAttribPointer(location, 4, GL_FLOAT, false, sizeof(VertexWithBones),
                           (void *)(offsetof(VertexWithBones, bone_weights) +

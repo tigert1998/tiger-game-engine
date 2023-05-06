@@ -68,13 +68,14 @@ class Mesh {
 
 #define REGISTER(name)                        \
   {                                           \
-#name, { false, 0, -1, -1, glm::vec3(0) } \
+    #name, { false, 0, -1, -1, glm::vec3(0) } \
   }
 
   std::map<std::string, TextureRecord> textures_ = {
       REGISTER(DIFFUSE),
       REGISTER(AMBIENT),
       REGISTER(SPECULAR),
+      REGISTER(NORMALS),
   };
 
   struct PhongMaterial {

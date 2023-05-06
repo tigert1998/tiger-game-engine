@@ -69,7 +69,7 @@ void OITRenderQuad::Resize(uint32_t width, uint32_t height) {
   width_ = width;
   height_ = height;
   Deallocate();
-  Allocate(width, height, 8);
+  Allocate(width, height, 16);
 }
 
 void OITRenderQuad::ResetBeforeRender() {
