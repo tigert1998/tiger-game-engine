@@ -28,6 +28,7 @@ std::unique_ptr<Skybox> skybox_ptr;
 
 double animation_time = 0;
 int animation_id = -1;
+float scroll_ratio = 10;
 
 GLFWwindow *window;
 
@@ -41,7 +42,8 @@ void CursorPosCallback(GLFWwindow *window, double x, double y) {
 
 void ScrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
   auto position = camera_ptr->position();
-  double distance = glm::distance(position, glm::vec3(0)) + yoffset * 0.2;
+  double distance =
+      glm::distance(position, glm::vec3(0)) + yoffset * scroll_ratio;
   distance = std::max(distance, 0.1);
   position = glm::normalize(position) * (float)distance;
   camera_ptr->set_position(position);
@@ -111,6 +113,7 @@ void ImGuiWindow() {
   ImGui::ListBox("default shading", &default_shading_choice,
                  default_shading_choices,
                  IM_ARRAYSIZE(default_shading_choices));
+  ImGui::InputFloat("scroll ratio", &scroll_ratio);
   ImGui::End();
 
   camera_ptr->set_position(vec3(p_arr[0], p_arr[1], p_arr[2]));
@@ -173,9 +176,9 @@ void Init() {
       make_unique<Directional>(vec3(0, -1, -1), vec3(1, 1, 1)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.4)));
 
-  model_ptr = make_unique<Model>("resources/dragon/source/dragon.fbx",
+  model_ptr = make_unique<Model>("resources/sponza/sponza.obj",
                                  oit_render_quad_ptr.get());
-  camera_ptr = make_unique<Camera>(vec3(0.5, 0.25, 1),
+  camera_ptr = make_unique<Camera>(vec3(850, 300, 0),
                                    static_cast<double>(width) / height);
   camera_ptr->set_front(-camera_ptr->position());
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", "png");

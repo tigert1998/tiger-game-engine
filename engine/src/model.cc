@@ -28,8 +28,7 @@ constexpr int MAX_BONES = 170;  // please change the shader's MAX_BONES as well
 std::map<bool, std::shared_ptr<Shader>> Model::kShader = {};
 
 Model::Model(const std::string &path, OITRenderQuad *oit_render_quad)
-    : directory_path_(ParentPath(ParentPath(path))),
-      oit_render_quad_(oit_render_quad) {
+    : directory_path_(ParentPath(path)), oit_render_quad_(oit_render_quad) {
   LOG(INFO) << "loading model at: \"" << path << "\"";
   scene_ = aiImportFile(path.c_str(), aiProcess_GlobalScale |
                                           aiProcess_CalcTangentSpace |

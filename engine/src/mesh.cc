@@ -45,7 +45,6 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
 
   auto path = directory_path;
   {
-    aiString material_texture_path;
     auto material = scene->mMaterials[mesh->mMaterialIndex];
     {
       aiColor3D color;
@@ -70,12 +69,12 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
       }
       material_.shininess = value;
     }
+    aiString material_texture_path;
 #define INTERNAL_ADD_TEXTURE(name)                                         \
   do {                                                                     \
     textures_[#name].enabled = true;                                       \
     material->GetTexture(aiTextureType_##name, 0, &material_texture_path); \
-    auto basename = BaseName(material_texture_path.C_Str());               \
-    auto item = path + "/textures/" + basename;                            \
+    auto item = path + "/" + std::string(material_texture_path.C_Str());   \
     textures_[#name].id = TextureManager::LoadTexture(item, GL_REPEAT);    \
   } while (0)
 #define TRY_ADD_TEXTURE(name)                                            \
