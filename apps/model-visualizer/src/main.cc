@@ -218,8 +218,9 @@ int main(int argc, char *argv[]) {
       model_ptr->Draw(0, animation_time, camera_ptr.get(),
                       light_sources_ptr.get(), mat4(1), vec4(0));
     }
-    oit_render_quad_ptr->Draw();
     glDepthMask(GL_TRUE);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    oit_render_quad_ptr->Draw();
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

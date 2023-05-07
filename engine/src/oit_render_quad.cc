@@ -195,7 +195,7 @@ uniform usamplerBuffer uList;
 uniform sampler2D uBackground;
 uniform vec2 uScreenSize;
 
-const int MAX_FRAGMENTS = 64;
+const int MAX_FRAGMENTS = 128;
 uvec4 fragments[MAX_FRAGMENTS];
 
 int BuildLocalFragmentList() {
