@@ -63,6 +63,13 @@ void OITRenderQuad::Allocate(uint32_t width, uint32_t height,
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void OITRenderQuad::CopyDepthToDefaultFrameBuffer() {
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBlitFramebuffer(0, 0, width_, height_, 0, 0, width_, height_,
+                    GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+}
+
 void OITRenderQuad::Deallocate() {
   glDeleteTextures(1, &head_pointer_texture_);
   glDeleteBuffers(1, &head_pointer_initializer_);

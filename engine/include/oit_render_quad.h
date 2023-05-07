@@ -34,6 +34,7 @@ class OITRenderQuad {
 
   inline void BindFrameBuffer() { glBindFramebuffer(GL_FRAMEBUFFER, fbo_); }
   inline void UnBindFrameBuffer() { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
+  void CopyDepthToDefaultFrameBuffer();
 
   void ResetBeforeRender();
   void Set(Shader* shader);

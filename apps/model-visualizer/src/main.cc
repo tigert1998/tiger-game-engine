@@ -209,6 +209,8 @@ int main(int argc, char *argv[]) {
 
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    oit_render_quad_ptr->CopyDepthToDefaultFrameBuffer();
+    glDepthMask(GL_FALSE);
     oit_render_quad_ptr->ResetBeforeRender();
     if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
       model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(), mat4(1));
@@ -217,6 +219,7 @@ int main(int argc, char *argv[]) {
                       light_sources_ptr.get(), mat4(1), vec4(0));
     }
     oit_render_quad_ptr->Draw();
+    glDepthMask(GL_TRUE);
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();
