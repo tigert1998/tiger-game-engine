@@ -193,11 +193,24 @@ int main(int argc, char *argv[]) {
   Init();
 
   while (!glfwWindowShouldClose(window)) {
+    static uint32_t fps = 0;
+    static double last_time_for_fps = glfwGetTime();
     static double last_time = glfwGetTime();
     double current_time = glfwGetTime();
     double delta_time = current_time - last_time;
     last_time = current_time;
     animation_time += delta_time;
+
+    {
+      fps += 1;
+      if (current_time - last_time_for_fps >= 1.0) {
+        char buf[1 << 10];
+        sprintf(buf, "Model Visualizer | FPS: %d\n", fps);
+        glfwSetWindowTitle(window, buf);
+        fps = 0;
+        last_time_for_fps = current_time;
+      }
+    }
 
     glfwPollEvents();
 
