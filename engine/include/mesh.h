@@ -72,8 +72,10 @@ class Mesh {
   }
 
   std::map<std::string, TextureRecord> textures_ = {
-      REGISTER(DIFFUSE), REGISTER(AMBIENT),   REGISTER(SPECULAR),
-      REGISTER(NORMALS), REGISTER(METALNESS), REGISTER(DIFFUSE_ROUGHNESS),
+      REGISTER(DIFFUSE),           REGISTER(AMBIENT),
+      REGISTER(SPECULAR),          REGISTER(NORMALS),
+      REGISTER(METALNESS),         REGISTER(DIFFUSE_ROUGHNESS),
+      REGISTER(AMBIENT_OCCLUSION),
   };
 
   struct PhongMaterial {

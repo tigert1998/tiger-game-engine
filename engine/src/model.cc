@@ -382,6 +382,8 @@ struct Material {
     sampler2D metalnessTexture;
     bool diffuseRoughnessTextureEnabled;
     sampler2D diffuseRoughnessTexture;
+    bool ambientOcclusionTextureEnabled;
+    sampler2D ambientOcclusionTexture;
     vec3 ka, kd, ks;
     float shininess;
     bool bindMetalnessAndDiffuseRoughness;
@@ -439,6 +441,7 @@ vec4 CalcFragColorWithPBR() {
     vec3 albedo = vec3(0.0f);
     float metallic = 0.0f;
     float roughness = 0.0f;
+    float ao = 1.0f;
 
     if (uMaterial.diffuseTextureEnabled) {
         vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
@@ -460,6 +463,10 @@ vec4 CalcFragColorWithPBR() {
         }
     }
 
+    if (uMaterial.ambientOcclusionTextureEnabled) {
+        ao = texture(uMaterial.ambientOcclusionTexture, vTexCoord).r;
+    }
+
     vec3 normal = vTBN[2];
     if (uMaterial.normalsTextureEnabled) {
         normal = texture(uMaterial.normalsTexture, vTexCoord).xyz;
@@ -467,7 +474,7 @@ vec4 CalcFragColorWithPBR() {
     }
 
     vec3 color = CalcPBRLighting(
-        albedo, metallic, roughness, 1,
+        albedo, metallic, roughness, ao,
         normal, uCameraPosition, vPosition
     );
 
