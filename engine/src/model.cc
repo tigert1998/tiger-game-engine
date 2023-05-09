@@ -384,6 +384,7 @@ struct Material {
     sampler2D diffuseRoughnessTexture;
     vec3 ka, kd, ks;
     float shininess;
+    bool bindMetalnessAndDiffuseRoughness;
 };
 
 uniform Material uMaterial;
@@ -445,11 +446,18 @@ vec4 CalcFragColorWithPBR() {
         alpha = sampled.a;
     }
 
-    if (uMaterial.metalnessTextureEnabled) {
-        metallic = texture(uMaterial.metalnessTexture, vTexCoord).r;
-    }
-    if (uMaterial.diffuseRoughnessTextureEnabled) {
-        roughness = texture(uMaterial.diffuseRoughnessTexture, vTexCoord).r;
+    if (uMaterial.bindMetalnessAndDiffuseRoughness) {
+        vec2 sampled = texture(uMaterial.metalnessTexture, vTexCoord).gb;
+        // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
+        metallic = sampled.y; // blue
+        roughness = sampled.x; // green
+    } else {
+        if (uMaterial.metalnessTextureEnabled) {
+            metallic = texture(uMaterial.metalnessTexture, vTexCoord).r;
+        }
+        if (uMaterial.diffuseRoughnessTextureEnabled) {
+            roughness = texture(uMaterial.diffuseRoughnessTexture, vTexCoord).r;
+        }
     }
 
     vec3 normal = vTBN[2];

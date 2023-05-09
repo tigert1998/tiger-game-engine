@@ -254,6 +254,10 @@ void Mesh::Draw(Shader *shader_ptr, int num_instances) const {
   shader_ptr->SetUniform<glm::vec3>("uMaterial.kd", material_.kd);
   shader_ptr->SetUniform<glm::vec3>("uMaterial.ks", material_.ks);
   shader_ptr->SetUniform<float>("uMaterial.shininess", material_.shininess);
+  shader_ptr->SetUniform<int32_t>(
+      "uMaterial.bindMetalnessAndDiffuseRoughness",
+      textures_.at("METALNESS").id == textures_.at("DIFFUSE_ROUGHNESS").id &&
+          textures_.at("METALNESS").enabled);
 
   CHECK(transforms_.size() == 1);
   shader_ptr->SetUniform<glm::mat4>("uTransform", transforms_[0]);
