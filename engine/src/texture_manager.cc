@@ -48,7 +48,12 @@ uint32_t TextureManager::LoadTexture(const std::string& path, uint32_t wrap) {
                      border_color.data());
   }
 
-  if (comp == 3) {
+  if (comp == 1) {
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, w, h, 0, GL_RED, GL_UNSIGNED_BYTE,
+                 image);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+  } else if (comp == 3) {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE,
                  image);

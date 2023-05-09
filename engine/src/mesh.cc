@@ -46,6 +46,10 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
   auto path = directory_path;
   {
     auto material = scene->mMaterials[mesh->mMaterialIndex];
+    aiShadingMode shading_mode;
+    if (material->Get(AI_MATKEY_SHADING_MODEL, shading_mode) == AI_SUCCESS) {
+      LOG(INFO) << "\"" << name_ << "\" shading mode: " << shading_mode;
+    }
     {
       aiColor3D color;
       float value;
@@ -77,12 +81,10 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     auto item = path + "/" + std::string(material_texture_path.C_Str());   \
     textures_[#name].id = TextureManager::LoadTexture(item, GL_REPEAT);    \
   } while (0)
-#define TRY_ADD_TEXTURE(name)                                            \
-  if (material->GetTextureCount(aiTextureType_##name) >= 1) {            \
-    CHECK_EQ(material->GetTextureCount(aiTextureType_##name), 1);        \
-    INTERNAL_ADD_TEXTURE(name);                                          \
-    material->Get(AI_MATKEY_TEXBLEND_##name(0), textures_[#name].blend); \
-    material->Get(AI_MATKEY_TEXOP_##name(0), textures_[#name].op);       \
+#define TRY_ADD_TEXTURE(name)                                     \
+  if (material->GetTextureCount(aiTextureType_##name) >= 1) {     \
+    CHECK_EQ(material->GetTextureCount(aiTextureType_##name), 1); \
+    INTERNAL_ADD_TEXTURE(name);                                   \
   }
 #define TRY_ADD_TEXTURE_WITH_BASE_COLOR(name)                              \
   if (material->GetTextureCount(aiTextureType_##name) >= 1) {              \
@@ -98,6 +100,8 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     TRY_ADD_TEXTURE_WITH_BASE_COLOR(AMBIENT);
     TRY_ADD_TEXTURE_WITH_BASE_COLOR(SPECULAR);
     TRY_ADD_TEXTURE(NORMALS);
+    TRY_ADD_TEXTURE(METALNESS);
+    TRY_ADD_TEXTURE(DIFFUSE_ROUGHNESS);
 #undef INTERNAL_ADD_TEXTURE
 #undef TRY_ADD_TEXTURE
 #undef TRY_ADD_TEXTURE_WITH_BASE_COLOR
@@ -236,21 +240,20 @@ void Mesh::Draw(Shader *shader_ptr, int num_instances) const {
     std::string name = SnakeToPascal(kv.first);
     name[0] = tolower(name[0]);  // e.g. "Ambient" -> "ambient"
     shader_ptr->SetUniform<int32_t>(
-        std::string("uPhongMaterial.") + name + "TextureEnabled", enabled);
+        std::string("uMaterial.") + name + "TextureEnabled", enabled);
     if (enabled) {
       glActiveTexture(GL_TEXTURE0 + tot);
       glBindTexture(GL_TEXTURE_2D, kv.second.id);
       shader_ptr->SetUniform<int32_t>(
-          std::string("uPhongMaterial.") + name + "Texture", tot);
+          std::string("uMaterial.") + name + "Texture", tot);
       tot++;
     }
   }
 
-  shader_ptr->SetUniform<glm::vec3>("uPhongMaterial.ka", material_.ka);
-  shader_ptr->SetUniform<glm::vec3>("uPhongMaterial.kd", material_.kd);
-  shader_ptr->SetUniform<glm::vec3>("uPhongMaterial.ks", material_.ks);
-  shader_ptr->SetUniform<float>("uPhongMaterial.shininess",
-                                material_.shininess);
+  shader_ptr->SetUniform<glm::vec3>("uMaterial.ka", material_.ka);
+  shader_ptr->SetUniform<glm::vec3>("uMaterial.kd", material_.kd);
+  shader_ptr->SetUniform<glm::vec3>("uMaterial.ks", material_.ks);
+  shader_ptr->SetUniform<float>("uMaterial.shininess", material_.shininess);
 
   CHECK(transforms_.size() == 1);
   shader_ptr->SetUniform<glm::mat4>("uTransform", transforms_[0]);

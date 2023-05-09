@@ -193,19 +193,37 @@ int main(int argc, char *argv[]) {
   Init();
 
   while (!glfwWindowShouldClose(window)) {
+    static uint32_t fps = 0;
+    static double last_time_for_fps = glfwGetTime();
     static double last_time = glfwGetTime();
     double current_time = glfwGetTime();
     double delta_time = current_time - last_time;
     last_time = current_time;
     animation_time += delta_time;
 
+    {
+      fps += 1;
+      if (current_time - last_time_for_fps >= 1.0) {
+        char buf[1 << 10];
+        sprintf(buf, "Model Visualizer | FPS: %d\n", fps);
+        glfwSetWindowTitle(window, buf);
+        fps = 0;
+        last_time_for_fps = current_time;
+      }
+    }
+
     glfwPollEvents();
+
+    oit_render_quad_ptr->BindFrameBuffer();
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    skybox_ptr->Draw(camera_ptr.get());
+    oit_render_quad_ptr->UnBindFrameBuffer();
 
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    skybox_ptr->Draw(camera_ptr.get());
-
+    oit_render_quad_ptr->CopyDepthToDefaultFrameBuffer();
+    glDepthMask(GL_FALSE);
     oit_render_quad_ptr->ResetBeforeRender();
     if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
       model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(), mat4(1));
@@ -213,6 +231,8 @@ int main(int argc, char *argv[]) {
       model_ptr->Draw(0, animation_time, camera_ptr.get(),
                       light_sources_ptr.get(), mat4(1), vec4(0));
     }
+    glDepthMask(GL_TRUE);
+    glClear(GL_DEPTH_BUFFER_BIT);
     oit_render_quad_ptr->Draw();
 
     ImGui_ImplGlfw_NewFrame();

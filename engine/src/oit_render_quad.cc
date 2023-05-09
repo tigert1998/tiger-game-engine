@@ -1,7 +1,5 @@
 #include "oit_render_quad.h"
 
-#include <glad/glad.h>
-
 #include <cstring>
 #include <glm/glm.hpp>
 #include <iostream>
@@ -42,6 +40,34 @@ void OITRenderQuad::Allocate(uint32_t width, uint32_t height,
       nullptr, GL_DYNAMIC_COPY);
 
   glGenTextures(1, &fragment_storage_texture_);
+
+  // generate framebuffer
+  glGenFramebuffers(1, &fbo_);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+  glGenTextures(1, &color_texture_);
+  glBindTexture(GL_TEXTURE_2D, color_texture_);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+               GL_UNSIGNED_BYTE, nullptr);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         color_texture_, 0);
+  glGenRenderbuffers(1, &depth_buffer_);
+  glBindRenderbuffer(GL_RENDERBUFFER, depth_buffer_);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+  glBindRenderbuffer(GL_RENDERBUFFER, 0);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                            GL_RENDERBUFFER, depth_buffer_);
+  CHECK_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void OITRenderQuad::CopyDepthToDefaultFrameBuffer() {
+  glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_);
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+  glBlitFramebuffer(0, 0, width_, height_, 0, 0, width_, height_,
+                    GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 }
 
 void OITRenderQuad::Deallocate() {
@@ -50,6 +76,10 @@ void OITRenderQuad::Deallocate() {
   glDeleteBuffers(1, &atomic_counter_buffer_);
   glDeleteBuffers(1, &fragment_storage_buffer_);
   glDeleteTextures(1, &fragment_storage_texture_);
+
+  glDeleteFramebuffers(1, &fbo_);
+  glDeleteTextures(1, &color_texture_);
+  glDeleteRenderbuffers(1, &depth_buffer_);
 }
 
 OITRenderQuad::OITRenderQuad(uint32_t width, uint32_t height)
@@ -113,6 +143,12 @@ void OITRenderQuad::Draw() {
   glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32UI, fragment_storage_buffer_);
   shader_->SetUniform<int32_t>("uList", 1);
 
+  glActiveTexture(GL_TEXTURE2);
+  glBindTexture(GL_TEXTURE_2D, color_texture_);
+  shader_->SetUniform<int32_t>("uBackground", 2);
+
+  shader_->SetUniform<glm::vec2>("uScreenSize", glm::vec2(width_, height_));
+
   glDrawArrays(GL_POINTS, 0, 1);
   glBindVertexArray(0);
 }
@@ -156,8 +192,10 @@ out vec4 fragColor;
 
 uniform usampler2D uHeadPointers;
 uniform usamplerBuffer uList;
+uniform sampler2D uBackground;
+uniform vec2 uScreenSize;
 
-const int MAX_FRAGMENTS = 64;
+const int MAX_FRAGMENTS = 128;
 uvec4 fragments[MAX_FRAGMENTS];
 
 int BuildLocalFragmentList() {
@@ -187,7 +225,7 @@ void SortFragmentList(int count) {
 }
 
 vec4 CalcFragColor(int count) {
-    vec4 fragColor = vec4(0.0);
+    vec4 fragColor = texture(uBackground, gl_FragCoord.xy / uScreenSize);
     for (int i = 0; i < count; i++) {
         vec4 color = unpackUnorm4x8(fragments[i].y);
         fragColor = mix(fragColor, color, color.a);

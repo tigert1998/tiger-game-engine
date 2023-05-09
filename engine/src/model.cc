@@ -369,7 +369,7 @@ in mat3 vTBN;
 )" + LightSources::FsSource() + R"(
 uniform bool uDefaultShading;
 
-struct PhongMaterial {
+struct Material {
     bool ambientTextureEnabled;
     sampler2D ambientTexture;
     bool diffuseTextureEnabled;
@@ -378,57 +378,103 @@ struct PhongMaterial {
     sampler2D specularTexture;
     bool normalsTextureEnabled;
     sampler2D normalsTexture;
+    bool metalnessTextureEnabled;
+    sampler2D metalnessTexture;
+    bool diffuseRoughnessTextureEnabled;
+    sampler2D diffuseRoughnessTexture;
     vec3 ka, kd, ks;
     float shininess;
 };
 
-uniform PhongMaterial uPhongMaterial;
+uniform Material uMaterial;
 
 vec3 CalcDefaultShading() {
     vec3 raw = vec3(0.9608f, 0.6784f, 0.2588f);
-    return calcPhongLighting(
+    return CalcPhongLighting(
         raw, raw, raw,
         vTBN[2], uCameraPosition, vPosition,
         20
     );
 }
 
-vec4 CalcFragColor() {
-    if (uDefaultShading) {
-        return vec4(CalcDefaultShading(), 1);
-    }
+vec4 CalcFragColorWithPhong() {
     float alpha = 1.0f;
 
-    vec3 ka = vec3(uPhongMaterial.ka);
-    vec3 kd = vec3(uPhongMaterial.kd);
-    vec3 ks = vec3(uPhongMaterial.ks);
+    vec3 ka = vec3(uMaterial.ka);
+    vec3 kd = vec3(uMaterial.kd);
+    vec3 ks = vec3(uMaterial.ks);
 
-    if (uPhongMaterial.diffuseTextureEnabled) {
-        vec4 sampled = texture(uPhongMaterial.diffuseTexture, vTexCoord);
+    if (uMaterial.diffuseTextureEnabled) {
+        vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
         kd = sampled.rgb;
         alpha = sampled.a;
     }
 
-    if (uPhongMaterial.ambientTextureEnabled) {
-        ka = texture(uPhongMaterial.ambientTexture, vTexCoord).rgb;
+    if (uMaterial.ambientTextureEnabled) {
+        ka = texture(uMaterial.ambientTexture, vTexCoord).rgb;
     }
-    if (uPhongMaterial.specularTextureEnabled) {
-        ks = texture(uPhongMaterial.specularTexture, vTexCoord).rgb;
+    if (uMaterial.specularTextureEnabled) {
+        ks = texture(uMaterial.specularTexture, vTexCoord).rgb;
     }
 
     vec3 normal = vTBN[2];
-    if (uPhongMaterial.normalsTextureEnabled) {
-        normal = texture(uPhongMaterial.normalsTexture, vTexCoord).xyz;
+    if (uMaterial.normalsTextureEnabled) {
+        normal = texture(uMaterial.normalsTexture, vTexCoord).xyz;
         normal = normalize(vTBN * (normal * 2 - 1));
     }
 
-    vec3 color = calcPhongLighting(
+    vec3 color = CalcPhongLighting(
         ka, kd, ks,
         normal, uCameraPosition, vPosition,
-        uPhongMaterial.shininess
+        uMaterial.shininess
     );
 
     return vec4(color, alpha);
+}
+
+vec4 CalcFragColorWithPBR() {
+    float alpha = 1.0f;
+
+    vec3 albedo = vec3(0.0f);
+    float metallic = 0.0f;
+    float roughness = 0.0f;
+
+    if (uMaterial.diffuseTextureEnabled) {
+        vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
+        albedo = sampled.rgb;
+        alpha = sampled.a;
+    }
+
+    if (uMaterial.metalnessTextureEnabled) {
+        metallic = texture(uMaterial.metalnessTexture, vTexCoord).r;
+    }
+    if (uMaterial.diffuseRoughnessTextureEnabled) {
+        roughness = texture(uMaterial.diffuseRoughnessTexture, vTexCoord).r;
+    }
+
+    vec3 normal = vTBN[2];
+    if (uMaterial.normalsTextureEnabled) {
+        normal = texture(uMaterial.normalsTexture, vTexCoord).xyz;
+        normal = normalize(vTBN * (normal * 2 - 1));
+    }
+
+    vec3 color = CalcPBRLighting(
+        albedo, metallic, roughness, 1,
+        normal, uCameraPosition, vPosition
+    );
+
+    return vec4(color, alpha);
+}
+
+vec4 CalcFragColor() {
+    if (uDefaultShading) {
+        return vec4(CalcDefaultShading(), 1);
+    }
+    if (uMaterial.metalnessTextureEnabled) {
+        return CalcFragColorWithPBR();
+    } else {
+        return CalcFragColorWithPhong();
+    }
 }
 )";
 
@@ -441,6 +487,8 @@ void main() {
 )";
 
 const std::string Model::kFsOITMainSource = R"(
+layout (early_fragment_tests) in;
+
 layout (r32ui) uniform uimage2D uHeadPointers;
 layout (binding = 0) uniform atomic_uint uListSize;
 layout (rgba32ui) uniform uimageBuffer uList;
