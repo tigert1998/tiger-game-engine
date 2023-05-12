@@ -11,6 +11,7 @@ class Mouse {
   std::bitset<kTotal> key_pressed_;
   std::vector<std::function<void(std::bitset<kTotal>, double, double, double)>>
       callbacks_;
+  std::vector<std::function<void(int, int)>> trigger_callbacks_;
   double x_ = 0, y_ = 0;
 
  public:
@@ -22,6 +23,7 @@ class Mouse {
   void Move(double, double);
   void Register(
       std::function<void(MouseState, double, double, double)> callback);
+  void Register(std::function<void(int, int)> callback);
 };
 
 #endif

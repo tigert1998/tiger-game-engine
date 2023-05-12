@@ -11,44 +11,19 @@
 #include <iostream>
 #include <memory>
 
+#include "controller/sightseeing_controller.h"
 #include "grass/grassland.h"
-#include "keyboard.h"
-#include "mouse.h"
 #include "skybox.h"
 
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<Grassland> grassland_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
+std::unique_ptr<SightseeingController> controller;
 
 GLFWwindow *window;
 
-uint32_t width = 1920, height = 1080;
-
-void MouseButtonCallback(GLFWwindow *window, int button, int action, int) {
-  Mouse::shared.Trigger(button, action);
-}
-
-void CursorPosCallback(GLFWwindow *window, double x, double y) {
-  Mouse::shared.Move(x, y);
-}
-
-void ScrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
-  camera_ptr->Move(Camera::MoveDirectionType::kUpward, yoffset * 0.2);
-}
-
-void KeyCallback(GLFWwindow *window, int key, int, int action, int) {
-  Keyboard::shared.Trigger(key, action);
-}
-
-void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
-  ::width = width;
-  ::height = height;
-  camera_ptr->set_width_height_ratio(static_cast<double>(width) / height);
-  glViewport(0, 0, width, height);
-}
-
-void ImGuiInit() {
+void ImGuiInit(uint32_t width, uint32_t height) {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
@@ -82,7 +57,7 @@ void ImGuiWindow() {
   camera_ptr->set_beta(beta);
 }
 
-void Init() {
+void Init(uint32_t width, uint32_t height) {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -92,43 +67,6 @@ void Init() {
   window = glfwCreateWindow(width, height, "Grass Demo", nullptr, nullptr);
   glfwMakeContextCurrent(window);
   gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
-
-  glfwSetKeyCallback(window, KeyCallback);
-  glfwSetMouseButtonCallback(window, MouseButtonCallback);
-  glfwSetCursorPosCallback(window, CursorPosCallback);
-  glfwSetScrollCallback(window, ScrollCallback);
-
-  Mouse::shared.Register(
-      [](Mouse::MouseState state, double delta, double x, double y) {
-        static double lastx = 0, lasty = 0;
-        if (state[GLFW_MOUSE_BUTTON_LEFT]) {
-          double normalized_x = (x - lastx) / width;
-          double normalized_y = (y - lasty) / height;
-
-          camera_ptr->set_alpha(camera_ptr->alpha() - normalized_x * 2);
-          camera_ptr->set_beta(camera_ptr->beta() + normalized_y);
-        }
-        lastx = x;
-        lasty = y;
-      });
-
-  Keyboard::shared.Register([](Keyboard::KeyboardState state, double delta) {
-    if (state[GLFW_KEY_ESCAPE]) {
-      glfwSetWindowShouldClose(window, GL_TRUE);
-    } else {
-      float distance = delta * 10;
-      if (state[GLFW_KEY_W])
-        camera_ptr->Move(Camera::MoveDirectionType::kForward, distance);
-      if (state[GLFW_KEY_S])
-        camera_ptr->Move(Camera::MoveDirectionType::kBackward, distance);
-      if (state[GLFW_KEY_A])
-        camera_ptr->Move(Camera::MoveDirectionType::kLeftward, distance);
-      if (state[GLFW_KEY_D])
-        camera_ptr->Move(Camera::MoveDirectionType::kRightward, distance);
-    }
-  });
-
-  glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
 
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);
@@ -147,14 +85,17 @@ void Init() {
   grassland_ptr = std::make_unique<Grassland>("resources/terrain/sample.obj",
                                               "resources/distortion.png");
 
-  ImGuiInit();
+  controller.reset(
+      new SightseeingController(camera_ptr.get(), width, height, window));
+
+  ImGuiInit(width, height);
 }
 
 int main(int argc, char *argv[]) {
   ::google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = 1;
 
-  Init();
+  Init(1920, 1080);
 
   while (!glfwWindowShouldClose(window)) {
     static uint32_t fps = 0;
