@@ -1,6 +1,7 @@
 #ifndef SHADER_H_
 #define SHADER_H_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -22,5 +23,7 @@ class Shader {
 
   uint32_t id_;
 };
+
+std::unique_ptr<Shader> ScreenSpaceShader(const std::string &fs);
 
 #endif

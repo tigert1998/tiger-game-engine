@@ -15,7 +15,7 @@ NoiseTextureGenerator::NoiseTextureGenerator(
     std::unique_ptr<Shader> shader(new Shader(
         {{GL_COMPUTE_SHADER, ReadFile("shaders/clouds/perlinworley.comp")}}));
     perlin_worley_texture_id_ = TextureManager::AllocateTexture3D(
-        128, 128, 128, GL_RGBA8, GL_RGBA, GL_FLOAT);
+        128, 128, 128, GL_RGBA8, GL_RGBA, GL_FLOAT, true);
 
     shader->Use();
     glBindImageTexture(0, perlin_worley_texture_id_, 0, GL_FALSE, 0,
@@ -26,8 +26,8 @@ NoiseTextureGenerator::NoiseTextureGenerator(
   {
     std::unique_ptr<Shader> shader(new Shader(
         {{GL_COMPUTE_SHADER, ReadFile("shaders/clouds/worley.comp")}}));
-    worley_texture_id_ = TextureManager::AllocateTexture3D(32, 32, 32, GL_RGBA8,
-                                                           GL_RGBA, GL_FLOAT);
+    worley_texture_id_ = TextureManager::AllocateTexture3D(
+        32, 32, 32, GL_RGBA8, GL_RGBA, GL_FLOAT, true);
 
     shader->Use();
     glBindImageTexture(0, worley_texture_id_, 0, GL_FALSE, 0, GL_WRITE_ONLY,
@@ -38,8 +38,8 @@ NoiseTextureGenerator::NoiseTextureGenerator(
   {
     std::unique_ptr<Shader> shader(new Shader(
         {{GL_COMPUTE_SHADER, ReadFile("shaders/clouds/weather.comp")}}));
-    weather_texture_id_ = TextureManager::AllocateTexture(1024, 1024, GL_RGBA8,
-                                                          GL_RGBA, GL_FLOAT);
+    weather_texture_id_ = TextureManager::AllocateTexture(
+        1024, 1024, GL_RGBA8, GL_RGBA, GL_FLOAT, true);
 
     shader->Use();
     shader->SetUniform<float>("perlinFrecuency",

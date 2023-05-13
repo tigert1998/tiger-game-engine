@@ -22,3 +22,5 @@ target_link_libraries(pbr-demo-generate-sphere engine)
 
 add_executable(clouds-demo-visualize-texture "apps/clouds-demo/src/visualize_texture.cc")
 target_link_libraries(clouds-demo-visualize-texture engine)
+add_executable(clouds-demo "apps/clouds-demo/src/main.cc")
+target_link_libraries(clouds-demo engine)

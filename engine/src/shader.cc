@@ -10,6 +10,40 @@
 
 #include "cg_exception.h"
 
+std::unique_ptr<Shader> ScreenSpaceShader(const std::string &fs) {
+  static const std::string kVsSource = R"(
+#version 410 core
+void main() {}
+)";
+
+  static const std::string kGsSource = R"(
+#version 410 core
+
+layout (points) in;
+layout (triangle_strip, max_vertices = 4) out;
+
+void main() {
+    gl_Position = vec4(1.0, 1.0, 0.5, 1.0);
+    EmitVertex();
+
+    gl_Position = vec4(-1.0, 1.0, 0.5, 1.0);
+    EmitVertex();
+
+    gl_Position = vec4(1.0, -1.0, 0.5, 1.0);
+    EmitVertex();
+
+    gl_Position = vec4(-1.0, -1.0, 0.5, 1.0);
+    EmitVertex();
+
+    EndPrimitive(); 
+}
+)";
+
+  return std::unique_ptr<Shader>(new Shader({{GL_VERTEX_SHADER, kVsSource},
+                                             {GL_GEOMETRY_SHADER, kGsSource},
+                                             {GL_FRAGMENT_SHADER, fs}}));
+}
+
 Shader::Shader(const std::string &vs, const std::string &fs)
     : Shader(std::vector<std::pair<uint32_t, std::string>>{
           {GL_VERTEX_SHADER, vs}, {GL_FRAGMENT_SHADER, fs}}) {}

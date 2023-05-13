@@ -17,8 +17,6 @@
 
 struct TextureVisualizer {
  private:
-  static const std::string kVsSource;
-  static const std::string kGsSource;
   static const std::string kFsSource;
 
   uint32_t vao_;
@@ -26,11 +24,7 @@ struct TextureVisualizer {
 
  public:
   TextureVisualizer() {
-    shader_.reset(new Shader({
-        {GL_VERTEX_SHADER, TextureVisualizer::kVsSource},
-        {GL_GEOMETRY_SHADER, TextureVisualizer::kGsSource},
-        {GL_FRAGMENT_SHADER, TextureVisualizer::kFsSource},
-    }));
+    shader_ = ScreenSpaceShader(kFsSource);
     glGenVertexArrays(1, &vao_);
   }
 
@@ -58,34 +52,6 @@ struct TextureVisualizer {
     glBindTexture(target, 0);
   }
 };
-
-const std::string TextureVisualizer::kVsSource = R"(
-#version 410 core
-void main() {}
-)";
-
-const std::string TextureVisualizer::kGsSource = R"(
-#version 410 core
-
-layout (points) in;
-layout (triangle_strip, max_vertices = 4) out;
-
-void main() {
-    gl_Position = vec4(1.0, 1.0, 0.5, 1.0);
-    EmitVertex();
-
-    gl_Position = vec4(-1.0, 1.0, 0.5, 1.0);
-    EmitVertex();
-
-    gl_Position = vec4(1.0, -1.0, 0.5, 1.0);
-    EmitVertex();
-
-    gl_Position = vec4(-1.0, -1.0, 0.5, 1.0);
-    EmitVertex();
-
-    EndPrimitive(); 
-}
-)";
 
 const std::string TextureVisualizer::kFsSource = R"(
 #version 410 core

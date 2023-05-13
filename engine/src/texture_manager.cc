@@ -72,7 +72,8 @@ uint32_t TextureManager::LoadTexture(const std::string& path, uint32_t wrap) {
 
 uint32_t TextureManager::AllocateTexture(uint32_t width, uint32_t height,
                                          uint32_t internal_format,
-                                         uint32_t format, uint32_t type) {
+                                         uint32_t format, uint32_t type,
+                                         bool mipmap) {
   uint32_t texture;
   glGenTextures(1, &texture);
   glBindTexture(GL_TEXTURE_2D, texture);
@@ -82,10 +83,13 @@ uint32_t TextureManager::AllocateTexture(uint32_t width, uint32_t height,
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                  GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glGenerateMipmap(GL_TEXTURE_2D);
+  if (mipmap) {
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    GL_LINEAR_MIPMAP_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+  }
 
   glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -95,7 +99,8 @@ uint32_t TextureManager::AllocateTexture(uint32_t width, uint32_t height,
 uint32_t TextureManager::AllocateTexture3D(uint32_t width, uint32_t height,
                                            uint32_t depth,
                                            uint32_t internal_format,
-                                           uint32_t format, uint32_t type) {
+                                           uint32_t format, uint32_t type,
+                                           bool mipmap) {
   uint32_t texture;
   glGenTextures(1, &texture);
   glBindTexture(GL_TEXTURE_3D, texture);
@@ -103,13 +108,15 @@ uint32_t TextureManager::AllocateTexture3D(uint32_t width, uint32_t height,
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_REPEAT);
   glTexParameterf(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER,
-                  GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
   glTexImage3D(GL_TEXTURE_3D, 0, internal_format, width, height, depth, 0,
                format, type, nullptr);
-  glGenerateMipmap(GL_TEXTURE_3D);
+  if (mipmap) {
+    glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER,
+                    GL_LINEAR_MIPMAP_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_3D);
+  }
   glBindTexture(GL_TEXTURE_3D, 0);
 
   return texture;

@@ -13,11 +13,12 @@ class TextureManager {
 
   static uint32_t AllocateTexture(uint32_t width, uint32_t height,
                                   uint32_t internal_format, uint32_t format,
-                                  uint32_t type);
+                                  uint32_t type, bool mipmap);
 
   static uint32_t AllocateTexture3D(uint32_t width, uint32_t height,
                                     uint32_t depth, uint32_t internal_format,
-                                    uint32_t format, uint32_t type);
+                                    uint32_t format, uint32_t type,
+                                    bool mipmap);
 };
 
 #endif
