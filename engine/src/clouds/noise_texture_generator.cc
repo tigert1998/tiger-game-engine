@@ -42,11 +42,12 @@ NoiseTextureGenerator::NoiseTextureGenerator(
         1024, 1024, GL_RGBA8, GL_RGBA, GL_FLOAT, true);
 
     shader->Use();
-    shader->SetUniform<float>("perlinFrecuency",
+    shader->SetUniform<float>("perlinFrequency",
                               weather_texture_perlin_frequency_);
+    shader->SetUniform<glm::vec3>("seed", glm::vec3(0));
     glBindImageTexture(0, weather_texture_id_, 0, GL_FALSE, 0, GL_WRITE_ONLY,
                        GL_RGBA8);
-    glDispatchCompute(1024, 1024, 1);
+    glDispatchCompute(1024 / 16, 1024 / 16, 1);
     CheckOpenGLError();
   }
 }
