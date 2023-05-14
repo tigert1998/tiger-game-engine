@@ -5,6 +5,7 @@
 #include <string>
 
 #include "camera.h"
+#include "clouds/noise_texture_generator.h"
 #include "frame_buffer_object.h"
 #include "light_sources.h"
 #include "shader.h"
@@ -21,6 +22,8 @@ class Clouds {
   std::unique_ptr<FrameBufferObject> fbo_;
   uint32_t vao_;
 
+  std::unique_ptr<NoiseTextureGenerator> noise_texture_generator_;
+
   void Allocate(uint32_t width, uint32_t height);
   void Deallocate();
 
@@ -29,7 +32,7 @@ class Clouds {
 
   void Resize(uint32_t width, uint32_t height);
 
-  void Draw(Camera *camera, LightSources *light_sources);
+  void Draw(Camera *camera, LightSources *light_sources, double time);
 
   inline void BindFrameBuffer() { fbo_->Bind(); }
   inline void UnbindFrameBuffer() { fbo_->Unbind(); }

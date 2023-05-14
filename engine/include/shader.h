@@ -12,9 +12,14 @@ class Shader {
   void Use() const;
   template <typename T>
   void SetUniform(const std::string &identifier, const T &) const;
+  void SetUniformSampler2D(const std::string &identifier, uint32_t id,
+                           uint32_t unit);
+  void SetUniformSampler3D(const std::string &identifier, uint32_t id,
+                           uint32_t unit);
   template <typename T>
   T GetUniform(const std::string &identifier) const;
-  std::vector<std::string> GetUniformVariableVector() const;
+  std::vector<std::string> GetUniformVariables() const;
+  bool UniformVariableExists(const std::string &identifier) const;
 
  private:
   static uint32_t Compile(uint32_t type, const std::string &source,

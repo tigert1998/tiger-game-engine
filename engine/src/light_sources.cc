@@ -1,8 +1,12 @@
 #include "light_sources.h"
 
+#include "cg_exception.h"
+
 Ambient::Ambient(glm::vec3 color) : color_(color) {}
 
-void Ambient::Set(Shader *shader) {
+void Ambient::Set(Shader *shader, bool not_found_ok) {
+  if (!shader->UniformVariableExists("uAmbientLightCount") && not_found_ok)
+    return;
   int32_t id = shader->GetUniform<int32_t>("uAmbientLightCount");
   std::string var =
       std::string("uAmbientLights") + "[" + std::to_string(id) + "]";
@@ -13,7 +17,9 @@ void Ambient::Set(Shader *shader) {
 Directional::Directional(glm::vec3 dir, glm::vec3 color)
     : dir_(dir), color_(color) {}
 
-void Directional::Set(Shader *shader) {
+void Directional::Set(Shader *shader, bool not_found_ok) {
+  if (!shader->UniformVariableExists("uDirectionalLightCount") && not_found_ok)
+    return;
   int32_t id = shader->GetUniform<int32_t>("uDirectionalLightCount");
   std::string var =
       std::string("uDirectionalLights") + "[" + std::to_string(id) + "]";
@@ -25,7 +31,9 @@ void Directional::Set(Shader *shader) {
 Point::Point(glm::vec3 pos, glm::vec3 color, glm::vec3 attenuation)
     : pos_(pos), color_(color), attenuation_(attenuation) {}
 
-void Point::Set(Shader *shader) {
+void Point::Set(Shader *shader, bool not_found_ok) {
+  if (!shader->UniformVariableExists("uPointLightCount") && not_found_ok)
+    return;
   int32_t id = shader->GetUniform<int32_t>("uPointLightCount");
   std::string var =
       std::string("uPointLights") + "[" + std::to_string(id) + "]";
@@ -39,14 +47,16 @@ void LightSources::Add(std::unique_ptr<Light> light) {
   lights_.emplace_back(std::move(light));
 }
 
-void LightSources::Set(Shader *shader) {
+void LightSources::Set(Shader *shader, bool not_found_ok) {
   for (auto name :
        std::vector<std::string>{"Ambient", "Directional", "Point"}) {
-    shader->SetUniform<int32_t>(std::string("u") + name + "LightCount", 0);
+    std::string var = std::string("u") + name + "LightCount";
+    if (!shader->UniformVariableExists(var) && not_found_ok) continue;
+    shader->SetUniform<int32_t>(var, 0);
   }
 
   for (int i = 0; i < lights_.size(); i++) {
-    lights_[i]->Set(shader);
+    lights_[i]->Set(shader, not_found_ok);
   }
 }
 

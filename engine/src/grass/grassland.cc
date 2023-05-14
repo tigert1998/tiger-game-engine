@@ -280,7 +280,7 @@ void Grassland::Draw(Camera* camera, LightSources* light_sources, double time) {
 
   // draw blades with calculated transforms
   blade_->shader()->Use();
-  light_sources->Set(blade_->shader());
+  light_sources->Set(blade_->shader(), false);
   // bind vbo to glsl
   glBindVertexArray(blade_->vao());
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);

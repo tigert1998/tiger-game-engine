@@ -252,7 +252,7 @@ void Model::InternalDraw(bool animated, Camera *camera_ptr,
   if (oit_render_quad_ != nullptr) {
     oit_render_quad_->Set(shader_ptr_.get());
   }
-  light_sources->Set(shader_ptr_.get());
+  light_sources->Set(shader_ptr_.get(), false);
   shader_ptr_->SetUniform<vec4>("uClipPlane", clip_plane);
   shader_ptr_->SetUniform<mat4>("uViewMatrix", camera_ptr->view_matrix());
   shader_ptr_->SetUniform<mat4>("uProjectionMatrix",
