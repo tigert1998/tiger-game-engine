@@ -316,7 +316,7 @@ vec4 RayMarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
 
 float ComputeFogAmount(vec3 startPosition, float factor) {
 	float dist = length(startPosition - uCameraPosition);
-	float radius = length(uCameraPosition - uSphereCenter) * 0.3;
+	float radius = (uCameraPosition.y - uSphereCenter.y) * 0.3;
 	float alpha = dist / radius;
 	return 1. - exp(-dist * alpha * factor);
 }
@@ -326,9 +326,6 @@ vec4 PostProcess(vec4 color, vec4 background, vec3 rayDirection, float fogAmount
 	color.rgb = color.rgb * 1.8 - 0.1;
 	vec3 ambientColor = background.rgb;
     color.rgb = mix(color.rgb, background.rgb * color.a, clamp(fogAmount, 0., 1.));
-    float sun = clamp(dot(-GetSunLight().dir, rayDirection), 0.0, 1.0);
-	vec3 s = 0.8 * vec3(1.0, 0.4, 0.2) * pow(sun, 256.0);
-	color.rgb += s * color.a;
     background.rgb = background.rgb * (1.0 - color.a) + color.rgb;
 	background.a = 1.0;
     vec4 fragColor = background;
