@@ -94,15 +94,16 @@ uniform float uInnerHeight = 5000.0;
 uniform float uOuterHeight = 17000.0;
 uniform vec3 uSphereCenter = vec3(0, -600000.0, 0);
 
-uniform vec3 uWindDirection = vec3(0.5, 0, 0.1);
+uniform vec3 uWindDirection = normalize(vec3(0.5, 0, 0.1));
 uniform float uCloudSpeed = 450;
 uniform float uCloudTopOffset = 750;
 uniform float uCoverageMultiplier = 0.45;
 uniform float uCrispiness = 40.;
 uniform float uCurliness = 0.1;
-uniform float uAbsorption = 0.35;
+uniform float uAbsorption = 0.0035;
 uniform float uDensityFactor = 0.02;
 uniform vec3 uCloudBottomColor = vec3(0.38235, 0.41176, 0.47058);
+uniform bool uEnablePowder = false;
 
 uniform float uTime = 0;
 
@@ -121,6 +122,12 @@ const float BAYER_FILTER[16u] = float[](
 	3.0 / 16.0, 11.0 / 16.0, 1.0 / 16.0, 9.0 / 16.0,
 	15.0 / 16.0, 7.0 / 16.0, 13.0 / 16.0, 5.0 / 16.0
 );
+
+DirectionalLight GetSunLight() {
+    for (int i = 0; i < uDirectionalLights.n; i++) {
+        return uDirectionalLights.l[i];
+    }
+}
 
 float HG(float lDotV, float g) {
 	float gg = g * g;
@@ -212,80 +219,99 @@ float SampleCloudDensity(vec3 position, bool cheap, float lod) {
     return clamp(baseCloudWithCoverage, 0, 1);
 }
 
-float SampleCloudDensityAlongCone(vec3 position, float stepSize) {
-    const float CONE_RADIUS_STEP = 1.0 / 6.0;
-    const float RATIO = 6.0;
-    float coneRadius = 1;
-    vec3 lightDirection = normalize(-uDirectionalLights[0].dir);
-	vec3 rayStep = lightDirection * stepSize * RATIO;
-	float sigma = -stepSize * RATIO * uAbsorption;
+float RayMarchToLight(vec3 o, float stepSize) {
+	vec3 startPos = o;
+	float ds = stepSize * 6.0;
+	vec3 rayStep = normalize(-GetSunLight().dir) * ds;
+	const float CONE_STEP = 1.0 / 6.0;
+	float coneRadius = 1.0; 
+	float density = 0.0;
+	float coneDensity = 0.0;
+	float invDepth = 1.0 / ds;
+	float sigma_ds = -ds * uAbsorption;
+	vec3 pos;
 
-	float t = 1.0;
+	float T = 1.0;
 
 	for (int i = 0; i < 6; i++) {
-		vec3 currentPosition = position + coneRadius * NOISE_KERNEL[i] * float(i);
+		pos = startPos + coneRadius * NOISE_KERNEL[i] * float(i);
 
-		float heightFraction = GetHeightFractionForPoint(currentPosition);
+		float heightFraction = GetHeightFractionForPoint(pos);
 		if (heightFraction >= 0) {
-            float cloudDensity = SampleCloudDensity(currentPosition, false, i / 16.0);
-		    if (cloudDensity > 0.0) {
-		    	t *= exp(cloudDensity * sigma);
-		    }
-        }
-		position += rayStep;
-		coneRadius += CONE_RADIUS_STEP;
+			float cloudDensity = SampleCloudDensity(pos, false, i / 16);
+			if (cloudDensity > 0.0) {
+				float Ti = exp(cloudDensity*sigma_ds);
+				T *= Ti;
+				density += cloudDensity;
+			}
+		}
+		startPos += rayStep;
+		coneRadius += CONE_STEP;
 	}
 
-	return t;
+	return T;
 }
 
-vec4 RayMarching(vec3 startPosition, vec3 endPosition, vec3 background) {
-    const float CLOUDS_MIN_TRANSMITTANCE = 1e-1;
-	const int STEPS = 64;
+vec4 RayMarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
+	vec3 path = endPos - startPos;
+	float len = length(path);
 
-    vec3 rayDirection = normalize(endPosition - startPosition);
-    vec3 rayStep = (endPosition - startPosition) / STEPS;
-	vec4 color = vec4(0.0);
-	int a = int(gl_GlobalInvocationID.x) % 4;
-	int b = int(gl_GlobalInvocationID.y) % 4;
-	vec3 position = startPosition + rayStep * BAYER_FILTER[a * 4 + b];
-	float density = 0.0;    
-    bool entered = false;
-	float stepSize = length(rayStep);
-	float lDotV = dot(normalize(-uDirectionalLights[0].dir), rayDirection);
-	float t = 1.0;
-	float sigma = -stepSize * uDensityFactor;
+	const int nSteps = 64;
 
-	for (int i = 0; i < STEPS; i++) {
-		float densitySample = SampleCloudDensity(position, false, i / 16.0);
-		if (densitySample > 0.) {
-			if (!entered) {
-				entered = true;
+	float ds = len / nSteps;
+	vec3 dir = path / len;
+	dir *= ds;
+	vec4 col = vec4(0.0);
+	uvec2 fragCoord = gl_GlobalInvocationID.xy;
+	int a = int(fragCoord.x) % 4;
+	int b = int(fragCoord.y) % 4;
+	startPos += dir * BAYER_FILTER[a * 4 + b];
+	vec3 pos = startPos;
+
+	float density = 0.0;
+
+	float lightDotEye = dot(normalize(-GetSunLight().dir), normalize(dir));
+
+	float T = 1.0;
+	float sigma_ds = -ds * uDensityFactor;
+	bool expensive = true;
+	bool entered = false;
+
+	int zero_density_sample = 0;
+
+	for (int i = 0; i < nSteps; ++i) {	
+		float density_sample = SampleCloudDensity(pos, false, i / 16);
+		if (density_sample > 0.) {
+			if (!entered){
+				cloudPos = vec4(pos,1.0);
+				entered = true;	
 			}
-			float lightDensity = SampleCloudDensityAlongCone(position, stepSize * 0.1);
-			float scattering = mix(HG(lDotV, -0.08), HG(lDotV, 0.08), clamp(lDotV * 0.5 + 0.5, 0.0, 1.0));
+			float height = GetHeightFractionForPoint(pos);
+			vec3 ambientLight = uCloudBottomColor;
+			float light_density = RayMarchToLight(pos, ds * 0.1);
+			float scattering = mix(HG(lightDotEye, -0.08), HG(lightDotEye, 0.08), clamp(lightDotEye*0.5 + 0.5, 0.0, 1.0));
 			scattering = max(scattering, 1.0);
-			float powderTerm = Powder(densitySample);
+			float powderTerm = Powder(density_sample);
+            if (!uEnablePowder) powderTerm = 1.0;
 
-			vec3 s = 0.6 * mix(
-                mix(uCloudBottomColor * 1.8, background, 0.2), 
-                scattering * uDirectionalLights[0].color,
-                powderTerm * lightDensity
-            ) * densitySample;
-			float dTrans = exp(densitySample * sigma);
-			vec3 sInt = (s - s * dTrans) * (1. / densitySample);
-			color.rgb += t * sInt;
-			t *= dTrans;
+			vec3 S = 0.6 * (mix(
+                mix(ambientLight * 1.8, bg, 0.2), 
+                scattering * GetSunLight().color,
+                powderTerm * light_density
+            )) * density_sample;
+			float dTrans = exp(density_sample * sigma_ds);
+			vec3 Sint = (S - S * dTrans) * (1. / density_sample);
+			col.rgb += T * Sint;
+			T *= dTrans;
 		}
 
-		if (t <= CLOUDS_MIN_TRANSMITTANCE) break;
+		if (T <= 1e-1) break;
 
-		position += rayStep;
+		pos += dir;
 	}
+	col.a = 1.0 - T;
 
-	color.a = 1.0 - t;
-
-	return color;
+	return col;
 }
 
 float ComputeFogAmount(vec3 startPosition, float factor) {
@@ -300,7 +326,7 @@ vec4 PostProcess(vec4 color, vec4 background, vec3 rayDirection, float fogAmount
 	color.rgb = color.rgb * 1.8 - 0.1;
 	vec3 ambientColor = background.rgb;
     color.rgb = mix(color.rgb, background.rgb * color.a, clamp(fogAmount, 0., 1.));
-    float sun = clamp(dot(-uDirectionalLights[0].dir, rayDirection), 0.0, 1.0);
+    float sun = clamp(dot(-GetSunLight().dir, rayDirection), 0.0, 1.0);
 	vec3 s = 0.8 * vec3(1.0, 0.4, 0.2) * pow(sun, 256.0);
 	color.rgb += s * color.a;
     background.rgb = background.rgb * (1.0 - color.a) + color.rgb;
@@ -338,7 +364,8 @@ void main() {
 		return;
 	}
 
-    vec4 color = RayMarching(startPosition, endPosition, background.rgb);
+    vec4 cloudPosition;
+    vec4 color = RayMarchToCloud(startPosition, endPosition, background.rgb, cloudPosition);
 
     imageStore(
         uFragColor, ivec2(gl_GlobalInvocationID), 
@@ -361,8 +388,8 @@ void main() {
     vec2 texCoord = gl_FragCoord.xy / uScreenSize;
 
     vec4 cloud = texture(uCloudTexture, texCoord);
-	  vec4 background = texture(uScreenTexture, texCoord);
-	  float a = texture(uDepthTexture, texCoord).r < 1.0 ? 0.0 : 1.0;
-	  fragColor = mix(background, cloud, a);
+    vec4 background = texture(uScreenTexture, texCoord);
+    float a = texture(uDepthTexture, texCoord).r < 1.0 ? 0.0 : 1.0;
+    fragColor = mix(background, cloud, a);
 }
 )";

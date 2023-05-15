@@ -5,42 +5,41 @@
 Ambient::Ambient(glm::vec3 color) : color_(color) {}
 
 void Ambient::Set(Shader *shader, bool not_found_ok) {
-  if (!shader->UniformVariableExists("uAmbientLightCount") && not_found_ok)
+  if (!shader->UniformVariableExists("uAmbientLights.n") && not_found_ok)
     return;
-  int32_t id = shader->GetUniform<int32_t>("uAmbientLightCount");
+  int32_t id = shader->GetUniform<int32_t>("uAmbientLights.n");
   std::string var =
-      std::string("uAmbientLights") + "[" + std::to_string(id) + "]";
+      std::string("uAmbientLights.l") + "[" + std::to_string(id) + "]";
   shader->SetUniform<glm::vec3>(var + ".color", color_);
-  shader->SetUniform<int32_t>("uAmbientLightCount", id + 1);
+  shader->SetUniform<int32_t>("uAmbientLights.n", id + 1);
 }
 
 Directional::Directional(glm::vec3 dir, glm::vec3 color)
     : dir_(dir), color_(color) {}
 
 void Directional::Set(Shader *shader, bool not_found_ok) {
-  if (!shader->UniformVariableExists("uDirectionalLightCount") && not_found_ok)
+  if (!shader->UniformVariableExists("uDirectionalLights.n") && not_found_ok)
     return;
-  int32_t id = shader->GetUniform<int32_t>("uDirectionalLightCount");
+  int32_t id = shader->GetUniform<int32_t>("uDirectionalLights.n");
   std::string var =
-      std::string("uDirectionalLights") + "[" + std::to_string(id) + "]";
+      std::string("uDirectionalLights.l") + "[" + std::to_string(id) + "]";
   shader->SetUniform<glm::vec3>(var + ".dir", dir_);
   shader->SetUniform<glm::vec3>(var + ".color", color_);
-  shader->SetUniform<int32_t>("uDirectionalLightCount", id + 1);
+  shader->SetUniform<int32_t>("uDirectionalLights.n", id + 1);
 }
 
 Point::Point(glm::vec3 pos, glm::vec3 color, glm::vec3 attenuation)
     : pos_(pos), color_(color), attenuation_(attenuation) {}
 
 void Point::Set(Shader *shader, bool not_found_ok) {
-  if (!shader->UniformVariableExists("uPointLightCount") && not_found_ok)
-    return;
-  int32_t id = shader->GetUniform<int32_t>("uPointLightCount");
+  if (!shader->UniformVariableExists("uPointLights.n") && not_found_ok) return;
+  int32_t id = shader->GetUniform<int32_t>("uPointLights.n");
   std::string var =
-      std::string("uPointLights") + "[" + std::to_string(id) + "]";
+      std::string("uPointLights.l") + "[" + std::to_string(id) + "]";
   shader->SetUniform<glm::vec3>(var + ".pos", pos_);
   shader->SetUniform<glm::vec3>(var + ".color", color_);
   shader->SetUniform<glm::vec3>(var + ".attenuation", attenuation_);
-  shader->SetUniform<int32_t>("uPointLightCount", id + 1);
+  shader->SetUniform<int32_t>("uPointLights.n", id + 1);
 }
 
 void LightSources::Add(std::unique_ptr<Light> light) {
@@ -50,7 +49,7 @@ void LightSources::Add(std::unique_ptr<Light> light) {
 void LightSources::Set(Shader *shader, bool not_found_ok) {
   for (auto name :
        std::vector<std::string>{"Ambient", "Directional", "Point"}) {
-    std::string var = std::string("u") + name + "LightCount";
+    std::string var = std::string("u") + name + "Lights.n";
     if (!shader->UniformVariableExists(var) && not_found_ok) continue;
     shader->SetUniform<int32_t>(var, 0);
   }
@@ -77,15 +76,24 @@ struct PointLight {
     vec3 attenuation;
 };
 
-#define REG_LIGHT(name, count) \
-    uniform int u##name##LightCount;      \
-    uniform name##Light u##name##Lights[count];
+struct AmbientLights {
+    int n;
+    AmbientLight l[1];
+};
 
-REG_LIGHT(Ambient, 1)
-REG_LIGHT(Directional, 1)
-REG_LIGHT(Point, 8)
+struct DirectionalLights {
+    int n;
+    DirectionalLight l[1];
+};
 
-#undef REG_LIGHT
+struct PointLights {
+    int n;
+    PointLight l[8];
+};
+
+uniform AmbientLights uAmbientLights;
+uniform DirectionalLights uDirectionalLights;
+uniform PointLights uPointLights;
 
 vec3 CalcAmbient(vec3 ka) {
     return ka;
@@ -109,23 +117,23 @@ vec3 CalcPhongLighting(
     float shininess
 ) {
     vec3 color = vec3(0);
-    for (int i = 0; i < uAmbientLightCount; i++) {
-        color += CalcAmbient(ka) * uAmbientLights[i].color;
+    for (int i = 0; i < uAmbientLights.n; i++) {
+        color += CalcAmbient(ka) * uAmbientLights.l[i].color;
     }
-    for (int i = 0; i < uDirectionalLightCount; i++) {
-        color += CalcDiffuse(-uDirectionalLights[i].dir, normal, kd) *
-            uDirectionalLights[i].color;
-        color += CalcSpecular(-uDirectionalLights[i].dir, normal, cameraPosition - position, shininess, ks) *
-            uDirectionalLights[i].color;
+    for (int i = 0; i < uDirectionalLights.n; i++) {
+        color += CalcDiffuse(-uDirectionalLights.l[i].dir, normal, kd) *
+            uDirectionalLights.l[i].color;
+        color += CalcSpecular(-uDirectionalLights.l[i].dir, normal, cameraPosition - position, shininess, ks) *
+            uDirectionalLights.l[i].color;
     }
-    for (int i = 0; i < uPointLightCount; i++) {
-        vec3 attenuation = uPointLights[i].attenuation;
-        float dis = distance(uPointLights[i].pos, position);
-        vec3 pointLightColor = uPointLights[i].color /
+    for (int i = 0; i < uPointLights.n; i++) {
+        vec3 attenuation = uPointLights.l[i].attenuation;
+        float dis = distance(uPointLights.l[i].pos, position);
+        vec3 pointLightColor = uPointLights.l[i].color /
             (attenuation.x + attenuation.y * dis + attenuation.z * pow(dis, 2));
-        color += CalcDiffuse(uPointLights[i].pos - position, normal, kd) *
+        color += CalcDiffuse(uPointLights.l[i].pos - position, normal, kd) *
             pointLightColor;
-        color += CalcSpecular(uPointLights[i].pos - position, normal, cameraPosition - position, shininess, ks) *
+        color += CalcSpecular(uPointLights.l[i].pos - position, normal, cameraPosition - position, shininess, ks) *
             pointLightColor;
     }
     return color;
@@ -201,25 +209,25 @@ vec3 CalcPBRLighting(
 ) {
     vec3 color = vec3(0);
 
-    for (int i = 0; i < uAmbientLightCount; i++) {
-        color += albedo * uAmbientLights[i].color * ao;
+    for (int i = 0; i < uAmbientLights.n; i++) {
+        color += albedo * uAmbientLights.l[i].color * ao;
     }
 
-    for (int i = 0; i < uDirectionalLightCount; i++) {
+    for (int i = 0; i < uDirectionalLights.n; i++) {
         color += CalcPBRLightingForSingleLightSource(
             albedo, metallic, roughness,
-            normal, cameraPosition - position, -uDirectionalLights[i].dir,
-            uDirectionalLights[i].color
+            normal, cameraPosition - position, -uDirectionalLights.l[i].dir,
+            uDirectionalLights.l[i].color
         );
     }
-    for (int i = 0; i < uPointLightCount; i++) {
-        vec3 attenuation = uPointLights[i].attenuation;
-        float dis = distance(uPointLights[i].pos, position);
-        vec3 pointLightColor = uPointLights[i].color /
+    for (int i = 0; i < uPointLights.n; i++) {
+        vec3 attenuation = uPointLights.l[i].attenuation;
+        float dis = distance(uPointLights.l[i].pos, position);
+        vec3 pointLightColor = uPointLights.l[i].color /
             (attenuation.x + attenuation.y * dis + attenuation.z * pow(dis, 2));
         color += CalcPBRLightingForSingleLightSource(
             albedo, metallic, roughness,
-            normal, cameraPosition - position, uPointLights[i].pos - position,
+            normal, cameraPosition - position, uPointLights.l[i].pos - position,
             pointLightColor
         );
     }
