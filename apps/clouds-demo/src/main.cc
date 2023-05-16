@@ -105,7 +105,7 @@ void Init(uint32_t width, uint32_t height) {
       std::make_unique<Directional>(glm::vec3(0, -1, -1), glm::vec3(1, 1, 1)));
   light_sources_ptr->Add(std::make_unique<Ambient>(glm::vec3(0.04)));
 
-  camera_ptr = std::make_unique<Camera>(glm::vec3(0, 800, 0),
+  camera_ptr = std::make_unique<Camera>(glm::vec3(0, 10, 0),
                                         static_cast<double>(width) / height);
   camera_ptr->set_alpha(-0.5 * glm::pi<float>());
   camera_ptr->set_beta(0);

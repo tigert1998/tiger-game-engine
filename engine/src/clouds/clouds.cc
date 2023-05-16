@@ -321,6 +321,11 @@ float ComputeFogAmount(vec3 startPosition, float factor) {
 	return 1. - exp(-dist * alpha * factor);
 }
 
+vec3 ComputeSkyColor(vec3 rayDirection) {
+    float t = 0.5 * (rayDirection.y + 1.0);
+    return (1.0 - t) * vec3(1.0, 1.0, 1.0) + t * vec3(0.5, 0.7, 1.0);
+}
+
 vec4 PostProcess(vec4 color, vec4 background, vec3 rayDirection, float fogAmount) {
 	float cloudAlpha = color.a > 0.2 ? color.a : 0;
 	color.rgb = color.rgb * 1.8 - 0.1;
@@ -328,9 +333,7 @@ vec4 PostProcess(vec4 color, vec4 background, vec3 rayDirection, float fogAmount
     color.rgb = mix(color.rgb, background.rgb * color.a, clamp(fogAmount, 0., 1.));
     background.rgb = background.rgb * (1.0 - color.a) + color.rgb;
 	background.a = 1.0;
-    vec4 fragColor = background;
-	fragColor.a = cloudAlpha;
-    return fragColor;
+    return background;
 }
 
 void main() {
@@ -354,7 +357,7 @@ void main() {
         endPosition
     );	
 
-    vec4 background = vec4(1);
+    vec4 background = vec4(ComputeSkyColor(rayDirection), 1);
     float fogAmount = ComputeFogAmount(startPosition, 0.00006);
     if (fogAmount > 0.965){
 		imageStore(uFragColor, ivec2(gl_GlobalInvocationID.xy), background);
