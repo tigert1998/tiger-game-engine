@@ -10,6 +10,40 @@
 
 #include "cg_exception.h"
 
+std::unique_ptr<Shader> ScreenSpaceShader(const std::string &fs) {
+  static const std::string kVsSource = R"(
+#version 410 core
+void main() {}
+)";
+
+  static const std::string kGsSource = R"(
+#version 410 core
+
+layout (points) in;
+layout (triangle_strip, max_vertices = 4) out;
+
+void main() {
+    gl_Position = vec4(1.0, 1.0, 0.5, 1.0);
+    EmitVertex();
+
+    gl_Position = vec4(-1.0, 1.0, 0.5, 1.0);
+    EmitVertex();
+
+    gl_Position = vec4(1.0, -1.0, 0.5, 1.0);
+    EmitVertex();
+
+    gl_Position = vec4(-1.0, -1.0, 0.5, 1.0);
+    EmitVertex();
+
+    EndPrimitive(); 
+}
+)";
+
+  return std::unique_ptr<Shader>(new Shader({{GL_VERTEX_SHADER, kVsSource},
+                                             {GL_GEOMETRY_SHADER, kGsSource},
+                                             {GL_FRAGMENT_SHADER, fs}}));
+}
+
 Shader::Shader(const std::string &vs, const std::string &fs)
     : Shader(std::vector<std::pair<uint32_t, std::string>>{
           {GL_VERTEX_SHADER, vs}, {GL_FRAGMENT_SHADER, fs}}) {}
@@ -65,8 +99,7 @@ template <>
 void Shader::SetUniform<glm::vec2>(const std::string &identifier,
                                    const glm::vec2 &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0)
-    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  if (location < 0) throw ShaderSettingError(identifier, GetUniformVariables());
   glUniform2fv(location, 1, glm::value_ptr(value));
 }
 
@@ -74,8 +107,7 @@ template <>
 void Shader::SetUniform<glm::vec3>(const std::string &identifier,
                                    const glm::vec3 &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0)
-    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  if (location < 0) throw ShaderSettingError(identifier, GetUniformVariables());
   glUniform3fv(location, 1, glm::value_ptr(value));
 }
 
@@ -83,8 +115,7 @@ template <>
 void Shader::SetUniform<glm::vec4>(const std::string &identifier,
                                    const glm::vec4 &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0)
-    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  if (location < 0) throw ShaderSettingError(identifier, GetUniformVariables());
   glUniform4fv(location, 1, glm::value_ptr(value));
 }
 
@@ -92,8 +123,7 @@ template <>
 void Shader::SetUniform<glm::mat4>(const std::string &identifier,
                                    const glm::mat4 &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0)
-    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  if (location < 0) throw ShaderSettingError(identifier, GetUniformVariables());
   glUniformMatrix4fv(location, 1, GL_FALSE, glm::value_ptr(value));
 }
 
@@ -101,8 +131,7 @@ template <>
 void Shader::SetUniform<int32_t>(const std::string &identifier,
                                  const int32_t &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0)
-    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  if (location < 0) throw ShaderSettingError(identifier, GetUniformVariables());
   glUniform1i(location, value);
 }
 
@@ -110,16 +139,14 @@ template <>
 void Shader::SetUniform<uint32_t>(const std::string &identifier,
                                   const uint32_t &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0)
-    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  if (location < 0) throw ShaderSettingError(identifier, GetUniformVariables());
   glUniform1ui(location, value);
 }
 
 template <>
 int32_t Shader::GetUniform(const std::string &identifier) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0)
-    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  if (location < 0) throw ShaderSettingError(identifier, GetUniformVariables());
   int32_t value;
   glGetUniformiv(id_, location, &value);
   return value;
@@ -129,8 +156,7 @@ template <>
 void Shader::SetUniform<float>(const std::string &identifier,
                                const float &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0)
-    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  if (location < 0) throw ShaderSettingError(identifier, GetUniformVariables());
   glUniform1f(location, value);
 }
 
@@ -138,14 +164,32 @@ template <>
 void Shader::SetUniform<std::vector<glm::mat4>>(
     const std::string &identifier, const std::vector<glm::mat4> &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
-  if (location < 0)
-    throw ShaderSettingError(identifier, GetUniformVariableVector());
+  if (location < 0) throw ShaderSettingError(identifier, GetUniformVariables());
   if (value.size() == 0) return;
   glUniformMatrix4fv(location, value.size(), GL_FALSE,
                      glm::value_ptr(value[0]));
 }
 
-std::vector<std::string> Shader::GetUniformVariableVector() const {
+void Shader::SetUniformSampler2D(const std::string &identifier, uint32_t id,
+                                 uint32_t unit) {
+  glActiveTexture(GL_TEXTURE0 + unit);
+  glBindTexture(GL_TEXTURE_2D, id);
+  SetUniform<int32_t>(identifier, unit);
+}
+
+void Shader::SetUniformSampler3D(const std::string &identifier, uint32_t id,
+                                 uint32_t unit) {
+  glActiveTexture(GL_TEXTURE0 + unit);
+  glBindTexture(GL_TEXTURE_3D, id);
+  SetUniform<int32_t>(identifier, unit);
+}
+
+bool Shader::UniformVariableExists(const std::string &identifier) const {
+  auto location = glGetUniformLocation(id_, identifier.c_str());
+  return location >= 0;
+}
+
+std::vector<std::string> Shader::GetUniformVariables() const {
   const int32_t buf_size = 32;
   char name[buf_size];
   int32_t length;

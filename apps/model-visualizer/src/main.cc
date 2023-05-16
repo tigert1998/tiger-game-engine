@@ -218,7 +218,7 @@ int main(int argc, char *argv[]) {
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     skybox_ptr->Draw(camera_ptr.get());
-    oit_render_quad_ptr->UnBindFrameBuffer();
+    oit_render_quad_ptr->UnbindFrameBuffer();
 
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

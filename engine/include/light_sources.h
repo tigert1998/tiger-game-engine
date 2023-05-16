@@ -9,7 +9,7 @@
 
 class Light {
  public:
-  virtual void Set(Shader *shader) = 0;
+  virtual void Set(Shader *shader, bool not_found_ok) = 0;
   virtual ~Light(){};
 };
 
@@ -19,7 +19,7 @@ class Ambient : public Light {
 
  public:
   Ambient(glm::vec3 color);
-  void Set(Shader *shader) override;
+  void Set(Shader *shader, bool not_found_ok) override;
   inline ~Ambient() override {}
 };
 
@@ -29,7 +29,7 @@ class Directional : public Light {
 
  public:
   explicit Directional(glm::vec3 dir, glm::vec3 color);
-  void Set(Shader *shader) override;
+  void Set(Shader *shader, bool not_found_ok) override;
   inline ~Directional() override {}
 };
 
@@ -39,7 +39,7 @@ class Point : public Light {
 
  public:
   explicit Point(glm::vec3 pos, glm::vec3 color, glm::vec3 attenuation);
-  void Set(Shader *shader) override;
+  void Set(Shader *shader, bool not_found_ok) override;
   inline ~Point() override {}
 };
 
@@ -49,7 +49,7 @@ class LightSources : public Light {
 
  public:
   void Add(std::unique_ptr<Light> light);
-  void Set(Shader *shader) override;
+  void Set(Shader *shader, bool not_found_ok) override;
   inline ~LightSources() override {}
 
   static std::string FsSource();

@@ -243,10 +243,8 @@ void Mesh::Draw(Shader *shader_ptr, int num_instances) const {
     shader_ptr->SetUniform<int32_t>(
         std::string("uMaterial.") + name + "TextureEnabled", enabled);
     if (enabled) {
-      glActiveTexture(GL_TEXTURE0 + tot);
-      glBindTexture(GL_TEXTURE_2D, kv.second.id);
-      shader_ptr->SetUniform<int32_t>(
-          std::string("uMaterial.") + name + "Texture", tot);
+      shader_ptr->SetUniformSampler2D(
+          std::string("uMaterial.") + name + "Texture", kv.second.id, tot);
       tot++;
     }
   }
@@ -267,4 +265,5 @@ void Mesh::Draw(Shader *shader_ptr, int num_instances) const {
   glDrawElementsInstanced(GL_TRIANGLES, indices_size_, GL_UNSIGNED_INT, 0,
                           num_instances);
   glBindVertexArray(0);
+  glBindTexture(GL_TEXTURE_2D, 0);
 }

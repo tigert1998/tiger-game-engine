@@ -69,4 +69,6 @@ std::string SnakeToPascal(const std::string &name);
 
 void CheckOpenGLError();
 
+std::string ReadFile(const std::string &file_path);
+
 #endif
