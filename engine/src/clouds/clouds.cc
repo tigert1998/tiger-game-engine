@@ -12,7 +12,7 @@ void Clouds::Allocate(uint32_t width, uint32_t height) {
   frag_color_texture_id_ = TextureManager::AllocateTexture(
       width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT, false);
 
-  fbo_.reset(new FrameBufferObject(width, height));
+  fbo_.reset(new FrameBufferObject(width, height, true));
 }
 
 void Clouds::Deallocate() { glDeleteTextures(1, &frag_color_texture_id_); }
@@ -327,9 +327,7 @@ vec3 ComputeSkyColor(vec3 rayDirection) {
 }
 
 vec4 PostProcess(vec4 color, vec4 background, vec3 rayDirection, float fogAmount) {
-	float cloudAlpha = color.a > 0.2 ? color.a : 0;
 	color.rgb = color.rgb * 1.8 - 0.1;
-	vec3 ambientColor = background.rgb;
     color.rgb = mix(color.rgb, background.rgb * color.a, clamp(fogAmount, 0., 1.));
     background.rgb = background.rgb * (1.0 - color.a) + color.rgb;
 	background.a = 1.0;

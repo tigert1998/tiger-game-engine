@@ -31,8 +31,11 @@ class OITRenderQuad {
   OITRenderQuad(uint32_t width, uint32_t height);
   void Resize(uint32_t width, uint32_t height);
 
-  inline void BindFrameBuffer() { fbo_->Bind(); }
-  inline void UnbindFrameBuffer() { fbo_->Unbind(); }
+  inline void Bind() {
+    glViewport(0, 0, width_, height_);
+    fbo_->Bind();
+  }
+  inline void Unbind() { fbo_->Unbind(); }
   void CopyDepthToDefaultFrameBuffer();
 
   void ResetBeforeRender();

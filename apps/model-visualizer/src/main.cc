@@ -24,6 +24,7 @@ std::unique_ptr<OITRenderQuad> oit_render_quad_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
+std::unique_ptr<ShadowSources> shadow_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
 
 double animation_time = 0;
@@ -176,6 +177,10 @@ void Init() {
       make_unique<Directional>(vec3(0, -1, -1), vec3(1, 1, 1)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.4)));
 
+  shadow_sources_ptr = make_unique<ShadowSources>();
+  shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
+      vec3(0, 1500, 1500), vec3(0, -1, -1), 5000, 5000, 0.1, 5000, 2048, 2048));
+
   model_ptr = make_unique<Model>("resources/sponza/sponza.obj",
                                  oit_render_quad_ptr.get());
   camera_ptr = make_unique<Camera>(vec3(850, 300, 0),
@@ -214,22 +219,34 @@ int main(int argc, char *argv[]) {
 
     glfwPollEvents();
 
-    oit_render_quad_ptr->BindFrameBuffer();
+    // draw depth map first
+    shadow_sources_ptr->DrawShadow([](Shadow *shadow) {
+      if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
+        model_ptr->DrawShadow(shadow, mat4(1));
+      } else {
+        model_ptr->DrawShadow(animation_id, animation_time, shadow, mat4(1));
+      }
+    });
+
+    oit_render_quad_ptr->Bind();
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     skybox_ptr->Draw(camera_ptr.get());
-    oit_render_quad_ptr->UnbindFrameBuffer();
+    oit_render_quad_ptr->Unbind();
 
+    glViewport(0, 0, width, height);
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     oit_render_quad_ptr->CopyDepthToDefaultFrameBuffer();
     glDepthMask(GL_FALSE);
     oit_render_quad_ptr->ResetBeforeRender();
     if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
-      model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(), mat4(1));
+      model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
+                      shadow_sources_ptr.get(), mat4(1));
     } else {
-      model_ptr->Draw(0, animation_time, camera_ptr.get(),
-                      light_sources_ptr.get(), mat4(1), vec4(0));
+      model_ptr->Draw(animation_id, animation_time, camera_ptr.get(),
+                      light_sources_ptr.get(), shadow_sources_ptr.get(),
+                      mat4(1), vec4(0));
     }
     glDepthMask(GL_TRUE);
     glClear(GL_DEPTH_BUFFER_BIT);
