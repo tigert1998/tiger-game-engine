@@ -319,7 +319,7 @@ void Model::InternalDrawShadow(bool animated, Shadow *shadow,
 
   for (int i = 0; i < mesh_ptrs_.size(); i++) {
     if (mesh_ptrs_[i] == nullptr) continue;
-    shader_ptr_->SetUniform<int32_t>("uAnimated", animated);
+    kShadowShader->SetUniform<int32_t>("uAnimated", animated);
     DrawMesh(mesh_ptrs_[i].get(), kShadowShader.get(), model_matrices, true, 0);
   }
 }
