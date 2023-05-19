@@ -34,8 +34,8 @@ class Clouds {
 
   void Draw(Camera *camera, LightSources *light_sources, double time);
 
-  inline void BindFrameBuffer() { fbo_->Bind(); }
-  inline void UnbindFrameBuffer() { fbo_->Unbind(); }
+  void Bind();
+  inline void Unbind() { fbo_->Unbind(); }
 };
 
 #endif

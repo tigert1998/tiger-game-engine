@@ -6,6 +6,11 @@
 #include "texture_manager.h"
 #include "utils.h"
 
+void Clouds::Bind() {
+  glViewport(0, 0, width_, height_);
+  fbo_->Bind();
+}
+
 void Clouds::Allocate(uint32_t width, uint32_t height) {
   width_ = width;
   height_ = height;
