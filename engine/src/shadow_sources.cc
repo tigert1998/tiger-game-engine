@@ -25,6 +25,9 @@ void DirectionalShadow::Set(Shader *shader, int32_t *num_samplers) {
   shader->SetUniformSampler2D(
       std::string("uDirectionalShadows.t") + "[" + std::to_string(id) + "]",
       fbo_.depth_texture_id(), (*num_samplers)++);
+  shader->SetUniform<glm::vec3>(
+      std::string("uDirectionalShadows.dirs") + "[" + std::to_string(id) + "]",
+      direction_);
   shader->SetUniform<glm::mat4>(
       std::string("uDirectionalShadowViewProjectionMatrices[") +
           std::to_string(id) + "]",
@@ -83,11 +86,14 @@ const int MAX_DIRECTIONAL_SHADOWS = 1;
 struct DirectionalShadows {
     int n;
     sampler2D t[MAX_DIRECTIONAL_SHADOWS];
+    vec3 dirs[MAX_DIRECTIONAL_SHADOWS];
 };
 
 uniform DirectionalShadows uDirectionalShadows;
 
-float CalcShadow(vec4 homoPositions[MAX_DIRECTIONAL_SHADOWS]) {
+float CalcShadow(
+    vec4 homoPositions[MAX_DIRECTIONAL_SHADOWS], vec3 normal
+) {
     // do not take shadow into considerations
     if (uDirectionalShadows.n == 0) {
         return 0;
@@ -96,9 +102,10 @@ float CalcShadow(vec4 homoPositions[MAX_DIRECTIONAL_SHADOWS]) {
     for (int i = 0; i < uDirectionalShadows.n; i++) {
         vec3 position = homoPositions[i].xyz / homoPositions[i].w;
         position = position * 0.5 + 0.5;
-        float closestDepth = texture(uDirectionalShadows.t[i], position.xy).r; 
+        float closestDepth = texture(uDirectionalShadows.t[i], position.xy).r;
         float currentDepth = position.z;
-        if (currentDepth <= closestDepth) return 0;
+        float bias = max(0.05 * (1.0 - dot(normalize(normal), normalize(-uDirectionalShadows.dirs[i]))), 0.005);
+        if (currentDepth - bias <= closestDepth) return 0;
     }
 
     return 1;

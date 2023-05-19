@@ -476,7 +476,7 @@ vec4 CalcFragColorWithPhong() {
         normal = normalize(vTBN * (normal * 2 - 1));
     }
 
-    float shadow = CalcShadow(vDirectionalShadowPositions);
+    float shadow = CalcShadow(vDirectionalShadowPositions, normal);
 
     vec3 color = CalcPhongLighting(
         ka, kd, ks,
@@ -525,7 +525,7 @@ vec4 CalcFragColorWithPBR() {
         normal = normalize(vTBN * (normal * 2 - 1));
     }
 
-    float shadow = CalcShadow(vDirectionalShadowPositions);
+    float shadow = CalcShadow(vDirectionalShadowPositions, normal);
 
     vec3 color = CalcPBRLighting(
         albedo, metallic, roughness, ao,
