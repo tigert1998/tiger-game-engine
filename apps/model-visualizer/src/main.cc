@@ -197,7 +197,7 @@ void Init() {
 
   shadow_sources_ptr = make_unique<ShadowSources>();
   shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
-      vec3(0, 1500, 0), vec3(0, -1, -0.1), 5000, 5000, 0.1, 5000, 2048, 2048));
+      vec3(0, 2000, 0), vec3(0, -1, 0.1), 5000, 5000, 0.1, 5000, 2048, 2048));
 
   model_ptr = make_unique<Model>("resources/sponza/sponza.obj",
                                  oit_render_quad_ptr.get());
@@ -256,6 +256,8 @@ int main(int argc, char *argv[]) {
     glViewport(0, 0, width, height);
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
     oit_render_quad_ptr->CopyDepthToDefaultFrameBuffer();
     glDepthMask(GL_FALSE);
     oit_render_quad_ptr->ResetBeforeRender();
@@ -268,6 +270,7 @@ int main(int argc, char *argv[]) {
                       mat4(1), vec4(0));
     }
     glDepthMask(GL_TRUE);
+    glDisable(GL_CULL_FACE);
     glClear(GL_DEPTH_BUFFER_BIT);
     oit_render_quad_ptr->Draw();
 

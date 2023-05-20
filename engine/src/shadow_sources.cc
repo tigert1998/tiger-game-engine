@@ -78,12 +78,16 @@ void ShadowSources::Set(Shader *shader, int32_t *num_samplers) {
 
 void ShadowSources::DrawDepthForShadow(
     const std::function<void(Shadow *)> &render_pass) {
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_FRONT);
   for (int i = 0; i < shadows_.size(); i++) {
     shadows_[i]->Bind();
     glClear(GL_DEPTH_BUFFER_BIT);
     render_pass(shadows_[i].get());
     shadows_[i]->Unbind();
   }
+  glDisable(GL_CULL_FACE);
+  glCullFace(GL_BACK);
 }
 
 std::string ShadowSources::FsSource() {
