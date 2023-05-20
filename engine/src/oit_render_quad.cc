@@ -42,7 +42,7 @@ void OITRenderQuad::Allocate(uint32_t width, uint32_t height,
 
   glGenTextures(1, &fragment_storage_texture_);
 
-  fbo_.reset(new FrameBufferObject(width, height));
+  fbo_.reset(new FrameBufferObject(width, height, true));
 }
 
 void OITRenderQuad::CopyDepthToDefaultFrameBuffer() {

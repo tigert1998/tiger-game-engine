@@ -25,7 +25,8 @@ using namespace glm;
 
 constexpr int MAX_BONES = 170;  // please change the shader's MAX_BONES as well
 
-std::map<bool, std::shared_ptr<Shader>> Model::kShader = {};
+std::shared_ptr<Shader> Model::kShader = nullptr, Model::kOITShader = nullptr,
+                        Model::kShadowShader = nullptr;
 
 Model::Model(const std::string &path, OITRenderQuad *oit_render_quad)
     : directory_path_(ParentPath(path)), oit_render_quad_(oit_render_quad) {
@@ -34,15 +35,16 @@ Model::Model(const std::string &path, OITRenderQuad *oit_render_quad)
                                           aiProcess_CalcTangentSpace |
                                           aiProcess_Triangulate);
 
-  bool enable_oit = oit_render_quad != nullptr;
-  if (kShader.count(enable_oit) == 0) {
-    std::string fs_source = enable_oit
-                                ? Model::kFsSource + Model::kFsOITMainSource
-                                : Model::kFsSource + Model::kFsMainSource;
-    kShader[enable_oit] =
-        std::shared_ptr<Shader>(new Shader(Model::kVsSource, fs_source));
+  if (kShader == nullptr && kOITShader == nullptr && kShadowShader == nullptr) {
+    kShader = std::shared_ptr<Shader>(
+        new Shader(Model::kVsSource, Model::kFsSource + Model::kFsMainSource));
+    kOITShader = std::shared_ptr<Shader>(new Shader(
+        Model::kVsSource, Model::kFsSource + Model::kFsOITMainSource));
+    kShadowShader = std::shared_ptr<Shader>(new Shader(
+        Model::kVsSource, Model::kFsSource + Model::kFsShadowMainSource));
   }
-  shader_ptr_ = kShader[enable_oit];
+  bool enable_oit = oit_render_quad != nullptr;
+  shader_ptr_ = enable_oit ? kOITShader : kShader;
   glGenBuffers(1, &vbo_);
 
   animation_channel_map_.clear();
@@ -223,36 +225,76 @@ void Model::RecursivelyUpdateBoneMatrices(int animation_id, aiNode *node,
 }
 
 void Model::Draw(uint32_t animation_id, double time, Camera *camera_ptr,
-                 LightSources *light_sources, mat4 model_matrix,
-                 vec4 clip_plane) {
+                 LightSources *light_sources, ShadowSources *shadow_sources,
+                 mat4 model_matrix, vec4 clip_plane) {
   RecursivelyUpdateBoneMatrices(
       animation_id, scene_->mRootNode, mat4(1),
       time * scene_->mAnimations[animation_id]->mTicksPerSecond);
-  InternalDraw(true, camera_ptr, light_sources,
+  InternalDraw(true, camera_ptr, light_sources, shadow_sources,
                std::vector<glm::mat4>{model_matrix}, clip_plane);
 }
 
 void Model::Draw(Camera *camera_ptr, LightSources *light_sources,
+                 ShadowSources *shadow_sources,
                  const std::vector<glm::mat4> &model_matrices,
                  vec4 clip_plane) {
-  InternalDraw(false, camera_ptr, light_sources, model_matrices, clip_plane);
+  InternalDraw(false, camera_ptr, light_sources, shadow_sources, model_matrices,
+               clip_plane);
 }
 
 void Model::Draw(Camera *camera_ptr, LightSources *light_sources,
-                 mat4 model_matrix) {
-  InternalDraw(false, camera_ptr, light_sources,
+                 ShadowSources *shadow_sources, mat4 model_matrix) {
+  InternalDraw(false, camera_ptr, light_sources, shadow_sources,
                std::vector<glm::mat4>{model_matrix}, glm::vec4(0));
+}
+
+void Model::DrawDepthForShadow(Shadow *shadow, glm::mat4 model_matrix) {
+  InternalDrawDepthForShadow(false, shadow, {model_matrix});
+}
+
+void Model::DrawDepthForShadow(Shadow *shadow,
+                               const std::vector<glm::mat4> &model_matrices) {
+  InternalDrawDepthForShadow(false, shadow, model_matrices);
+}
+
+void Model::DrawDepthForShadow(uint32_t animation_id, double time,
+                               Shadow *shadow, glm::mat4 model_matrix) {
+  RecursivelyUpdateBoneMatrices(
+      animation_id, scene_->mRootNode, mat4(1),
+      time * scene_->mAnimations[animation_id]->mTicksPerSecond);
+  InternalDrawDepthForShadow(true, shadow, {model_matrix});
+}
+
+void Model::DrawMesh(Mesh *mesh_ptr, Shader *shader_ptr,
+                     const std::vector<glm::mat4> &model_matrices, bool shadow,
+                     int32_t sampler_offset) {
+  glBindVertexArray(mesh_ptr->vao());
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+  glBufferData(GL_ARRAY_BUFFER, model_matrices.size() * sizeof(glm::mat4),
+               model_matrices.data(), GL_DYNAMIC_DRAW);
+  for (int i = 0; i < 4; i++) {
+    uint32_t location = 10 + i;
+    glEnableVertexAttribArray(location);
+    glVertexAttribPointer(location, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4),
+                          (void *)(i * sizeof(glm::vec4)));
+    glVertexAttribDivisor(location, 1);
+  }
+
+  mesh_ptr->Draw(shader_ptr, model_matrices.size(), shadow, sampler_offset);
 }
 
 void Model::InternalDraw(bool animated, Camera *camera_ptr,
                          LightSources *light_sources,
+                         ShadowSources *shadow_sources,
                          const std::vector<glm::mat4> &model_matrices,
                          glm::vec4 clip_plane) {
+  int32_t num_samplers = 0;
   shader_ptr_->Use();
   if (oit_render_quad_ != nullptr) {
     oit_render_quad_->Set(shader_ptr_.get());
   }
   light_sources->Set(shader_ptr_.get(), false);
+  shadow_sources->Set(shader_ptr_.get(), &num_samplers);
   shader_ptr_->SetUniform<vec4>("uClipPlane", clip_plane);
   shader_ptr_->SetUniform<mat4>("uViewMatrix", camera_ptr->view_matrix());
   shader_ptr_->SetUniform<mat4>("uProjectionMatrix",
@@ -261,26 +303,25 @@ void Model::InternalDraw(bool animated, Camera *camera_ptr,
   shader_ptr_->SetUniform<vec3>("uCameraPosition", camera_ptr->position());
   shader_ptr_->SetUniform<int32_t>("uDefaultShading", default_shading_);
 
-  auto draw_mesh = [&](Mesh *mesh_ptr, Shader *shader_ptr) {
-    glBindVertexArray(mesh_ptr->vao());
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBufferData(GL_ARRAY_BUFFER, model_matrices.size() * sizeof(glm::mat4),
-                 model_matrices.data(), GL_DYNAMIC_DRAW);
-    for (int i = 0; i < 4; i++) {
-      uint32_t location = 10 + i;
-      glEnableVertexAttribArray(location);
-      glVertexAttribPointer(location, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4),
-                            (void *)(i * sizeof(glm::vec4)));
-      glVertexAttribDivisor(location, 1);
-    }
-
-    mesh_ptr->Draw(shader_ptr, model_matrices.size());
-  };
-
   for (int i = 0; i < mesh_ptrs_.size(); i++) {
     if (mesh_ptrs_[i] == nullptr) continue;
     shader_ptr_->SetUniform<int32_t>("uAnimated", animated);
-    draw_mesh(mesh_ptrs_[i].get(), shader_ptr_.get());
+    DrawMesh(mesh_ptrs_[i].get(), shader_ptr_.get(), model_matrices, false,
+             num_samplers);
+  }
+}
+
+void Model::InternalDrawDepthForShadow(
+    bool animated, Shadow *shadow,
+    const std::vector<glm::mat4> &model_matrices) {
+  kShadowShader->Use();
+  kShadowShader->SetUniform<vec4>("uClipPlane", glm::vec4(0));
+  shadow->SetForDepthPass(kShadowShader.get());
+
+  for (int i = 0; i < mesh_ptrs_.size(); i++) {
+    if (mesh_ptrs_[i] == nullptr) continue;
+    kShadowShader->SetUniform<int32_t>("uAnimated", animated);
+    DrawMesh(mesh_ptrs_[i].get(), kShadowShader.get(), model_matrices, true, 0);
   }
 }
 
@@ -293,6 +334,7 @@ const std::string Model::kVsSource = R"(
 
 const int MAX_BONES = 170;
 const int MAX_INSTANCES = 20;
+const int MAX_DIRECTIONAL_SHADOWS = 1;
 
 layout (location = 0) in vec3 aPosition;
 layout (location = 1) in vec2 aTexCoord;
@@ -309,6 +351,7 @@ layout (location = 10) in mat4 aModelMatrix;
 out vec3 vPosition;
 out vec2 vTexCoord;
 out mat3 vTBN;
+out vec4 vDirectionalShadowPositions[MAX_DIRECTIONAL_SHADOWS];
 
 uniform bool uAnimated;
 uniform mat4 uViewMatrix;
@@ -316,6 +359,7 @@ uniform mat4 uProjectionMatrix;
 uniform mat4 uBoneMatrices[MAX_BONES];
 uniform mat4 uTransform;
 uniform vec4 uClipPlane;
+uniform mat4 uDirectionalShadowViewProjectionMatrices[MAX_DIRECTIONAL_SHADOWS];
 
 mat4 CalcBoneMatrix() {
     mat4 boneMatrix = mat4(0);
@@ -352,6 +396,10 @@ void main() {
     vec3 B = cross(N, T);
     vTBN = mat3(T, B, N);
 
+    for (int i = 0; i < MAX_DIRECTIONAL_SHADOWS; i++) {
+        vDirectionalShadowPositions[i] = uDirectionalShadowViewProjectionMatrices[i] * vec4(vPosition, 1);
+    }
+
     gl_ClipDistance[0] = dot(vec4(vPosition, 1), uClipPlane);
 }
 )";
@@ -366,7 +414,10 @@ uniform vec3 uCameraPosition;
 in vec3 vPosition;
 in vec2 vTexCoord;
 in mat3 vTBN;
-)" + LightSources::FsSource() + R"(
+)" + LightSources::FsSource() + ShadowSources::FsSource() +
+                                     R"(
+in vec4 vDirectionalShadowPositions[MAX_DIRECTIONAL_SHADOWS];
+
 uniform bool uDefaultShading;
 
 struct Material {
@@ -396,7 +447,7 @@ vec3 CalcDefaultShading() {
     return CalcPhongLighting(
         raw, raw, raw,
         vTBN[2], uCameraPosition, vPosition,
-        20
+        20, 0
     );
 }
 
@@ -426,10 +477,12 @@ vec4 CalcFragColorWithPhong() {
         normal = normalize(vTBN * (normal * 2 - 1));
     }
 
+    float shadow = CalcShadow(vDirectionalShadowPositions, normal);
+
     vec3 color = CalcPhongLighting(
         ka, kd, ks,
         normal, uCameraPosition, vPosition,
-        uMaterial.shininess
+        uMaterial.shininess, shadow
     );
 
     return vec4(color, alpha);
@@ -473,9 +526,12 @@ vec4 CalcFragColorWithPBR() {
         normal = normalize(vTBN * (normal * 2 - 1));
     }
 
+    float shadow = CalcShadow(vDirectionalShadowPositions, normal);
+
     vec3 color = CalcPBRLighting(
         albedo, metallic, roughness, ao,
-        normal, uCameraPosition, vPosition
+        normal, uCameraPosition, vPosition,
+        shadow
     );
 
     return vec4(color, alpha);
@@ -522,4 +578,8 @@ void main() {
     vec4 fragColor = CalcFragColor();
     AppendToList(fragColor);
 }
+)";
+
+const std::string Model::kFsShadowMainSource = R"(
+void main() {}
 )";

@@ -114,7 +114,7 @@ vec3 CalcSpecular(vec3 lightDirection, vec3 normal, vec3 viewDirection, float sh
 vec3 CalcPhongLighting(
     vec3 ka, vec3 kd, vec3 ks,
     vec3 normal, vec3 cameraPosition, vec3 position,
-    float shininess
+    float shininess, float shadow
 ) {
     vec3 color = vec3(0);
     for (int i = 0; i < uAmbientLights.n; i++) {
@@ -122,9 +122,9 @@ vec3 CalcPhongLighting(
     }
     for (int i = 0; i < uDirectionalLights.n; i++) {
         color += CalcDiffuse(-uDirectionalLights.l[i].dir, normal, kd) *
-            uDirectionalLights.l[i].color;
+            uDirectionalLights.l[i].color * (1 - shadow);
         color += CalcSpecular(-uDirectionalLights.l[i].dir, normal, cameraPosition - position, shininess, ks) *
-            uDirectionalLights.l[i].color;
+            uDirectionalLights.l[i].color * (1 - shadow);
     }
     for (int i = 0; i < uPointLights.n; i++) {
         vec3 attenuation = uPointLights.l[i].attenuation;
@@ -132,9 +132,9 @@ vec3 CalcPhongLighting(
         vec3 pointLightColor = uPointLights.l[i].color /
             (attenuation.x + attenuation.y * dis + attenuation.z * pow(dis, 2));
         color += CalcDiffuse(uPointLights.l[i].pos - position, normal, kd) *
-            pointLightColor;
+            pointLightColor * (1 - shadow);
         color += CalcSpecular(uPointLights.l[i].pos - position, normal, cameraPosition - position, shininess, ks) *
-            pointLightColor;
+            pointLightColor * (1 - shadow);
     }
     return color;
 }
@@ -205,7 +205,8 @@ vec3 CalcPBRLightingForSingleLightSource(
 
 vec3 CalcPBRLighting(
     vec3 albedo, float metallic, float roughness, float ao,
-    vec3 normal, vec3 cameraPosition, vec3 position
+    vec3 normal, vec3 cameraPosition, vec3 position,
+    float shadow
 ) {
     vec3 color = vec3(0);
 
@@ -218,7 +219,7 @@ vec3 CalcPBRLighting(
             albedo, metallic, roughness,
             normal, cameraPosition - position, -uDirectionalLights.l[i].dir,
             uDirectionalLights.l[i].color
-        );
+        ) * (1 - shadow);
     }
     for (int i = 0; i < uPointLights.n; i++) {
         vec3 attenuation = uPointLights.l[i].attenuation;
@@ -229,7 +230,7 @@ vec3 CalcPBRLighting(
             albedo, metallic, roughness,
             normal, cameraPosition - position, uPointLights.l[i].pos - position,
             pointLightColor
-        );
+        ) * (1 - shadow);
     }
 
     color = color / (color + vec3(1.0));

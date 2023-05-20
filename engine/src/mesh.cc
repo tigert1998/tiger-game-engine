@@ -230,33 +230,35 @@ Mesh::~Mesh() {
   }
 }
 
-void Mesh::Draw(Shader *shader_ptr, int num_instances) const {
+void Mesh::Draw(Shader *shader_ptr, int num_instances, bool shadow,
+                int32_t sampler_offset) const {
   if (!has_bone_) {
     shader_ptr->SetUniform<int32_t>("uAnimated", 0);
   }
 
-  int tot = 0;
-  for (auto kv : textures_) {
-    bool enabled = kv.second.enabled;
-    std::string name = SnakeToPascal(kv.first);
-    name[0] = tolower(name[0]);  // e.g. "Ambient" -> "ambient"
-    shader_ptr->SetUniform<int32_t>(
-        std::string("uMaterial.") + name + "TextureEnabled", enabled);
-    if (enabled) {
-      shader_ptr->SetUniformSampler2D(
-          std::string("uMaterial.") + name + "Texture", kv.second.id, tot);
-      tot++;
+  if (!shadow) {
+    for (auto kv : textures_) {
+      bool enabled = kv.second.enabled;
+      std::string name = SnakeToPascal(kv.first);
+      name[0] = tolower(name[0]);  // e.g. "Ambient" -> "ambient"
+      shader_ptr->SetUniform<int32_t>(
+          std::string("uMaterial.") + name + "TextureEnabled", enabled);
+      if (enabled) {
+        shader_ptr->SetUniformSampler2D(
+            std::string("uMaterial.") + name + "Texture", kv.second.id,
+            sampler_offset++);
+      }
     }
-  }
 
-  shader_ptr->SetUniform<glm::vec3>("uMaterial.ka", material_.ka);
-  shader_ptr->SetUniform<glm::vec3>("uMaterial.kd", material_.kd);
-  shader_ptr->SetUniform<glm::vec3>("uMaterial.ks", material_.ks);
-  shader_ptr->SetUniform<float>("uMaterial.shininess", material_.shininess);
-  shader_ptr->SetUniform<int32_t>(
-      "uMaterial.bindMetalnessAndDiffuseRoughness",
-      textures_.at("METALNESS").id == textures_.at("DIFFUSE_ROUGHNESS").id &&
-          textures_.at("METALNESS").enabled);
+    shader_ptr->SetUniform<glm::vec3>("uMaterial.ka", material_.ka);
+    shader_ptr->SetUniform<glm::vec3>("uMaterial.kd", material_.kd);
+    shader_ptr->SetUniform<glm::vec3>("uMaterial.ks", material_.ks);
+    shader_ptr->SetUniform<float>("uMaterial.shininess", material_.shininess);
+    shader_ptr->SetUniform<int32_t>(
+        "uMaterial.bindMetalnessAndDiffuseRoughness",
+        textures_.at("METALNESS").id == textures_.at("DIFFUSE_ROUGHNESS").id &&
+            textures_.at("METALNESS").enabled);
+  }
 
   CHECK(transforms_.size() == 1);
   shader_ptr->SetUniform<glm::mat4>("uTransform", transforms_[0]);

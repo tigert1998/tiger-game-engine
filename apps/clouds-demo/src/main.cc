@@ -16,6 +16,7 @@
 #include "light_sources.h"
 #include "model.h"
 #include "oit_render_quad.h"
+#include "shadow_sources.h"
 
 class Controller : public SightseeingController {
  private:
@@ -48,6 +49,7 @@ std::unique_ptr<OITRenderQuad> oit_render_quad_ptr;
 std::unique_ptr<Controller> controller;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Clouds> clouds_ptr;
+std::unique_ptr<ShadowSources> shadow_sources_ptr;
 
 GLFWwindow *window;
 
@@ -105,6 +107,8 @@ void Init(uint32_t width, uint32_t height) {
       std::make_unique<Directional>(glm::vec3(0, -1, -1), glm::vec3(1, 1, 1)));
   light_sources_ptr->Add(std::make_unique<Ambient>(glm::vec3(0.04)));
 
+  shadow_sources_ptr = std::make_unique<ShadowSources>();
+
   camera_ptr = std::make_unique<Camera>(glm::vec3(0, 10, 0),
                                         static_cast<double>(width) / height);
   camera_ptr->set_alpha(-0.5 * glm::pi<float>());
@@ -150,22 +154,23 @@ int main(int argc, char *argv[]) {
 
     glfwPollEvents();
 
-    oit_render_quad_ptr->BindFrameBuffer();
+    oit_render_quad_ptr->Bind();
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    oit_render_quad_ptr->UnbindFrameBuffer();
+    oit_render_quad_ptr->Unbind();
 
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     oit_render_quad_ptr->CopyDepthToDefaultFrameBuffer();
     glDepthMask(GL_FALSE);
     oit_render_quad_ptr->ResetBeforeRender();
-    model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(), glm::mat4(1));
+    model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
+                    shadow_sources_ptr.get(), glm::mat4(1));
     glDepthMask(GL_TRUE);
     glClear(GL_DEPTH_BUFFER_BIT);
-    clouds_ptr->BindFrameBuffer();
+    clouds_ptr->Bind();
     oit_render_quad_ptr->Draw();
-    clouds_ptr->UnbindFrameBuffer();
+    clouds_ptr->Unbind();
     clouds_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(), current_time);
 
     ImGui_ImplGlfw_NewFrame();

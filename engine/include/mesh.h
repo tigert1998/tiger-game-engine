@@ -33,7 +33,8 @@ class Mesh {
 
   ~Mesh();
 
-  void Draw(Shader *shader_ptr, int num_instances) const;
+  void Draw(Shader *shader_ptr, int num_instances, bool shadow,
+            int32_t sampler_offset) const;
 
   inline std::string name() { return name_; }
 

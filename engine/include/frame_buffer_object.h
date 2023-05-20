@@ -5,10 +5,10 @@
 
 class FrameBufferObject {
  private:
-  uint32_t id_, color_texture_id_, depth_texture_id_;
+  uint32_t id_ = 0, color_texture_id_ = 0, depth_texture_id_ = 0;
 
  public:
-  FrameBufferObject(uint32_t width, uint32_t height);
+  FrameBufferObject(uint32_t width, uint32_t height, bool color);
 
   inline uint32_t id() { return id_; }
   inline uint32_t color_texture_id() { return color_texture_id_; }

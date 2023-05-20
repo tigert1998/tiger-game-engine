@@ -14,6 +14,7 @@
 #include "mesh.h"
 #include "oit_render_quad.h"
 #include "shader.h"
+#include "shadow_sources.h"
 
 class Model {
  public:
@@ -21,12 +22,18 @@ class Model {
   Model(const std::string &path, OITRenderQuad *oit_render_quad);
   ~Model();
   void Draw(Camera *camera_ptr, LightSources *light_sources,
-            glm::mat4 model_matrix);
+            ShadowSources *shadow_sources, glm::mat4 model_matrix);
   void Draw(Camera *camera_ptr, LightSources *light_sources,
+            ShadowSources *shadow_sources,
             const std::vector<glm::mat4> &model_matrices, glm::vec4 clip_plane);
   void Draw(uint32_t animation_id, double time, Camera *camera_ptr,
-            LightSources *light_sources, glm::mat4 model_matrix,
-            glm::vec4 clip_plane);
+            LightSources *light_sources, ShadowSources *shadow_sources,
+            glm::mat4 model_matrix, glm::vec4 clip_plane);
+  void DrawDepthForShadow(Shadow *shadow, glm::mat4 model_matrix);
+  void DrawDepthForShadow(Shadow *shadow,
+                          const std::vector<glm::mat4> &model_matrices);
+  void DrawDepthForShadow(uint32_t animation_id, double time, Shadow *shadow,
+                          glm::mat4 model_matrix);
   int NumAnimations() const;
   void set_default_shading(bool default_shading);
   inline bool default_shading() { return default_shading_; }
@@ -58,17 +65,24 @@ class Model {
   static glm::mat4 InterpolateScalingMatrix(aiVectorKey *keys, uint32_t n,
                                             double ticks);
 
+  void DrawMesh(Mesh *mesh_ptr, Shader *shader_ptr,
+                const std::vector<glm::mat4> &model_matrices, bool shadow,
+                int32_t sampler_offset);
+
   void InternalDraw(bool animated, Camera *camera_ptr,
-                    LightSources *light_sources,
+                    LightSources *light_sources, ShadowSources *shadow_sources,
                     const std::vector<glm::mat4> &model_matrices,
                     glm::vec4 clip_plane);
+  void InternalDrawDepthForShadow(bool animated, Shadow *shadow,
+                                  const std::vector<glm::mat4> &model_matrices);
 
   static const std::string kVsSource;
   static const std::string kFsSource;
   static const std::string kFsMainSource;
   static const std::string kFsOITMainSource;
+  static const std::string kFsShadowMainSource;
 
-  static std::map<bool, std::shared_ptr<Shader>> kShader;
+  static std::shared_ptr<Shader> kShader, kOITShader, kShadowShader;
 };
 
 #endif
