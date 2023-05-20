@@ -101,6 +101,8 @@ uniform DirectionalShadows uDirectionalShadows;
 float CalcShadow(
     vec4 homoPositions[MAX_DIRECTIONAL_SHADOWS], vec3 normal
 ) {
+    const float kShadowBiasFactor = 1e-3; 
+
     // do not take shadow into considerations
     if (uDirectionalShadows.n == 0) {
         return 0;
@@ -111,7 +113,7 @@ float CalcShadow(
         position = position * 0.5 + 0.5;
         float closestDepth = texture(uDirectionalShadows.t[i], position.xy).r;
         float currentDepth = position.z;
-        float bias = max(0.05 * (1.0 - dot(normalize(normal), normalize(-uDirectionalShadows.dirs[i]))), 0.005);
+        float bias = max(kShadowBiasFactor * (1.0 - dot(normalize(normal), normalize(-uDirectionalShadows.dirs[i]))), kShadowBiasFactor * 1e-1);
         if (currentDepth - bias <= closestDepth) return 0;
     }
 
