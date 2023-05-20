@@ -49,7 +49,7 @@ glm::mat4 DirectionalShadow::projection_matrix() const {
                     far_);
 }
 
-void DirectionalShadow::SetShadow(Shader *shader) {
+void DirectionalShadow::SetForDepthPass(Shader *shader) {
   shader->SetUniform<glm::mat4>("uViewMatrix", view_matrix());
   shader->SetUniform<glm::mat4>("uProjectionMatrix", projection_matrix());
 }
@@ -69,7 +69,7 @@ void ShadowSources::Set(Shader *shader, int32_t *num_samplers) {
   }
 }
 
-void ShadowSources::DrawShadow(
+void ShadowSources::DrawDepthForShadow(
     const std::function<void(Shadow *)> &render_pass) {
   for (int i = 0; i < shadows_.size(); i++) {
     shadows_[i]->Bind();

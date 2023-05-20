@@ -12,7 +12,7 @@ class Shadow {
   virtual void Bind() = 0;
   virtual void Unbind() = 0;
   virtual void Set(Shader *shader, int32_t *num_samplers) = 0;
-  virtual void SetShadow(Shader *shader) = 0;
+  virtual void SetForDepthPass(Shader *shader) = 0;
   virtual ~Shadow(){};
 };
 
@@ -30,7 +30,7 @@ class DirectionalShadow : public Shadow {
   void Bind() override;
   inline void Unbind() override { fbo_.Unbind(); }
   void Set(Shader *shader, int32_t *num_samplers) override;
-  void SetShadow(Shader *shader) override;
+  void SetForDepthPass(Shader *shader) override;
   inline ~DirectionalShadow() override {}
 
   glm::mat4 view_matrix() const;
@@ -46,11 +46,11 @@ class ShadowSources : public Shadow {
   inline void Bind() override {}
   inline void Unbind() override {}
   void Set(Shader *shader, int32_t *num_samplers) override;
-  inline void SetShadow(Shader *shader) override {}
+  inline void SetForDepthPass(Shader *shader) override {}
   static std::string FsSource();
   inline ~ShadowSources() override {}
 
-  void DrawShadow(const std::function<void(Shadow *)> &render_pass);
+  void DrawDepthForShadow(const std::function<void(Shadow *)> &render_pass);
 };
 
 #endif

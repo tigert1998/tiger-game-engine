@@ -248,21 +248,21 @@ void Model::Draw(Camera *camera_ptr, LightSources *light_sources,
                std::vector<glm::mat4>{model_matrix}, glm::vec4(0));
 }
 
-void Model::DrawShadow(Shadow *shadow, glm::mat4 model_matrix) {
-  InternalDrawShadow(false, shadow, {model_matrix});
+void Model::DrawDepthForShadow(Shadow *shadow, glm::mat4 model_matrix) {
+  InternalDrawDepthForShadow(false, shadow, {model_matrix});
 }
 
-void Model::DrawShadow(Shadow *shadow,
-                       const std::vector<glm::mat4> &model_matrices) {
-  InternalDrawShadow(false, shadow, model_matrices);
+void Model::DrawDepthForShadow(Shadow *shadow,
+                               const std::vector<glm::mat4> &model_matrices) {
+  InternalDrawDepthForShadow(false, shadow, model_matrices);
 }
 
-void Model::DrawShadow(uint32_t animation_id, double time, Shadow *shadow,
-                       glm::mat4 model_matrix) {
+void Model::DrawDepthForShadow(uint32_t animation_id, double time,
+                               Shadow *shadow, glm::mat4 model_matrix) {
   RecursivelyUpdateBoneMatrices(
       animation_id, scene_->mRootNode, mat4(1),
       time * scene_->mAnimations[animation_id]->mTicksPerSecond);
-  InternalDrawShadow(true, shadow, {model_matrix});
+  InternalDrawDepthForShadow(true, shadow, {model_matrix});
 }
 
 void Model::DrawMesh(Mesh *mesh_ptr, Shader *shader_ptr,
@@ -311,11 +311,12 @@ void Model::InternalDraw(bool animated, Camera *camera_ptr,
   }
 }
 
-void Model::InternalDrawShadow(bool animated, Shadow *shadow,
-                               const std::vector<glm::mat4> &model_matrices) {
+void Model::InternalDrawDepthForShadow(
+    bool animated, Shadow *shadow,
+    const std::vector<glm::mat4> &model_matrices) {
   kShadowShader->Use();
   kShadowShader->SetUniform<vec4>("uClipPlane", glm::vec4(0));
-  shadow->SetShadow(kShadowShader.get());
+  shadow->SetForDepthPass(kShadowShader.get());
 
   for (int i = 0; i < mesh_ptrs_.size(); i++) {
     if (mesh_ptrs_[i] == nullptr) continue;

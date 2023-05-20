@@ -220,11 +220,12 @@ int main(int argc, char *argv[]) {
     glfwPollEvents();
 
     // draw depth map first
-    shadow_sources_ptr->DrawShadow([](Shadow *shadow) {
+    shadow_sources_ptr->DrawDepthForShadow([](Shadow *shadow) {
       if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
-        model_ptr->DrawShadow(shadow, mat4(1));
+        model_ptr->DrawDepthForShadow(shadow, mat4(1));
       } else {
-        model_ptr->DrawShadow(animation_id, animation_time, shadow, mat4(1));
+        model_ptr->DrawDepthForShadow(animation_id, animation_time, shadow,
+                                      mat4(1));
       }
     });
 

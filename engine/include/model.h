@@ -29,10 +29,11 @@ class Model {
   void Draw(uint32_t animation_id, double time, Camera *camera_ptr,
             LightSources *light_sources, ShadowSources *shadow_sources,
             glm::mat4 model_matrix, glm::vec4 clip_plane);
-  void DrawShadow(Shadow *shadow, glm::mat4 model_matrix);
-  void DrawShadow(Shadow *shadow, const std::vector<glm::mat4> &model_matrices);
-  void DrawShadow(uint32_t animation_id, double time, Shadow *shadow,
-                  glm::mat4 model_matrix);
+  void DrawDepthForShadow(Shadow *shadow, glm::mat4 model_matrix);
+  void DrawDepthForShadow(Shadow *shadow,
+                          const std::vector<glm::mat4> &model_matrices);
+  void DrawDepthForShadow(uint32_t animation_id, double time, Shadow *shadow,
+                          glm::mat4 model_matrix);
   int NumAnimations() const;
   void set_default_shading(bool default_shading);
   inline bool default_shading() { return default_shading_; }
@@ -72,8 +73,8 @@ class Model {
                     LightSources *light_sources, ShadowSources *shadow_sources,
                     const std::vector<glm::mat4> &model_matrices,
                     glm::vec4 clip_plane);
-  void InternalDrawShadow(bool animated, Shadow *shadow,
-                          const std::vector<glm::mat4> &model_matrices);
+  void InternalDrawDepthForShadow(bool animated, Shadow *shadow,
+                                  const std::vector<glm::mat4> &model_matrices);
 
   static const std::string kVsSource;
   static const std::string kFsSource;
