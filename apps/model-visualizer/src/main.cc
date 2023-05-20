@@ -100,6 +100,13 @@ void ImGuiWindow() {
   float shadow_p_arr[3] = {shadow_p.x, shadow_p.y, shadow_p.z};
   float shadow_d_arr[3] = {shadow_d.x, shadow_d.y, shadow_d.z};
 
+  // light
+  Directional *light = dynamic_cast<Directional *>(light_sources_ptr->Get(0));
+  auto light_d = light->dir();
+  auto light_c = light->color();
+  float light_d_arr[3] = {light_d.x, light_d.y, light_d.z};
+  float light_c_arr[3] = {light_c.x, light_c.y, light_c.z};
+
   ImGui::Begin("Panel");
   ImGui::InputFloat3("camera.position", p_arr);
   ImGui::InputFloat3("camera.front", f_arr);
@@ -118,6 +125,8 @@ void ImGuiWindow() {
   ImGui::InputFloat("scroll ratio", &scroll_ratio);
   ImGui::InputFloat3("shadow.position", shadow_p_arr);
   ImGui::InputFloat3("shadow.direction", shadow_d_arr);
+  ImGui::InputFloat3("light.direction", light_d_arr);
+  ImGui::InputFloat3("light.color", light_c_arr);
   ImGui::End();
 
   // camera
@@ -140,6 +149,9 @@ void ImGuiWindow() {
   shadow->set_position(vec3(shadow_p_arr[0], shadow_p_arr[1], shadow_p_arr[2]));
   shadow->set_direction(
       vec3(shadow_d_arr[0], shadow_d_arr[1], shadow_d_arr[2]));
+  // light
+  light->set_dir(vec3(light_d_arr[0], light_d_arr[1], light_d_arr[2]));
+  light->set_color(vec3(light_c_arr[0], light_c_arr[1], light_c_arr[2]));
 }
 
 void Init() {
@@ -192,17 +204,17 @@ void Init() {
 
   light_sources_ptr = make_unique<LightSources>();
   light_sources_ptr->Add(
-      make_unique<Directional>(vec3(0, -1, -1), vec3(1, 1, 1)));
-  light_sources_ptr->Add(make_unique<Ambient>(vec3(0.4)));
+      make_unique<Directional>(vec3(0, -1, 0.1), vec3(10, 10, 10)));
+  light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   shadow_sources_ptr = make_unique<ShadowSources>();
   shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
-      vec3(0, 2000, 0), vec3(0, -1, 0.1), 5000, 5000, 0.1, 5000, 2048, 2048));
+      vec3(0, 30, 0), vec3(0, -1, 0.1), 500, 500, 0.1, 500, 2048, 2048));
 
-  model_ptr = make_unique<Model>("resources/sponza/sponza.obj",
+  model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
                                  oit_render_quad_ptr.get());
-  camera_ptr = make_unique<Camera>(vec3(850, 300, 0),
-                                   static_cast<double>(width) / height);
+  camera_ptr =
+      make_unique<Camera>(vec3(7, 9, 0), static_cast<double>(width) / height);
   camera_ptr->set_front(-camera_ptr->position());
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", "png");
 

@@ -498,15 +498,16 @@ vec4 CalcFragColorWithPBR() {
 
     if (uMaterial.diffuseTextureEnabled) {
         vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
-        albedo = sampled.rgb;
+        // convert from sRGB to linear space
+        albedo = pow(sampled.rgb, vec3(2.2));
         alpha = sampled.a;
     }
 
     if (uMaterial.bindMetalnessAndDiffuseRoughness) {
         vec2 sampled = texture(uMaterial.metalnessTexture, vTexCoord).gb;
         // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
-        metallic = sampled.y; // blue
-        roughness = sampled.x; // green
+        metallic = sampled[1]; // blue
+        roughness = sampled[0]; // green
     } else {
         if (uMaterial.metalnessTextureEnabled) {
             metallic = texture(uMaterial.metalnessTexture, vTexCoord).r;

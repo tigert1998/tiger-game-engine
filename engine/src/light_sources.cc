@@ -46,6 +46,8 @@ void LightSources::Add(std::unique_ptr<Light> light) {
   lights_.emplace_back(std::move(light));
 }
 
+Light *LightSources::Get(int32_t index) { return lights_[index].get(); }
+
 void LightSources::Set(Shader *shader, bool not_found_ok) {
   for (auto name :
        std::vector<std::string>{"Ambient", "Directional", "Point"}) {
