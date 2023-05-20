@@ -7,15 +7,15 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 DirectionalShadow::DirectionalShadow(glm::vec3 position, glm::vec3 direction,
-                                     float width, float height, float near,
-                                     float far, uint32_t fbo_width,
+                                     float width, float height, float z_near,
+                                     float z_far, uint32_t fbo_width,
                                      uint32_t fbo_height)
     : position_(position),
       direction_(direction),
       width_(width),
       height_(height),
-      near_(near),
-      far_(far),
+      near_(z_near),
+      far_(z_far),
       fbo_width_(fbo_width),
       fbo_height_(fbo_height),
       fbo_(fbo_width, fbo_height, false) {}
@@ -41,7 +41,12 @@ void DirectionalShadow::Bind() {
 }
 
 glm::mat4 DirectionalShadow::view_matrix() const {
-  return glm::lookAt(position_, position_ + direction_, glm::vec3(0, 1, 0));
+  auto up = glm::vec3(0, 1, 0);
+  if (std::abs(std::abs(glm::dot(up, glm::normalize(direction_))) - 1) <
+      1e-8f) {
+    up = glm::vec3(0, 0, 1);
+  }
+  return glm::lookAt(position_, position_ + direction_, up);
 }
 
 glm::mat4 DirectionalShadow::projection_matrix() const {
@@ -57,6 +62,8 @@ void DirectionalShadow::SetForDepthPass(Shader *shader) {
 void ShadowSources::Add(std::unique_ptr<Shadow> shadow) {
   shadows_.emplace_back(std::move(shadow));
 }
+
+Shadow *ShadowSources::Get(int32_t index) { return shadows_[index].get(); }
 
 void ShadowSources::Set(Shader *shader, int32_t *num_samplers) {
   for (auto name : {"Directional"}) {

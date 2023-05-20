@@ -25,13 +25,18 @@ class DirectionalShadow : public Shadow {
 
  public:
   DirectionalShadow(glm::vec3 position, glm::vec3 direction, float width,
-                    float height, float near, float far, uint32_t fbo_width,
+                    float height, float z_near, float z_far, uint32_t fbo_width,
                     uint32_t fbo_height);
   void Bind() override;
   inline void Unbind() override { fbo_.Unbind(); }
   void Set(Shader *shader, int32_t *num_samplers) override;
   void SetForDepthPass(Shader *shader) override;
   inline ~DirectionalShadow() override {}
+
+  inline glm::vec3 position() { return position_; }
+  inline void set_position(glm::vec3 position) { position_ = position; }
+  inline glm::vec3 direction() { return direction_; }
+  inline void set_direction(glm::vec3 direction) { direction_ = direction; }
 
   glm::mat4 view_matrix() const;
   glm::mat4 projection_matrix() const;
@@ -43,6 +48,7 @@ class ShadowSources : public Shadow {
 
  public:
   void Add(std::unique_ptr<Shadow> shadow);
+  Shadow *Get(int32_t index);
   inline void Bind() override {}
   inline void Unbind() override {}
   void Set(Shader *shader, int32_t *num_samplers) override;

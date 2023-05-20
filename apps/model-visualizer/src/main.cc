@@ -78,26 +78,27 @@ void ImGuiInit() {
 }
 
 void ImGuiWindow() {
+  // camera
   auto p = camera_ptr->position();
   auto f = camera_ptr->front();
   float p_arr[3] = {p.x, p.y, p.z};
   float f_arr[3] = {f.x, f.y, f.z};
   float alpha = camera_ptr->alpha();
   float beta = camera_ptr->beta();
+
+  // model
   char buf[1 << 10] = {0};
   static int prev_animation_id = animation_id;
   const char *default_shading_choices[] = {"off", "on"};
   int default_shading_choice = model_ptr->default_shading() ? 1 : 0;
 
-  if (prev_animation_id != animation_id) {
-    if (0 <= animation_id && animation_id < model_ptr->NumAnimations()) {
-      LOG(INFO) << "switching to animation #" << animation_id;
-    } else {
-      LOG(INFO) << "deactivate animation";
-    }
-    prev_animation_id = animation_id;
-    animation_time = 0;
-  }
+  // shadow
+  DirectionalShadow *shadow =
+      dynamic_cast<DirectionalShadow *>(shadow_sources_ptr->Get(0));
+  auto shadow_p = shadow->position();
+  auto shadow_d = shadow->direction();
+  float shadow_p_arr[3] = {shadow_p.x, shadow_p.y, shadow_p.z};
+  float shadow_d_arr[3] = {shadow_d.x, shadow_d.y, shadow_d.z};
 
   ImGui::Begin("Panel");
   ImGui::InputFloat3("camera.position", p_arr);
@@ -115,13 +116,30 @@ void ImGuiWindow() {
                  default_shading_choices,
                  IM_ARRAYSIZE(default_shading_choices));
   ImGui::InputFloat("scroll ratio", &scroll_ratio);
+  ImGui::InputFloat3("shadow.position", shadow_p_arr);
+  ImGui::InputFloat3("shadow.direction", shadow_d_arr);
   ImGui::End();
 
+  // camera
   camera_ptr->set_position(vec3(p_arr[0], p_arr[1], p_arr[2]));
   camera_ptr->set_front(vec3(f_arr[0], f_arr[1], f_arr[2]));
   camera_ptr->set_alpha(alpha);
   camera_ptr->set_beta(beta);
+  // model
   model_ptr->set_default_shading(default_shading_choice == 1);
+  if (prev_animation_id != animation_id) {
+    if (0 <= animation_id && animation_id < model_ptr->NumAnimations()) {
+      LOG(INFO) << "switching to animation #" << animation_id;
+    } else {
+      LOG(INFO) << "deactivate animation";
+    }
+    prev_animation_id = animation_id;
+    animation_time = 0;
+  }
+  // shadow
+  shadow->set_position(vec3(shadow_p_arr[0], shadow_p_arr[1], shadow_p_arr[2]));
+  shadow->set_direction(
+      vec3(shadow_d_arr[0], shadow_d_arr[1], shadow_d_arr[2]));
 }
 
 void Init() {
@@ -179,7 +197,7 @@ void Init() {
 
   shadow_sources_ptr = make_unique<ShadowSources>();
   shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
-      vec3(0, 1500, 1500), vec3(0, -1, -1), 5000, 5000, 0.1, 5000, 2048, 2048));
+      vec3(0, 1500, 0), vec3(0, -1, -0.1), 5000, 5000, 0.1, 5000, 2048, 2048));
 
   model_ptr = make_unique<Model>("resources/sponza/sponza.obj",
                                  oit_render_quad_ptr.get());
