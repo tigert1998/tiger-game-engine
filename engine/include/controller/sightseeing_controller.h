@@ -25,6 +25,8 @@ class SightseeingController {
  public:
   SightseeingController(Camera *camera, uint32_t width, uint32_t height,
                         GLFWwindow *window);
+  inline uint32_t width() { return width_; }
+  inline uint32_t height() { return height_; }
 };
 
 #endif

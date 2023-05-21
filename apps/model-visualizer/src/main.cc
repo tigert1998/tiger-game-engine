@@ -11,14 +11,35 @@
 #include <iostream>
 #include <memory>
 
+#include "controller/sightseeing_controller.h"
 #include "model.h"
 #include "mouse.h"
 #include "skybox.h"
 
-uint32_t width = 1920, height = 1080;
-
 using namespace glm;
 using namespace std;
+
+class Controller : public SightseeingController {
+ private:
+  OITRenderQuad *oit_render_quad_;
+
+  void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
+    SightseeingController::FramebufferSizeCallback(window, width, height);
+    oit_render_quad_->Resize(width, height);
+  }
+
+ public:
+  Controller(Camera *camera, OITRenderQuad *oit_render_quad, uint32_t width,
+             uint32_t height, GLFWwindow *window)
+      : SightseeingController(camera, width, height, window),
+        oit_render_quad_(oit_render_quad) {
+    glfwSetFramebufferSizeCallback(
+        window, [](GLFWwindow *window, int width, int height) {
+          Controller *self = (Controller *)glfwGetWindowUserPointer(window);
+          self->FramebufferSizeCallback(window, width, height);
+        });
+  }
+};
 
 std::unique_ptr<OITRenderQuad> oit_render_quad_ptr;
 std::unique_ptr<Model> model_ptr;
@@ -26,50 +47,19 @@ std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<ShadowSources> shadow_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
+std::unique_ptr<Controller> controller_ptr;
 
 double animation_time = 0;
 int animation_id = -1;
-float scroll_ratio = 10;
 
 GLFWwindow *window;
-
-void MouseButtonCallback(GLFWwindow *window, int button, int action, int) {
-  Mouse::shared.Trigger(button, action);
-}
-
-void CursorPosCallback(GLFWwindow *window, double x, double y) {
-  Mouse::shared.Move(x, y);
-}
-
-void ScrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
-  auto position = camera_ptr->position();
-  double distance =
-      glm::distance(position, glm::vec3(0)) + yoffset * scroll_ratio;
-  distance = std::max(distance, 0.1);
-  position = glm::normalize(position) * (float)distance;
-  camera_ptr->set_position(position);
-}
-
-void KeyCallback(GLFWwindow *window, int key, int, int action, int) {
-  if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
-    glfwSetWindowShouldClose(window, GL_TRUE);
-  }
-}
-
-void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
-  ::width = width;
-  ::height = height;
-  oit_render_quad_ptr->Resize(width, height);
-  camera_ptr->set_width_height_ratio(static_cast<double>(width) / height);
-  glViewport(0, 0, width, height);
-}
 
 void ImGuiInit() {
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
   ImGuiIO &io = ImGui::GetIO();
-  io.DisplaySize.x = width;
-  io.DisplaySize.y = height;
+  io.DisplaySize.x = controller_ptr->width();
+  io.DisplaySize.y = controller_ptr->height();
   ImGui_ImplGlfw_InitForOpenGL(window, true);
   ImGui_ImplOpenGL3_Init();
   ImGui::StyleColorsClassic();
@@ -100,13 +90,6 @@ void ImGuiWindow() {
   float shadow_p_arr[3] = {shadow_p.x, shadow_p.y, shadow_p.z};
   float shadow_d_arr[3] = {shadow_d.x, shadow_d.y, shadow_d.z};
 
-  // light
-  Directional *light = dynamic_cast<Directional *>(light_sources_ptr->Get(0));
-  auto light_d = light->dir();
-  auto light_c = light->color();
-  float light_d_arr[3] = {light_d.x, light_d.y, light_d.z};
-  float light_c_arr[3] = {light_c.x, light_c.y, light_c.z};
-
   ImGui::Begin("Panel");
   ImGui::InputFloat3("camera.position", p_arr);
   ImGui::InputFloat3("camera.front", f_arr);
@@ -122,11 +105,8 @@ void ImGuiWindow() {
   ImGui::ListBox("default shading", &default_shading_choice,
                  default_shading_choices,
                  IM_ARRAYSIZE(default_shading_choices));
-  ImGui::InputFloat("scroll ratio", &scroll_ratio);
   ImGui::InputFloat3("shadow.position", shadow_p_arr);
   ImGui::InputFloat3("shadow.direction", shadow_d_arr);
-  ImGui::InputFloat3("light.direction", light_d_arr);
-  ImGui::InputFloat3("light.color", light_c_arr);
   ImGui::End();
 
   // camera
@@ -149,12 +129,11 @@ void ImGuiWindow() {
   shadow->set_position(vec3(shadow_p_arr[0], shadow_p_arr[1], shadow_p_arr[2]));
   shadow->set_direction(
       vec3(shadow_d_arr[0], shadow_d_arr[1], shadow_d_arr[2]));
-  // light
-  light->set_dir(vec3(light_d_arr[0], light_d_arr[1], light_d_arr[2]));
-  light->set_color(vec3(light_c_arr[0], light_c_arr[1], light_c_arr[2]));
+
+  light_sources_ptr->ImGuiWindow();
 }
 
-void Init() {
+void Init(uint32_t width, uint32_t height) {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -166,36 +145,6 @@ void Init() {
   glfwMakeContextCurrent(window);
   gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
-  glfwSetKeyCallback(window, KeyCallback);
-  glfwSetMouseButtonCallback(window, MouseButtonCallback);
-  glfwSetCursorPosCallback(window, CursorPosCallback);
-  glfwSetScrollCallback(window, ScrollCallback);
-
-  Mouse::shared.Register(
-      [](Mouse::MouseState state, double delta, double x, double y) {
-        static double lastx = 0, lasty = 0;
-        if (state[GLFW_MOUSE_BUTTON_LEFT]) {
-          double normalized_x = (x - lastx) / width;
-          double normalized_y = (y - lasty) / height;
-
-          auto position = camera_ptr->position();
-          double distance = glm::distance(position, glm::vec3(0));
-          double theta = atan2(-position.z, position.x) - normalized_x * 2;
-          double gamma = -camera_ptr->beta() + normalized_y;
-
-          position.x = distance * cos(theta) * cos(gamma);
-          position.z = -distance * sin(theta) * cos(gamma);
-          position.y = distance * sin(gamma);
-
-          camera_ptr->set_position(position);
-          camera_ptr->set_front(-camera_ptr->position());
-        }
-        lastx = x;
-        lasty = y;
-      });
-
-  glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
-
   glEnable(GL_DEPTH_TEST);
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -203,13 +152,12 @@ void Init() {
   oit_render_quad_ptr = make_unique<OITRenderQuad>(width, height);
 
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->Add(
-      make_unique<Directional>(vec3(0, -1, 0.1), vec3(10, 10, 10)));
+  light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.1), vec3(10)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   shadow_sources_ptr = make_unique<ShadowSources>();
   shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
-      vec3(0, 30, 0), vec3(0, -1, 0.1), 500, 500, 0.1, 500, 2048, 2048));
+      vec3(0, 30, 0), vec3(0, -1, 0.1), 100, 100, 0.1, 100, 2048, 2048));
 
   model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
                                  oit_render_quad_ptr.get());
@@ -218,6 +166,9 @@ void Init() {
   camera_ptr->set_front(-camera_ptr->position());
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", "png");
 
+  controller_ptr = make_unique<Controller>(
+      camera_ptr.get(), oit_render_quad_ptr.get(), width, height, window);
+
   ImGuiInit();
 }
 
@@ -225,7 +176,7 @@ int main(int argc, char *argv[]) {
   ::google::InitGoogleLogging(argv[0]);
   FLAGS_logtostderr = 1;
 
-  Init();
+  Init(1920, 1080);
 
   while (!glfwWindowShouldClose(window)) {
     static uint32_t fps = 0;
@@ -235,6 +186,8 @@ int main(int argc, char *argv[]) {
     double delta_time = current_time - last_time;
     last_time = current_time;
     animation_time += delta_time;
+
+    Keyboard::shared.Elapse(delta_time);
 
     {
       fps += 1;
@@ -265,7 +218,7 @@ int main(int argc, char *argv[]) {
     skybox_ptr->Draw(camera_ptr.get());
     oit_render_quad_ptr->Unbind();
 
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, controller_ptr->width(), controller_ptr->height());
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_CULL_FACE);
