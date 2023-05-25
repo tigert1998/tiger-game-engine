@@ -157,7 +157,7 @@ void Init(uint32_t width, uint32_t height) {
 
   shadow_sources_ptr = make_unique<ShadowSources>();
   shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
-      vec3(0, 30, 0), vec3(0, -1, 0.1), 100, 100, 0.1, 100, 2048, 2048));
+      vec3(0, 25, 0), vec3(0, -1, 0.1), 50, 50, 0.1, 50, 4096, 4096));
 
   model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
                                  oit_render_quad_ptr.get());

@@ -443,11 +443,15 @@ struct Material {
 uniform Material uMaterial;
 
 vec3 CalcDefaultShading() {
-    vec3 raw = vec3(0.9608f, 0.6784f, 0.2588f);
-    return CalcPhongLighting(
-        raw, raw, raw,
+    // gold material
+    vec3 color = vec3(0.944, 0.776, 0.373);
+    vec3 albedo = pow(color, vec3(2.2));
+    float metallic = 0.95;
+    float roughness = 0.05;
+    return CalcPBRLighting(
+        albedo, metallic, roughness, 1,
         vTBN[2], uCameraPosition, vPosition,
-        20, 0
+        0
     );
 }
 
