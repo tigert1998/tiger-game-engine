@@ -45,13 +45,6 @@ void OITRenderQuad::Allocate(uint32_t width, uint32_t height,
   fbo_.reset(new FrameBufferObject(width, height, true));
 }
 
-void OITRenderQuad::CopyDepthToDefaultFrameBuffer() {
-  glBindFramebuffer(GL_READ_FRAMEBUFFER, fbo_->id());
-  glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-  glBlitFramebuffer(0, 0, width_, height_, 0, 0, width_, height_,
-                    GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-}
-
 void OITRenderQuad::Deallocate() {
   glDeleteTextures(1, &head_pointer_texture_);
   glDeleteBuffers(1, &head_pointer_initializer_);
@@ -188,9 +181,11 @@ vec4 CalcFragColor(int count, out float depth) {
     vec4 fragColor = texture(uBackground, coord);
     depth = texture(uBackgroundDepth, coord).r;
     for (int i = 0; i < count; i++) {
+        float tmpDepth = uintBitsToFloat(fragments[i].z);
+        if (tmpDepth > depth) continue;
+        depth = tmpDepth;
         vec4 color = unpackUnorm4x8(fragments[i].y);
         fragColor = mix(fragColor, color, color.a);
-        depth = uintBitsToFloat(fragments[i].z);
     }
     return fragColor;
 }

@@ -36,7 +36,6 @@ class OITRenderQuad {
     fbo_->Bind();
   }
   inline void Unbind() { fbo_->Unbind(); }
-  void CopyDepthToDefaultFrameBuffer();
 
   void ResetBeforeRender();
   void Set(Shader* shader);

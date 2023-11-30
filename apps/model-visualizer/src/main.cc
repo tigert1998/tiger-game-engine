@@ -213,17 +213,17 @@ int main(int argc, char *argv[]) {
     });
 
     oit_render_quad_ptr->Bind();
+    // draw background for OIT render quad
+    // all opaque objects must be draw here
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     skybox_ptr->Draw(camera_ptr.get());
     oit_render_quad_ptr->Unbind();
 
+    // append transparent objects to the linked list
     glViewport(0, 0, controller_ptr->width(), controller_ptr->height());
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
-    oit_render_quad_ptr->CopyDepthToDefaultFrameBuffer();
     glDepthMask(GL_FALSE);
     oit_render_quad_ptr->ResetBeforeRender();
     if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
@@ -236,7 +236,10 @@ int main(int argc, char *argv[]) {
     }
     glDepthMask(GL_TRUE);
     glDisable(GL_CULL_FACE);
-    glClear(GL_DEPTH_BUFFER_BIT);
+
+    // draw OIT render quad
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     oit_render_quad_ptr->Draw();
 
     ImGui_ImplGlfw_NewFrame();

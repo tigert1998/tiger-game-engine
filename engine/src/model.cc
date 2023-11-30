@@ -563,8 +563,6 @@ void main() {
 )";
 
 const std::string Model::kFsOITMainSource = R"(
-layout (early_fragment_tests) in;
-
 layout (r32ui) uniform uimage2D uHeadPointers;
 layout (binding = 0) uniform atomic_uint uListSize;
 layout (rgba32ui) uniform uimageBuffer uList;
