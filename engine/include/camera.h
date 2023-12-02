@@ -71,7 +71,7 @@ class Camera {
   const glm::vec3 up_ = glm::vec3(0, 1, 0);
   glm::vec3 position_;
   double alpha_, beta_, width_height_ratio_;
-  double fovy_ = glm::radians(60.f), near_ = 0.1, far_ = 50;
+  double fovy_ = glm::radians(60.f), near_ = 0.1, far_ = 500;
 };
 
 #endif

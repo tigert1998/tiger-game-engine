@@ -45,6 +45,8 @@ void DirectionalShadow::Set(Shader *shader, int32_t *num_samplers) {
       "uDirectionalShadow.viewProjectionMatrices", view_projection_matrices());
   shader->SetUniform<std::vector<float>>(
       "uDirectionalShadow.cascadePlaneDistances", cascade_plane_distances());
+  shader->SetUniform<float>("uDirectionalShadow.farPlaneDistance",
+                            camera_->z_far());
   shader->SetUniformSampler2DArray("uDirectionalShadow.shadowMap",
                                    fbo_.depth_texture_id(), (*num_samplers)++);
   shader->SetUniform<glm::vec3>(std::string("uDirectionalShadow.dir"),
@@ -147,6 +149,7 @@ struct DirectionalShadow {
 
     mat4 viewProjectionMatrices[NUM_CASCADES];
     float cascadePlaneDistances[NUM_CASCADES - 1];
+    float farPlaneDistance;
     sampler2DArray shadowMap;
     vec3 dir;
 };
@@ -176,12 +179,32 @@ float CalcShadow(vec3 position, vec3 normal) {
 
     position = homoPosition.xyz / homoPosition.w;
     position = position * 0.5 + 0.5;
-    float closestDepth = texture(uDirectionalShadow.shadowMap, vec3(position.xy, layer)).r;
     float currentDepth = position.z;
-    float bias = max(kShadowBiasFactor * (1.0 - dot(normalize(normal), normalize(-uDirectionalShadow.dir))), kShadowBiasFactor * 1e-1);
-    if (currentDepth - bias <= closestDepth) return 0;
+    if (layer < NUM_CASCADES - 1) currentDepth = min(currentDepth, 1);
+    if (layer > 0) currentDepth = max(currentDepth, 0);
 
-    return 1;
+    float bias = max(0.05 * (1.0 - dot(normal, -uDirectionalShadow.dir)), 0.005);
+    const float biasModifier = 0.5f;
+    if (layer == NUM_CASCADES - 1) {
+        bias *= 1 / (uDirectionalShadow.farPlaneDistance * biasModifier);
+    } else {
+        bias *= 1 / (uDirectionalShadow.cascadePlaneDistances[layer] * biasModifier);
+    }
+
+    float shadow = 0;
+    vec2 texelSize = 1.0 / vec2(textureSize(uDirectionalShadow.shadowMap, 0));
+    for (int x = -1; x <= 1; ++x) {
+        for (int y = -1; y <= 1; ++y) {
+            float closestDepth = texture(
+                uDirectionalShadow.shadowMap, 
+                vec3(position.xy + vec2(x, y) * texelSize, layer)
+            ).r;
+            shadow += (currentDepth - bias) > closestDepth ? 1.0 : 0.0;
+        }
+    }
+    shadow /= 9.0;
+
+    return shadow;
 }
 )";
 }
