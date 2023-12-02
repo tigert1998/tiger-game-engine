@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
+#include <vector>
 
 struct FrustumPlane {
   // unit vector
@@ -61,13 +62,16 @@ class Camera {
   glm::vec3 center() const;
   void set_center(glm::vec3 new_center);
   Frustum frustum() const;
+  std::vector<glm::vec3> frustum_corners(double z_near, double z_far) const;
+  double z_near() const { return near_; }
+  double z_far() const { return far_; }
 
  private:
   static const double kMaxElevationAngle;
   const glm::vec3 up_ = glm::vec3(0, 1, 0);
   glm::vec3 position_;
   double alpha_, beta_, width_height_ratio_;
-  double fovy_ = glm::radians(60.f), near_ = 0.1, far_ = 5000;
+  double fovy_ = glm::radians(60.f), near_ = 0.1, far_ = 50;
 };
 
 #endif

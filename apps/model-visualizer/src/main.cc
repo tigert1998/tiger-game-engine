@@ -85,9 +85,7 @@ void ImGuiWindow() {
   // shadow
   DirectionalShadow *shadow =
       dynamic_cast<DirectionalShadow *>(shadow_sources_ptr->Get(0));
-  auto shadow_p = shadow->position();
   auto shadow_d = shadow->direction();
-  float shadow_p_arr[3] = {shadow_p.x, shadow_p.y, shadow_p.z};
   float shadow_d_arr[3] = {shadow_d.x, shadow_d.y, shadow_d.z};
 
   ImGui::Begin("Panel");
@@ -105,7 +103,6 @@ void ImGuiWindow() {
   ImGui::ListBox("default shading", &default_shading_choice,
                  default_shading_choices,
                  IM_ARRAYSIZE(default_shading_choices));
-  ImGui::InputFloat3("shadow.position", shadow_p_arr);
   ImGui::InputFloat3("shadow.direction", shadow_d_arr);
   ImGui::End();
 
@@ -126,7 +123,6 @@ void ImGuiWindow() {
     animation_time = 0;
   }
   // shadow
-  shadow->set_position(vec3(shadow_p_arr[0], shadow_p_arr[1], shadow_p_arr[2]));
   shadow->set_direction(
       vec3(shadow_d_arr[0], shadow_d_arr[1], shadow_d_arr[2]));
 
@@ -155,15 +151,16 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.1), vec3(10)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
-  shadow_sources_ptr = make_unique<ShadowSources>();
-  shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
-      vec3(0, 25, 0), vec3(0, -1, 0.1), 50, 50, 0.1, 50, 4096, 4096));
-
   model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
                                  oit_render_quad_ptr.get());
   camera_ptr =
       make_unique<Camera>(vec3(7, 9, 0), static_cast<double>(width) / height);
   camera_ptr->set_front(-camera_ptr->position());
+
+  shadow_sources_ptr = make_unique<ShadowSources>();
+  shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
+      vec3(0, -1, 0.1), 1024, 1024, camera_ptr.get()));
+
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", "png");
 
   controller_ptr = make_unique<Controller>(

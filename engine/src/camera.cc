@@ -112,3 +112,25 @@ Frustum Camera::frustum() const {
 
   return frustum;
 }
+
+std::vector<glm::vec3> Camera::frustum_corners(double z_near,
+                                               double z_far) const {
+  auto inv =
+      glm::inverse(glm::perspective((float)fovy_, (float)width_height_ratio_,
+                                    (float)z_near, (float)z_far) *
+                   view_matrix());
+
+  std::vector<glm::vec3> corners;
+  for (int x = 0; x < 2; ++x) {
+    for (int y = 0; y < 2; ++y) {
+      for (int z = 0; z < 2; ++z) {
+        const glm::vec4 position =
+            inv *
+            glm::vec4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
+        corners.push_back(glm::vec3(position / position.w));
+      }
+    }
+  }
+
+  return corners;
+}

@@ -77,10 +77,11 @@ class Model {
                                   const std::vector<glm::mat4> &model_matrices);
 
   static const std::string kVsSource;
+  static const std::string kGsShadowSource;
   static const std::string kFsSource;
   static const std::string kFsMainSource;
   static const std::string kFsOITMainSource;
-  static const std::string kFsShadowMainSource;
+  static const std::string kFsShadowSource;
 
   static std::shared_ptr<Shader> kShader, kOITShader, kShadowShader;
 };

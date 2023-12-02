@@ -6,11 +6,14 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
+#include <regex>
 #include <vector>
 
 #include "cg_exception.h"
 
-std::unique_ptr<Shader> ScreenSpaceShader(const std::string &fs) {
+std::unique_ptr<Shader> ScreenSpaceShader(
+    const std::string &fs,
+    const std::map<std::string, std::any> &compile_time_constants) {
   static const std::string kVsSource = R"(
 #version 410 core
 void main() {}
@@ -41,19 +44,56 @@ void main() {
 
   return std::unique_ptr<Shader>(new Shader({{GL_VERTEX_SHADER, kVsSource},
                                              {GL_GEOMETRY_SHADER, kGsSource},
-                                             {GL_FRAGMENT_SHADER, fs}}));
+                                             {GL_FRAGMENT_SHADER, fs}},
+                                            compile_time_constants));
 }
 
-Shader::Shader(const std::string &vs, const std::string &fs)
-    : Shader(std::vector<std::pair<uint32_t, std::string>>{
-          {GL_VERTEX_SHADER, vs}, {GL_FRAGMENT_SHADER, fs}}) {}
+Shader::Shader(const std::string &vs, const std::string &fs,
+               const std::map<std::string, std::any> &compile_time_constants)
+    : Shader(
+          std::vector<std::pair<uint32_t, std::string>>{
+              {GL_VERTEX_SHADER, vs}, {GL_FRAGMENT_SHADER, fs}},
+          compile_time_constants) {}
 
-Shader::Shader(const std::vector<std::pair<uint32_t, std::string>> &pairs) {
+Shader::Shader(const std::vector<std::pair<uint32_t, std::string>> &pairs,
+               const std::map<std::string, std::any> &compile_time_constants) {
   std::vector<uint32_t> ids;
   for (int i = 0; i < pairs.size(); i++) {
-    ids.push_back(Compile(pairs[i].first, pairs[i].second, ""));
+    auto source =
+        InsertCompileTimeConstants(pairs[i].second, compile_time_constants);
+    ids.push_back(Compile(pairs[i].first, source, ""));
   }
   id_ = Link(ids);
+}
+
+std::string Shader::InsertCompileTimeConstants(
+    const std::string &source,
+    const std::map<std::string, std::any> &compile_time_constants) {
+  std::string new_source = source;
+  for (auto kv : compile_time_constants) {
+    std::string key = kv.first;
+    std::any value = kv.second;
+    std::string value_str;
+    if (value.type() == typeid(int32_t)) {
+      value_str = std::to_string(std::any_cast<int32_t>(value));
+    } else if (value.type() == typeid(uint32_t)) {
+      value_str = std::to_string(std::any_cast<uint32_t>(value));
+    } else if (value.type() == typeid(float)) {
+      value_str = std::to_string(std::any_cast<float>(value));
+    } else if (value.type() == typeid(double)) {
+      value_str = std::to_string(std::any_cast<double>(value));
+    } else if (value.type() == typeid(bool)) {
+      value_str = std::any_cast<bool>(value) ? "true" : "false";
+    } else if (value.type() == typeid(std::string)) {
+      value_str = std::any_cast<std::string>(value);
+    } else {
+      value_str = "UNSUPPORTED CONSTANT TYPE";
+    }
+    auto regex_str = std::string("<!--") + key + "-->";
+    new_source =
+        std::regex_replace(new_source, std::regex(regex_str), value_str);
+  }
+  return new_source;
 }
 
 uint32_t Shader::Compile(uint32_t type, const std::string &source,
@@ -161,6 +201,15 @@ void Shader::SetUniform<float>(const std::string &identifier,
 }
 
 template <>
+void Shader::SetUniform<std::vector<float>>(
+    const std::string &identifier, const std::vector<float> &value) const {
+  auto location = glGetUniformLocation(id_, identifier.c_str());
+  if (location < 0) throw ShaderSettingError(identifier, GetUniformVariables());
+  if (value.size() == 0) return;
+  glUniform1fv(location, value.size(), &value[0]);
+}
+
+template <>
 void Shader::SetUniform<std::vector<glm::mat4>>(
     const std::string &identifier, const std::vector<glm::mat4> &value) const {
   auto location = glGetUniformLocation(id_, identifier.c_str());
@@ -174,12 +223,25 @@ void Shader::SetUniformSampler2D(const std::string &identifier, uint32_t id,
                                  uint32_t unit) {
   glActiveTexture(GL_TEXTURE0 + unit);
   glBindTexture(GL_TEXTURE_2D, id);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+  glBindTexture(GL_TEXTURE_3D, 0);
+  SetUniform<int32_t>(identifier, unit);
+}
+
+void Shader::SetUniformSampler2DArray(const std::string &identifier,
+                                      uint32_t id, uint32_t unit) {
+  glActiveTexture(GL_TEXTURE0 + unit);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, id);
+  glBindTexture(GL_TEXTURE_3D, 0);
   SetUniform<int32_t>(identifier, unit);
 }
 
 void Shader::SetUniformSampler3D(const std::string &identifier, uint32_t id,
                                  uint32_t unit) {
   glActiveTexture(GL_TEXTURE0 + unit);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
   glBindTexture(GL_TEXTURE_3D, id);
   SetUniform<int32_t>(identifier, unit);
 }

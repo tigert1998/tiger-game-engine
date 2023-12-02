@@ -6,33 +6,49 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-DirectionalShadow::DirectionalShadow(glm::vec3 position, glm::vec3 direction,
-                                     float width, float height, float z_near,
-                                     float z_far, uint32_t fbo_width,
-                                     uint32_t fbo_height)
-    : position_(position),
-      direction_(direction),
-      width_(width),
-      height_(height),
-      near_(z_near),
-      far_(z_far),
+DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
+                                     uint32_t fbo_height, const Camera *camera)
+    : direction_(direction),
       fbo_width_(fbo_width),
       fbo_height_(fbo_height),
-      fbo_(fbo_width, fbo_height, false) {}
+      fbo_(fbo_width, fbo_height, NUM_CASCADES),
+      camera_(camera) {}
+
+std::vector<glm::mat4> DirectionalShadow::view_projection_matrices() const {
+  std::vector<glm::mat4> matrices;
+  matrices.reserve(NUM_CASCADES);
+  auto distances = cascade_plane_distances();
+
+  for (int i = 0; i < NUM_CASCADES; i++) {
+    double z_near, z_far;
+    if (i == 0) {
+      z_near = camera_->z_near();
+      z_far = distances[i];
+    } else if (0 < i && i < NUM_CASCADES - 1) {
+      z_near = distances[i - 1];
+      z_far = distances[i];
+    } else if (i == NUM_CASCADES - 1) {
+      z_near = distances[i - 1];
+      z_far = camera_->z_far();
+    }
+    auto corners = camera_->frustum_corners(z_near, z_far);
+
+    matrices.push_back(projection_matrix(corners) * view_matrix(corners));
+  }
+
+  return matrices;
+}
 
 void DirectionalShadow::Set(Shader *shader, int32_t *num_samplers) {
-  int32_t id = shader->GetUniform<int32_t>("uDirectionalShadows.n");
-  shader->SetUniformSampler2D(
-      std::string("uDirectionalShadows.t") + "[" + std::to_string(id) + "]",
-      fbo_.depth_texture_id(), (*num_samplers)++);
-  shader->SetUniform<glm::vec3>(
-      std::string("uDirectionalShadows.dirs") + "[" + std::to_string(id) + "]",
-      direction_);
-  shader->SetUniform<glm::mat4>(
-      std::string("uDirectionalShadowViewProjectionMatrices[") +
-          std::to_string(id) + "]",
-      projection_matrix() * view_matrix());
-  shader->SetUniform<int32_t>("uDirectionalShadows.n", id + 1);
+  shader->SetUniform<int32_t>("uDirectionalShadow.enabled", 1);
+  shader->SetUniform<std::vector<glm::mat4>>(
+      "uDirectionalShadow.viewProjectionMatrices", view_projection_matrices());
+  shader->SetUniform<std::vector<float>>(
+      "uDirectionalShadow.cascadePlaneDistances", cascade_plane_distances());
+  shader->SetUniformSampler2DArray("uDirectionalShadow.shadowMap",
+                                   fbo_.depth_texture_id(), (*num_samplers)++);
+  shader->SetUniform<glm::vec3>(std::string("uDirectionalShadow.dir"),
+                                direction_);
 }
 
 void DirectionalShadow::Bind() {
@@ -40,23 +56,60 @@ void DirectionalShadow::Bind() {
   fbo_.Bind();
 }
 
-glm::mat4 DirectionalShadow::view_matrix() const {
+glm::mat4 DirectionalShadow::view_matrix(
+    const std::vector<glm::vec3> &frustum_corners) const {
   auto up = glm::vec3(0, 1, 0);
   if (std::abs(std::abs(glm::dot(up, glm::normalize(direction_))) - 1) <
       1e-8f) {
     up = glm::vec3(0, 0, 1);
   }
-  return glm::lookAt(position_, position_ + direction_, up);
+  glm::vec3 center = glm::vec3(0);
+  for (auto corner : frustum_corners) {
+    center += corner;
+  }
+  center /= frustum_corners.size();
+  return glm::lookAt(center - direction_, center, up);
 }
 
-glm::mat4 DirectionalShadow::projection_matrix() const {
-  return glm::ortho(-width_ / 2, width_ / 2, -height_ / 2, height_ / 2, near_,
-                    far_);
+glm::mat4 DirectionalShadow::projection_matrix(
+    const std::vector<glm::vec3> &frustum_corners) const {
+  float min_x = std::numeric_limits<float>::max();
+  float max_x = std::numeric_limits<float>::lowest();
+  float min_y = std::numeric_limits<float>::max();
+  float max_y = std::numeric_limits<float>::lowest();
+  float min_z = std::numeric_limits<float>::max();
+  float max_z = std::numeric_limits<float>::lowest();
+
+  for (auto corner : frustum_corners) {
+    auto corner_view_space =
+        view_matrix(frustum_corners) * glm::vec4(corner, 1);
+    min_x = std::min(min_x, corner_view_space.x);
+    max_x = std::max(max_x, corner_view_space.x);
+    min_y = std::min(min_y, corner_view_space.y);
+    max_y = std::max(max_y, corner_view_space.y);
+    min_z = std::min(min_z, corner_view_space.z);
+    max_z = std::max(max_z, corner_view_space.z);
+  }
+
+  // tune this parameter according to the scene
+  constexpr float MULT = 10.0f;
+  if (min_z < 0) {
+    min_z *= MULT;
+  } else {
+    min_z /= MULT;
+  }
+  if (max_z < 0) {
+    max_z /= MULT;
+  } else {
+    max_z *= MULT;
+  }
+
+  return glm::ortho(min_x, max_x, min_y, max_y, min_z, max_z);
 }
 
 void DirectionalShadow::SetForDepthPass(Shader *shader) {
-  shader->SetUniform<glm::mat4>("uViewMatrix", view_matrix());
-  shader->SetUniform<glm::mat4>("uProjectionMatrix", projection_matrix());
+  shader->SetUniform<std::vector<glm::mat4>>(
+      "uDirectionalShadowViewProjectionMatrices", view_projection_matrices());
 }
 
 void ShadowSources::Add(std::unique_ptr<Shadow> shadow) {
@@ -66,10 +119,7 @@ void ShadowSources::Add(std::unique_ptr<Shadow> shadow) {
 Shadow *ShadowSources::Get(int32_t index) { return shadows_[index].get(); }
 
 void ShadowSources::Set(Shader *shader, int32_t *num_samplers) {
-  for (auto name : {"Directional"}) {
-    std::string var = std::string("u") + name + "Shadows.n";
-    shader->SetUniform<int32_t>(var, 0);
-  }
+  shader->SetUniform<int32_t>("uDirectionalShadow.enabled", 0);
 
   for (int i = 0; i < shadows_.size(); i++) {
     shadows_[i]->Set(shader, num_samplers);
@@ -89,34 +139,47 @@ void ShadowSources::DrawDepthForShadow(
 
 std::string ShadowSources::FsSource() {
   return R"(
-const int MAX_DIRECTIONAL_SHADOWS = 1;
+const int NUM_CASCADES = <!--NUM_CASCADES-->;
 
-struct DirectionalShadows {
-    int n;
-    sampler2D t[MAX_DIRECTIONAL_SHADOWS];
-    vec3 dirs[MAX_DIRECTIONAL_SHADOWS];
+struct DirectionalShadow {
+    // Cascaded Shadow Mapping
+    bool enabled;
+
+    mat4 viewProjectionMatrices[NUM_CASCADES];
+    float cascadePlaneDistances[NUM_CASCADES - 1];
+    sampler2DArray shadowMap;
+    vec3 dir;
 };
 
-uniform DirectionalShadows uDirectionalShadows;
+uniform DirectionalShadow uDirectionalShadow;
 
-float CalcShadow(
-    vec4 homoPositions[MAX_DIRECTIONAL_SHADOWS], vec3 normal
-) {
-    const float kShadowBiasFactor = 1e-3; 
-
-    // do not take shadow into considerations
-    if (uDirectionalShadows.n == 0) {
+float CalcShadow(vec3 position, vec3 normal) {
+    if (!uDirectionalShadow.enabled) {
         return 0;
     }
 
-    for (int i = 0; i < uDirectionalShadows.n; i++) {
-        vec3 position = homoPositions[i].xyz / homoPositions[i].w;
-        position = position * 0.5 + 0.5;
-        float closestDepth = texture(uDirectionalShadows.t[i], position.xy).r;
-        float currentDepth = position.z;
-        float bias = max(kShadowBiasFactor * (1.0 - dot(normalize(normal), normalize(-uDirectionalShadows.dirs[i]))), kShadowBiasFactor * 1e-1);
-        if (currentDepth - bias <= closestDepth) return 0;
+    // select cascade layer
+    vec4 viewSpacePosition = uViewMatrix * vec4(position, 1);
+    float depth = -viewSpacePosition.z;
+
+    int layer = NUM_CASCADES - 1;
+    for (int i = 0; i < NUM_CASCADES - 1; i++) {
+        if (depth < uDirectionalShadow.cascadePlaneDistances[i]) {
+            layer = i;
+            break;
+        }
     }
+
+    vec4 homoPosition = uDirectionalShadow.viewProjectionMatrices[layer] * vec4(position, 1.0);
+
+    const float kShadowBiasFactor = 1e-3;
+
+    position = homoPosition.xyz / homoPosition.w;
+    position = position * 0.5 + 0.5;
+    float closestDepth = texture(uDirectionalShadow.shadowMap, vec3(position.xy, layer)).r;
+    float currentDepth = position.z;
+    float bias = max(kShadowBiasFactor * (1.0 - dot(normalize(normal), normalize(-uDirectionalShadow.dir))), kShadowBiasFactor * 1e-1);
+    if (currentDepth - bias <= closestDepth) return 0;
 
     return 1;
 }

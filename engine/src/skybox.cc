@@ -7,8 +7,8 @@
 
 Skybox::Skybox(const std::string &path, const std::string &ext)
     : tex_(path, ext) {
-  shader_ptr_ =
-      std::unique_ptr<Shader>(new Shader(Skybox::kVsSource, Skybox::kFsSource));
+  shader_ptr_ = std::unique_ptr<Shader>(
+      new Shader(Skybox::kVsSource, Skybox::kFsSource, {}));
 
   glGenVertexArrays(1, &vao_);
   glBindVertexArray(vao_);

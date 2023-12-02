@@ -160,7 +160,7 @@ Grassland::Grassland(const std::string& terrain_model_path,
   // launch compute shader to calculate blade transforms once and for all
 
   auto calc_blade_transforms_shader = std::unique_ptr<Shader>(
-      new Shader({{GL_COMPUTE_SHADER, Grassland::kCsSource}}));
+      new Shader({{GL_COMPUTE_SHADER, Grassland::kCsSource}}, {}));
   uint32_t vertices_ssbo = Grassland::CreateAndBindSSBO(
       vertices.size() * sizeof(glm::vec4), glm::value_ptr(vertices[0]),
       GL_STATIC_DRAW, 0);
@@ -230,7 +230,7 @@ Grassland::Grassland(const std::string& terrain_model_path,
               buffer[node->triangle_indices[i] * kMaxLOD + lod];
         }
       }
-      std::random_shuffle(blade_data_[node].begin(), blade_data_[node].end());
+      std::shuffle(blade_data_[node].begin(), blade_data_[node].end(), rd);
     });
     glUnmapBuffer(GL_SHADER_STORAGE_BUFFER);
   }

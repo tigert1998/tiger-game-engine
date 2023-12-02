@@ -36,12 +36,25 @@ Model::Model(const std::string &path, OITRenderQuad *oit_render_quad)
                                           aiProcess_Triangulate);
 
   if (kShader == nullptr && kOITShader == nullptr && kShadowShader == nullptr) {
-    kShader = std::shared_ptr<Shader>(
-        new Shader(Model::kVsSource, Model::kFsSource + Model::kFsMainSource));
-    kOITShader = std::shared_ptr<Shader>(new Shader(
-        Model::kVsSource, Model::kFsSource + Model::kFsOITMainSource));
+    std::map<std::string, std::any> constants = {
+        {"MAX_BONES", std::any(MAX_BONES)},
+        {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
+        {"IS_SHADOW_PASS", std::any(false)},
+    };
+    kShader = std::shared_ptr<Shader>(new Shader(
+        Model::kVsSource, Model::kFsSource + Model::kFsMainSource, constants));
+    kOITShader = std::shared_ptr<Shader>(
+        new Shader(Model::kVsSource, Model::kFsSource + Model::kFsOITMainSource,
+                   constants));
+
+    constants["IS_SHADOW_PASS"] = std::any(true);
     kShadowShader = std::shared_ptr<Shader>(new Shader(
-        Model::kVsSource, Model::kFsSource + Model::kFsShadowMainSource));
+        {
+            {GL_VERTEX_SHADER, Model::kVsSource},
+            {GL_GEOMETRY_SHADER, Model::kGsShadowSource},
+            {GL_FRAGMENT_SHADER, Model::kFsShadowSource},
+        },
+        constants));
   }
   bool enable_oit = oit_render_quad != nullptr;
   shader_ptr_ = enable_oit ? kOITShader : kShader;
@@ -315,7 +328,6 @@ void Model::InternalDrawDepthForShadow(
     bool animated, Shadow *shadow,
     const std::vector<glm::mat4> &model_matrices) {
   kShadowShader->Use();
-  kShadowShader->SetUniform<vec4>("uClipPlane", glm::vec4(0));
   shadow->SetForDepthPass(kShadowShader.get());
 
   for (int i = 0; i < mesh_ptrs_.size(); i++) {
@@ -332,9 +344,8 @@ void Model::set_default_shading(bool default_shading) {
 const std::string Model::kVsSource = R"(
 #version 410 core
 
-const int MAX_BONES = 170;
-const int MAX_INSTANCES = 20;
-const int MAX_DIRECTIONAL_SHADOWS = 1;
+const int MAX_BONES = <!--MAX_BONES-->;
+const bool IS_SHADOW_PASS = <!--IS_SHADOW_PASS-->;
 
 layout (location = 0) in vec3 aPosition;
 layout (location = 1) in vec2 aTexCoord;
@@ -351,7 +362,6 @@ layout (location = 10) in mat4 aModelMatrix;
 out vec3 vPosition;
 out vec2 vTexCoord;
 out mat3 vTBN;
-out vec4 vDirectionalShadowPositions[MAX_DIRECTIONAL_SHADOWS];
 
 uniform bool uAnimated;
 uniform mat4 uViewMatrix;
@@ -359,7 +369,6 @@ uniform mat4 uProjectionMatrix;
 uniform mat4 uBoneMatrices[MAX_BONES];
 uniform mat4 uTransform;
 uniform vec4 uClipPlane;
-uniform mat4 uDirectionalShadowViewProjectionMatrices[MAX_DIRECTIONAL_SHADOWS];
 
 mat4 CalcBoneMatrix() {
     mat4 boneMatrix = mat4(0);
@@ -385,22 +394,22 @@ void main() {
     } else {
         transform = uTransform;
     }
-    gl_Position = uProjectionMatrix * uViewMatrix * aModelMatrix * transform * vec4(aPosition, 1);
-    vPosition = vec3(aModelMatrix * transform * vec4(aPosition, 1));
-    vTexCoord = aTexCoord;
+    if (IS_SHADOW_PASS) {
+        gl_Position = aModelMatrix * transform * vec4(aPosition, 1);
+    } else {
+        gl_Position = uProjectionMatrix * uViewMatrix * aModelMatrix * transform * vec4(aPosition, 1);
+        vPosition = vec3(aModelMatrix * transform * vec4(aPosition, 1));
+        vTexCoord = aTexCoord;
 
-    mat3 normalMatrix = transpose(inverse(mat3(aModelMatrix * transform)));
-    vec3 T = normalize(normalMatrix * aTangent);
-    vec3 N = normalize(normalMatrix * aNormal);
-    T = normalize(T - dot(T, N) * N);
-    vec3 B = cross(N, T);
-    vTBN = mat3(T, B, N);
+        mat3 normalMatrix = transpose(inverse(mat3(aModelMatrix * transform)));
+        vec3 T = normalize(normalMatrix * aTangent);
+        vec3 N = normalize(normalMatrix * aNormal);
+        T = normalize(T - dot(T, N) * N);
+        vec3 B = cross(N, T);
+        vTBN = mat3(T, B, N);
 
-    for (int i = 0; i < MAX_DIRECTIONAL_SHADOWS; i++) {
-        vDirectionalShadowPositions[i] = uDirectionalShadowViewProjectionMatrices[i] * vec4(vPosition, 1);
+        gl_ClipDistance[0] = dot(vec4(vPosition, 1), uClipPlane);
     }
-
-    gl_ClipDistance[0] = dot(vec4(vPosition, 1), uClipPlane);
 }
 )";
 
@@ -410,14 +419,13 @@ const std::string Model::kFsSource = R"(
 const float zero = 1e-6;
 
 uniform vec3 uCameraPosition;
+uniform mat4 uViewMatrix;
 
 in vec3 vPosition;
 in vec2 vTexCoord;
 in mat3 vTBN;
 )" + LightSources::FsSource() + ShadowSources::FsSource() +
                                      R"(
-in vec4 vDirectionalShadowPositions[MAX_DIRECTIONAL_SHADOWS];
-
 uniform bool uDefaultShading;
 
 struct Material {
@@ -481,7 +489,7 @@ vec4 CalcFragColorWithPhong() {
         normal = normalize(vTBN * (normal * 2 - 1));
     }
 
-    float shadow = CalcShadow(vDirectionalShadowPositions, normal);
+    float shadow = CalcShadow(vPosition, normal);
 
     vec3 color = CalcPhongLighting(
         ka, kd, ks,
@@ -531,7 +539,7 @@ vec4 CalcFragColorWithPBR() {
         normal = normalize(vTBN * (normal * 2 - 1));
     }
 
-    float shadow = CalcShadow(vDirectionalShadowPositions, normal);
+    float shadow = CalcShadow(vPosition, normal);
 
     vec3 color = CalcPBRLighting(
         albedo, metallic, roughness, ao,
@@ -583,6 +591,24 @@ void main() {
 }
 )";
 
-const std::string Model::kFsShadowMainSource = R"(
+const std::string Model::kGsShadowSource = R"(
+#version 460 core
+
+layout (triangles, invocations = <!--NUM_CASCADES-->) in;
+layout (triangle_strip, max_vertices = 3) out;
+
+uniform mat4 uDirectionalShadowViewProjectionMatrices[<!--NUM_CASCADES-->];
+
+void main() {
+    for (int i = 0; i < 3; ++i) {
+        gl_Position = uDirectionalShadowViewProjectionMatrices[gl_InvocationID] * gl_in[i].gl_Position;
+        gl_Layer = gl_InvocationID;
+        EmitVertex();
+    }
+    EndPrimitive();
+}
+)";
+
+const std::string Model::kFsShadowSource = R"(
 void main() {}
 )";

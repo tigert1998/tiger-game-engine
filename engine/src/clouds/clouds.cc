@@ -24,8 +24,8 @@ void Clouds::Deallocate() { glDeleteTextures(1, &frag_color_texture_id_); }
 
 Clouds::Clouds(uint32_t width, uint32_t height) {
   noise_texture_generator_.reset(new NoiseTextureGenerator(0.8));
-  shader_.reset(new Shader({{GL_COMPUTE_SHADER, Clouds::kCsSource}}));
-  screen_space_shader_ = ScreenSpaceShader(kFsSource);
+  shader_.reset(new Shader({{GL_COMPUTE_SHADER, Clouds::kCsSource}}, {}));
+  screen_space_shader_ = ScreenSpaceShader(kFsSource, {});
   glGenVertexArrays(1, &vao_);
   Allocate(width, height);
 }

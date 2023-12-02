@@ -4,6 +4,7 @@
 #include <functional>
 #include <glm/glm.hpp>
 
+#include "camera.h"
 #include "frame_buffer_object.h"
 #include "shader.h"
 
@@ -18,28 +19,43 @@ class Shadow {
 
 class DirectionalShadow : public Shadow {
  private:
-  glm::vec3 position_, direction_;
-  float width_, height_, near_, far_;
+  glm::vec3 direction_;
   uint32_t fbo_width_, fbo_height_;
   FrameBufferObject fbo_;
+  const Camera *camera_;
 
  public:
-  DirectionalShadow(glm::vec3 position, glm::vec3 direction, float width,
-                    float height, float z_near, float z_far, uint32_t fbo_width,
-                    uint32_t fbo_height);
+  DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
+                    uint32_t fbo_height, const Camera *camera);
   void Bind() override;
   inline void Unbind() override { fbo_.Unbind(); }
   void Set(Shader *shader, int32_t *num_samplers) override;
   void SetForDepthPass(Shader *shader) override;
   inline ~DirectionalShadow() override {}
 
-  inline glm::vec3 position() { return position_; }
-  inline void set_position(glm::vec3 position) { position_ = position; }
   inline glm::vec3 direction() { return direction_; }
   inline void set_direction(glm::vec3 direction) { direction_ = direction; }
 
-  glm::mat4 view_matrix() const;
-  glm::mat4 projection_matrix() const;
+  std::vector<glm::mat4> view_projection_matrices() const;
+  glm::mat4 view_matrix(const std::vector<glm::vec3> &frustum_corners) const;
+  glm::mat4 projection_matrix(
+      const std::vector<glm::vec3> &frustum_corners) const;
+
+  static constexpr uint32_t NUM_CASCADES = 5;
+  static constexpr float CASCADE_PLANE_RATIO[NUM_CASCADES - 1] = {
+      1 / 50.f,
+      1 / 25.f,
+      1 / 10.f,
+      1 / 2.f,
+  };
+
+  std::vector<float> cascade_plane_distances() const {
+    float dis = camera_->z_far() - camera_->z_near();
+    std::vector<float> ret(NUM_CASCADES - 1);
+    for (int i = 0; i < ret.size(); i++)
+      ret[i] = camera_->z_near() + dis * CASCADE_PLANE_RATIO[i];
+    return ret;
+  }
 };
 
 class ShadowSources : public Shadow {

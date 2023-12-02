@@ -58,7 +58,7 @@ OITRenderQuad::OITRenderQuad(uint32_t width, uint32_t height)
   Allocate(width, height, 16);
 
   if (kShader == nullptr) {
-    kShader = ScreenSpaceShader(kFsSource);
+    kShader = ScreenSpaceShader(kFsSource, {});
     glGenVertexArrays(1, &vao_);
   }
   shader_ = kShader;

@@ -115,7 +115,7 @@ void main() {
 )";
 
 Blade::Blade() {
-  shader_.reset(new Shader(Blade::kVsSource, Blade::kFsSource));
+  shader_.reset(new Shader(Blade::kVsSource, Blade::kFsSource, {}));
 
   auto scene = aiImportFileFromMemory(
       Blade::kOBJSource.c_str(), Blade::kOBJSource.size(),

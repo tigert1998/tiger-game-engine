@@ -121,3 +121,26 @@ uint32_t TextureManager::AllocateTexture3D(uint32_t width, uint32_t height,
 
   return texture;
 }
+
+uint32_t TextureManager::AllocateTexture2DArray(uint32_t width, uint32_t height,
+                                                uint32_t depth,
+                                                uint32_t internal_format,
+                                                uint32_t format,
+                                                uint32_t type) {
+  uint32_t texture;
+  glGenTextures(1, &texture);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, texture);
+
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+  constexpr float border_color[] = {1.0f, 1.0f, 1.0f, 1.0f};
+  glTexParameterfv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_BORDER_COLOR, border_color);
+
+  glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, internal_format, width, height, depth, 0,
+               format, type, nullptr);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+  return texture;
+}

@@ -27,6 +27,22 @@ FrameBufferObject::FrameBufferObject(uint32_t width, uint32_t height,
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+FrameBufferObject::FrameBufferObject(uint32_t width, uint32_t height,
+                                     uint32_t depth) {
+  // now for cascaded shadow mapping
+  glGenFramebuffers(1, &id_);
+  glBindFramebuffer(GL_FRAMEBUFFER, id_);
+  glDrawBuffer(GL_NONE);
+  glReadBuffer(GL_NONE);
+  depth_texture_id_ = TextureManager::AllocateTexture2DArray(
+      width, height, depth, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT);
+  glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_texture_id_,
+                       0);
+  CheckOpenGLError();
+  CHECK_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 FrameBufferObject::~FrameBufferObject() {
   if (color_texture_id_ != 0) {
     glDeleteTextures(1, &color_texture_id_);
