@@ -153,8 +153,9 @@ void Init(uint32_t width, uint32_t height) {
 
   model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
                                  oit_render_quad_ptr.get());
-  camera_ptr =
-      make_unique<Camera>(vec3(7, 9, 0), static_cast<double>(width) / height);
+  camera_ptr = make_unique<Camera>(
+      vec3(7, 9, 0), static_cast<double>(width) / height,
+      -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
   camera_ptr->set_front(-camera_ptr->position());
 
   shadow_sources_ptr = make_unique<ShadowSources>();
@@ -209,35 +210,24 @@ int main(int argc, char *argv[]) {
       }
     });
 
-    oit_render_quad_ptr->Bind();
-    // draw background for OIT render quad
-    // all opaque objects must be draw here
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    skybox_ptr->Draw(camera_ptr.get());
-    oit_render_quad_ptr->Unbind();
-
-    // append transparent objects to the linked list
-    glViewport(0, 0, controller_ptr->width(), controller_ptr->height());
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-    glDepthMask(GL_FALSE);
-    oit_render_quad_ptr->ResetBeforeRender();
-    if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
-      model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
-                      shadow_sources_ptr.get(), mat4(1));
-    } else {
-      model_ptr->Draw(animation_id, animation_time, camera_ptr.get(),
-                      light_sources_ptr.get(), shadow_sources_ptr.get(),
-                      mat4(1), vec4(0));
-    }
-    glDepthMask(GL_TRUE);
-    glDisable(GL_CULL_FACE);
-
-    // draw OIT render quad
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    oit_render_quad_ptr->Draw();
+    oit_render_quad_ptr->TwoPasses(
+        controller_ptr->width(), controller_ptr->height(),
+        []() {
+          glClearColor(0, 0, 0, 1);
+          glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+          skybox_ptr->Draw(camera_ptr.get());
+        },
+        []() {
+          if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
+            model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
+                            shadow_sources_ptr.get(), mat4(1));
+          } else {
+            model_ptr->Draw(animation_id, animation_time, camera_ptr.get(),
+                            light_sources_ptr.get(), shadow_sources_ptr.get(),
+                            mat4(1), vec4(0));
+          }
+        },
+        nullptr);
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

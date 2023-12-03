@@ -109,10 +109,9 @@ void Init(uint32_t width, uint32_t height) {
 
   shadow_sources_ptr = std::make_unique<ShadowSources>();
 
-  camera_ptr = std::make_unique<Camera>(glm::vec3(0, 10, 0),
-                                        static_cast<double>(width) / height);
-  camera_ptr->set_alpha(-0.5 * glm::pi<float>());
-  camera_ptr->set_beta(0);
+  camera_ptr = std::make_unique<Camera>(
+      glm::vec3(0, 10, 0), static_cast<double>(width) / height,
+      -0.5 * glm::pi<float>(), 0, glm::radians(60.f), 0.1, 5000);
 
   oit_render_quad_ptr.reset(new OITRenderQuad(width, height));
   model_ptr.reset(
@@ -154,23 +153,20 @@ int main(int argc, char *argv[]) {
 
     glfwPollEvents();
 
-    oit_render_quad_ptr->Bind();
-    glClearColor(0, 0, 0, 1);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    oit_render_quad_ptr->Unbind();
+    oit_render_quad_ptr->TwoPasses(
+        controller->width(), controller->height(),
+        []() {
+          glClearColor(0, 0, 0, 1);
+          glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        },
+        []() {
+          model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
+                          shadow_sources_ptr.get(), glm::mat4(1));
+        },
+        clouds_ptr->fbo());
 
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    oit_render_quad_ptr->CopyDepthToDefaultFrameBuffer();
-    glDepthMask(GL_FALSE);
-    oit_render_quad_ptr->ResetBeforeRender();
-    model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
-                    shadow_sources_ptr.get(), glm::mat4(1));
-    glDepthMask(GL_TRUE);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    clouds_ptr->Bind();
-    oit_render_quad_ptr->Draw();
-    clouds_ptr->Unbind();
     clouds_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(), current_time);
 
     ImGui_ImplGlfw_NewFrame();

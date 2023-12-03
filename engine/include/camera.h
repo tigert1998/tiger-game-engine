@@ -44,8 +44,8 @@ class Camera {
     kDownward
   };
   Camera() = delete;
-  Camera(glm::vec3 position, double width_height_ratio,
-         double alpha = -glm::pi<double>() / 2, double beta = 0);
+  Camera(glm::vec3 position, double width_height_ratio, double alpha,
+         double beta, double fovy, double z_near, double z_far);
   void Rotate(double delta_alpha, double delta_beta);
   void Move(MoveDirectionType direction, float time);
   glm::vec3 position() const;
@@ -70,8 +70,8 @@ class Camera {
   static const double kMaxElevationAngle;
   const glm::vec3 up_ = glm::vec3(0, 1, 0);
   glm::vec3 position_;
-  double alpha_, beta_, width_height_ratio_;
-  double fovy_ = glm::radians(60.f), near_ = 0.1, far_ = 500;
+  double width_height_ratio_, alpha_, beta_;
+  double fovy_, near_, far_;
 };
 
 #endif

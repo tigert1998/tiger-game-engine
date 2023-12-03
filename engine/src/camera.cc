@@ -17,11 +17,14 @@ void Camera::set_width_height_ratio(double width_height_ratio) {
 }
 
 Camera::Camera(vec3 position, double width_height_ratio, double alpha,
-               double beta) {
+               double beta, double fovy, double z_near, double z_far) {
   position_ = position;
   alpha_ = alpha;
   beta_ = beta;
   width_height_ratio_ = width_height_ratio;
+  fovy_ = fovy;
+  near_ = z_near;
+  far_ = z_far;
 }
 
 double Camera::alpha() const { return alpha_; }

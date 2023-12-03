@@ -34,6 +34,7 @@ class Clouds {
 
   void Draw(Camera *camera, LightSources *light_sources, double time);
 
+  const FrameBufferObject *fbo() const { return fbo_.get(); }
   void Bind();
   inline void Unbind() { fbo_->Unbind(); }
 };

@@ -180,8 +180,9 @@ float CalcShadow(vec3 position, vec3 normal) {
     position = homoPosition.xyz / homoPosition.w;
     position = position * 0.5 + 0.5;
     float currentDepth = position.z;
-    if (layer < NUM_CASCADES - 1) currentDepth = min(currentDepth, 1);
-    if (layer > 0) currentDepth = max(currentDepth, 0);
+    currentDepth = max(min(currentDepth, 1), 0);
+    // If the fragment is outside the shadow frustum, we don't care about its depth.
+    // Otherwise, the fragment's depth must be between [0, 1].
 
     float bias = max(0.05 * (1.0 - dot(normal, -uDirectionalShadow.dir)), 0.005);
     const float biasModifier = 0.5f;

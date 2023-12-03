@@ -53,6 +53,6 @@ FrameBufferObject::~FrameBufferObject() {
   glDeleteFramebuffers(1, &id_);
 }
 
-void FrameBufferObject::Bind() { glBindFramebuffer(GL_FRAMEBUFFER, id_); }
+void FrameBufferObject::Bind() const { glBindFramebuffer(GL_FRAMEBUFFER, id_); }
 
-void FrameBufferObject::Unbind() { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
+void FrameBufferObject::Unbind() const { glBindFramebuffer(GL_FRAMEBUFFER, 0); }

@@ -4,6 +4,7 @@
 #include <glad/glad.h>
 #include <stdint.h>
 
+#include <functional>
 #include <memory>
 
 #include "frame_buffer_object.h"
@@ -27,19 +28,25 @@ class OITRenderQuad {
 
   std::shared_ptr<Shader> shader_;
 
- public:
-  OITRenderQuad(uint32_t width, uint32_t height);
-  void Resize(uint32_t width, uint32_t height);
-
   inline void Bind() {
     glViewport(0, 0, width_, height_);
     fbo_->Bind();
   }
   inline void Unbind() { fbo_->Unbind(); }
-
   void ResetBeforeRender();
-  void Set(Shader* shader);
   void Draw();
+
+ public:
+  OITRenderQuad(uint32_t width, uint32_t height);
+  void Resize(uint32_t width, uint32_t height);
+
+  void Set(Shader* shader);
+
+  // Please use this API for rendering
+  void TwoPasses(uint32_t width, uint32_t height,
+                 const std::function<void()>& first_pass,
+                 const std::function<void()>& second_pass,
+                 const FrameBufferObject *dest_fbo);
 };
 
 #endif

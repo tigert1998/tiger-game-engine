@@ -11,12 +11,12 @@ class FrameBufferObject {
   FrameBufferObject(uint32_t width, uint32_t height, bool color);
   FrameBufferObject(uint32_t width, uint32_t height, uint32_t depth);
 
-  inline uint32_t id() { return id_; }
-  inline uint32_t color_texture_id() { return color_texture_id_; }
-  inline uint32_t depth_texture_id() { return depth_texture_id_; }
+  inline uint32_t id() const { return id_; }
+  inline uint32_t color_texture_id() const { return color_texture_id_; }
+  inline uint32_t depth_texture_id() const { return depth_texture_id_; }
 
-  void Bind();
-  void Unbind();
+  void Bind() const;
+  void Unbind() const;
 
   ~FrameBufferObject();
 };
