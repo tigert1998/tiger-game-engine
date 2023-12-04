@@ -6,7 +6,7 @@ add_subdirectory("third_party")
 
 file(GLOB_RECURSE engine_srcs "engine/src/*.cc")
 add_library(engine "${engine_srcs}")
-target_link_libraries(engine glfw glad imgui glm stb glog::glog assimp)
+target_link_libraries(engine glfw glad imgui glm stb glog::glog assimp physx5)
 target_include_directories(engine PUBLIC "engine/include")
 
 add_executable(model-visualizer "apps/model-visualizer/src/main.cc")
