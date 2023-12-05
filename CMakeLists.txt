@@ -24,3 +24,6 @@ add_executable(clouds-demo-visualize-texture "apps/clouds-demo/src/visualize_tex
 target_link_libraries(clouds-demo-visualize-texture engine)
 add_executable(clouds-demo "apps/clouds-demo/src/main.cc")
 target_link_libraries(clouds-demo engine)
+
+add_executable(px-demo "apps/px-demo/src/main.cc")
+target_link_libraries(px-demo engine)

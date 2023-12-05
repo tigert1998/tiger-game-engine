@@ -54,7 +54,8 @@ add_subdirectory(glog)
 # PhysX 5
 add_library(physx5 INTERFACE)
 target_include_directories(physx5 INTERFACE "${PHYSX5}/physx/include")
-target_link_directories(physx5 INTERFACE "${PHYSX5}/physx/bin/${PHYSX5_PLATFORM}/release")
+string(TOLOWER "${CMAKE_BUILD_TYPE}" build_type)
+target_link_directories(physx5 INTERFACE "${PHYSX5}/physx/bin/${PHYSX5_PLATFORM}/${build_type}")
 target_link_libraries(
     physx5 INTERFACE
     PhysXExtensions_static_64
@@ -62,4 +63,5 @@ target_link_libraries(
     PhysXPvdSDK_static_64
     PhysXCommon_64
     PhysXFoundation_64
+    PhysXCooking_64
 )

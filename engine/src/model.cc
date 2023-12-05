@@ -65,8 +65,7 @@ Model::Model(const std::string &path, OITRenderQuad *oit_render_quad)
     auto animation = scene_->mAnimations[i];
     for (int j = 0; j < animation->mNumChannels; j++) {
       auto channel = animation->mChannels[j];
-      animation_channel_map_[pair<uint32_t, string>(
-          i, channel->mNodeName.C_Str())] = j;
+      animation_channel_map_[{i, channel->mNodeName.C_Str()}] = j;
     }
   }
 
