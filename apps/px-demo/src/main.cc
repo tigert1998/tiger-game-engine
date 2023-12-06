@@ -15,6 +15,7 @@
 #include "controller/sightseeing_controller.h"
 #include "model.h"
 #include "mouse.h"
+#include "physics/character_controller.h"
 #include "physics/collision_model.h"
 #include "skybox.h"
 
@@ -63,6 +64,9 @@ physx::PxPhysics *physics = nullptr;
 physx::PxDefaultCpuDispatcher *dispatcher = nullptr;
 physx::PxScene *scene = nullptr;
 physx::PxMaterial *material = nullptr;
+physx::PxControllerManager *manager = nullptr;
+
+std::unique_ptr<CharacterController> character_controller = nullptr;
 
 void InitPhysics() {
   foundation =
@@ -108,6 +112,25 @@ void InitPhysics() {
   physx::PxRigidActorExt::createExclusiveShape(
       *actor, physx::PxTriangleMeshGeometry(model.mesh(physics)), *material);
   scene->addActor(*actor);
+
+  manager = PxCreateControllerManager(*scene);
+  physx::PxCapsuleControllerDesc capsule_controller_desc;
+  capsule_controller_desc.height = 0.5;
+  capsule_controller_desc.radius = 0.15;
+  capsule_controller_desc.climbingMode = physx::PxCapsuleClimbingMode::eEASY;
+  capsule_controller_desc.position = {0, 10, 0};
+  capsule_controller_desc.upDirection = {0, 1, 0};
+  capsule_controller_desc.material = material;
+
+  physx::PxCapsuleController *controller =
+      static_cast<physx::PxCapsuleController *>(
+          manager->createController(capsule_controller_desc));
+
+  character_controller =
+      std::make_unique<CharacterController>(scene, controller);
+
+  constexpr float zero = 1e-6;
+  scene->simulate(zero);
 }
 
 void ImGuiInit() {
@@ -204,6 +227,8 @@ int main(int argc, char *argv[]) {
 
   Init(1920, 1080);
 
+  InitPhysics();
+
   while (!glfwWindowShouldClose(window)) {
     static uint32_t fps = 0;
     static double last_time_for_fps = glfwGetTime();
@@ -213,6 +238,10 @@ int main(int argc, char *argv[]) {
     last_time = current_time;
 
     Keyboard::shared.Elapse(delta_time);
+    scene->fetchResults(true);
+    if (delta_time > 0) {
+      character_controller->Move(physx::PxVec3(0), delta_time);
+    }
 
     {
       fps += 1;
@@ -244,6 +273,8 @@ int main(int argc, char *argv[]) {
                                 shadow_sources_ptr.get(), mat4(1));
         },
         nullptr);
+
+    scene->simulate((float)delta_time);
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

@@ -68,7 +68,8 @@ void CollisionModel::ExportToOBJ(const std::string &path) const {
             vertices_[i].z);
   }
   for (int i = 0; i < indices_.size(); i += 3) {
-    fprintf(fp, "f %d %d %d\n", indices_[i], indices_[i + 1], indices_[i + 2]);
+    fprintf(fp, "f %d %d %d\n", indices_[i] + 1, indices_[i + 1] + 1,
+            indices_[i + 2] + 1);
   }
   fclose(fp);
 }

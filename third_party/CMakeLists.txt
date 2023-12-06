@@ -64,4 +64,5 @@ target_link_libraries(
     PhysXCommon_64
     PhysXFoundation_64
     PhysXCooking_64
+    PhysXCharacterKinematic_static_64
 )
