@@ -59,6 +59,10 @@ class Camera {
   void set_beta(double beta);
   glm::vec3 front() const;
   void set_front(glm::vec3 new_front);
+  inline glm::vec3 left() const {
+    return glm::normalize(glm::cross(up_, front()));
+  }
+  inline glm::vec3 up() const { return up_; }
   glm::vec3 center() const;
   void set_center(glm::vec3 new_center);
   Frustum frustum() const;

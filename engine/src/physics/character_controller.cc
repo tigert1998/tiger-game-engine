@@ -42,8 +42,9 @@ bool CharacterController::IsGrounded() {
   return status;
 }
 
-void CharacterController::Move(physx::PxVec3 disp, float delta_time) {
+void CharacterController::Move(glm::vec3 glm_disp, float delta_time) {
   float min_distance = 0;
+  physx::PxVec3 disp = {glm_disp.x, glm_disp.y, glm_disp.z};
   physx::PxControllerFilters filters;
   if (IsGrounded()) {
     velocity_ = physx::PxVec3(0);

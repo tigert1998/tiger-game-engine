@@ -18,6 +18,7 @@ class Keyboard {
   void Trigger(int key, int action);
   void Elapse(double time) const;
   void Register(std::function<void(KeyboardState, double)> callback);
+  inline void Clear() { callbacks_.clear(); }
 };
 
 #endif

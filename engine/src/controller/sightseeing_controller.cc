@@ -70,7 +70,7 @@ SightseeingController::SightseeingController(Camera *camera, uint32_t width,
                                    double delta) {
     if (state[GLFW_KEY_ESCAPE]) {
       glfwSetWindowShouldClose(this->window_, GL_TRUE);
-    } else {
+    } else if (this->rotating_camera_mode_) {
       float distance = delta * 10;
       if (state[GLFW_KEY_W])
         this->camera_->Move(Camera::MoveDirectionType::kForward, distance);

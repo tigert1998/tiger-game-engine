@@ -9,13 +9,12 @@
 #include "mouse.h"
 
 class SightseeingController {
- private:
+ protected:
   Camera *camera_;
   uint32_t width_, height_;
   GLFWwindow *window_;
   bool rotating_camera_mode_;
 
- protected:
   void MouseButtonCallback(GLFWwindow *window, int button, int action, int);
   void CursorPosCallback(GLFWwindow *window, double x, double y);
   void ScrollCallback(GLFWwindow *window, double xoffset, double yoffset);

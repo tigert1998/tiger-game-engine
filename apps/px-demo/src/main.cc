@@ -25,6 +25,7 @@ using namespace std;
 class Controller : public SightseeingController {
  private:
   OITRenderQuad *oit_render_quad_;
+  CharacterController *character_controller_;
 
   void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
     SightseeingController::FramebufferSizeCallback(window, width, height);
@@ -32,14 +33,37 @@ class Controller : public SightseeingController {
   }
 
  public:
-  Controller(Camera *camera, OITRenderQuad *oit_render_quad, uint32_t width,
+  Controller(Camera *camera, OITRenderQuad *oit_render_quad,
+             CharacterController *character_controller, uint32_t width,
              uint32_t height, GLFWwindow *window)
       : SightseeingController(camera, width, height, window),
-        oit_render_quad_(oit_render_quad) {
+        oit_render_quad_(oit_render_quad),
+        character_controller_(character_controller) {
     glfwSetFramebufferSizeCallback(
         window, [](GLFWwindow *window, int width, int height) {
           Controller *self = (Controller *)glfwGetWindowUserPointer(window);
           self->FramebufferSizeCallback(window, width, height);
+        });
+
+    Keyboard::shared.Clear();
+    Keyboard::shared.Register(
+        [this](Keyboard::KeyboardState state, double delta) {
+          if (state[GLFW_KEY_ESCAPE]) {
+            glfwSetWindowShouldClose(this->window_, GL_TRUE);
+          } else if (this->rotating_camera_mode_) {
+            float distance = delta * 2;
+            glm::vec3 disp(0);
+            glm::vec3 front = glm::cross(camera_->left(), camera_->up());
+            if (state[GLFW_KEY_W]) disp += front * distance;
+            if (state[GLFW_KEY_S]) disp += -front * distance;
+            if (state[GLFW_KEY_A]) disp += camera_->left() * distance;
+            if (state[GLFW_KEY_D]) disp += -camera_->left() * distance;
+            if (state[GLFW_KEY_SPACE])
+              disp += camera_->up() * (float)(delta * 100);
+            character_controller_->Move(disp, delta);
+          } else {
+            character_controller_->Move(glm::vec3(0), delta);
+          }
         });
   }
 };
@@ -117,6 +141,7 @@ void InitPhysics() {
   physx::PxCapsuleControllerDesc capsule_controller_desc;
   capsule_controller_desc.height = 0.5;
   capsule_controller_desc.radius = 0.15;
+  capsule_controller_desc.contactOffset = 0.2;
   capsule_controller_desc.climbingMode = physx::PxCapsuleClimbingMode::eEASY;
   capsule_controller_desc.position = {0, 10, 0};
   capsule_controller_desc.upDirection = {0, 1, 0};
@@ -128,9 +153,6 @@ void InitPhysics() {
 
   character_controller =
       std::make_unique<CharacterController>(scene, controller);
-
-  constexpr float zero = 1e-6;
-  scene->simulate(zero);
 }
 
 void ImGuiInit() {
@@ -182,6 +204,8 @@ void ImGuiWindow() {
 }
 
 void Init(uint32_t width, uint32_t height) {
+  InitPhysics();
+
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -216,7 +240,8 @@ void Init(uint32_t width, uint32_t height) {
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", "png");
 
   controller_ptr = make_unique<Controller>(
-      camera_ptr.get(), oit_render_quad_ptr.get(), width, height, window);
+      camera_ptr.get(), oit_render_quad_ptr.get(), character_controller.get(),
+      width, height, window);
 
   ImGuiInit();
 }
@@ -227,8 +252,6 @@ int main(int argc, char *argv[]) {
 
   Init(1920, 1080);
 
-  InitPhysics();
-
   while (!glfwWindowShouldClose(window)) {
     static uint32_t fps = 0;
     static double last_time_for_fps = glfwGetTime();
@@ -238,10 +261,6 @@ int main(int argc, char *argv[]) {
     last_time = current_time;
 
     Keyboard::shared.Elapse(delta_time);
-    scene->fetchResults(true);
-    if (delta_time > 0) {
-      character_controller->Move(physx::PxVec3(0), delta_time);
-    }
 
     {
       fps += 1;
@@ -254,7 +273,10 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    scene->simulate((float)delta_time);
+    scene->fetchResults(true);
     glfwPollEvents();
+    camera_ptr->set_position(character_controller->position());
 
     // draw depth map first
     shadow_sources_ptr->DrawDepthForShadow([](Shadow *shadow) {
@@ -273,8 +295,6 @@ int main(int argc, char *argv[]) {
                                 shadow_sources_ptr.get(), mat4(1));
         },
         nullptr);
-
-    scene->simulate((float)delta_time);
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

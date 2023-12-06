@@ -3,6 +3,8 @@
 
 #include <PxPhysicsAPI.h>
 
+#include <glm/glm.hpp>
+
 class CharacterController {
  private:
   physx::PxScene* scene_;
@@ -20,7 +22,12 @@ class CharacterController {
 
   bool IsGrounded();
 
-  void Move(physx::PxVec3 disp, float delta_time);
+  void Move(glm::vec3 disp, float delta_time);
+
+  inline glm::vec3 position() const {
+    auto data = controller_->getPosition();
+    return {data.x, data.y, data.z};
+  }
 };
 
 #endif
