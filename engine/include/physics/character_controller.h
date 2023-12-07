@@ -23,6 +23,7 @@ class CharacterController {
   bool IsGrounded();
 
   void Move(glm::vec3 disp, float delta_time);
+  void Jump(glm::vec3 jump_power, float delta_time);
 
   inline glm::vec3 position() const {
     auto data = controller_->getPosition();

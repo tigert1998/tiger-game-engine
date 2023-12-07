@@ -51,17 +51,24 @@ class Controller : public SightseeingController {
           if (state[GLFW_KEY_ESCAPE]) {
             glfwSetWindowShouldClose(this->window_, GL_TRUE);
           } else if (this->rotating_camera_mode_) {
-            float distance = delta * 2;
             glm::vec3 disp(0);
             glm::vec3 front = glm::cross(camera_->left(), camera_->up());
+            float distance = state[GLFW_KEY_LEFT_SHIFT] ? delta * 4 : delta * 2;
             if (state[GLFW_KEY_W]) disp += front * distance;
             if (state[GLFW_KEY_S]) disp += -front * distance;
             if (state[GLFW_KEY_A]) disp += camera_->left() * distance;
             if (state[GLFW_KEY_D]) disp += -camera_->left() * distance;
-            if (state[GLFW_KEY_SPACE])
-              disp += camera_->up() * (float)(delta * 100);
-            character_controller_->Move(disp, delta);
+            static bool space_already_pressed = false;
+            if (state[GLFW_KEY_SPACE] && !space_already_pressed) {
+              disp *= 100;
+              disp.y = 10;
+              character_controller_->Jump(disp, delta);
+            } else {
+              character_controller_->Move(disp, delta);
+            }
+            space_already_pressed = state[GLFW_KEY_SPACE];
           } else {
+            // we must make sure that gravity is applied
             character_controller_->Move(glm::vec3(0), delta);
           }
         });

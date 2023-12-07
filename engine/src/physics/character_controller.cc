@@ -56,3 +56,14 @@ void CharacterController::Move(glm::vec3 glm_disp, float delta_time) {
     controller_->move(disp, min_distance, delta_time, filters);
   }
 }
+
+void CharacterController::Jump(glm::vec3 jump_power, float delta_time) {
+  float min_distance = 0;
+  physx::PxControllerFilters filters;
+
+  if (IsGrounded()) {
+    velocity_ = {jump_power.x, jump_power.y, jump_power.z};
+    auto disp = velocity_ * delta_time;
+    controller_->move(disp, min_distance, delta_time, filters);
+  }
+}
