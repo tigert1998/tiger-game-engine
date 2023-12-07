@@ -152,6 +152,7 @@ void InitPhysics() {
   capsule_controller_desc.climbingMode = physx::PxCapsuleClimbingMode::eEASY;
   capsule_controller_desc.position = {0, 10, 0};
   capsule_controller_desc.upDirection = {0, 1, 0};
+  capsule_controller_desc.stepOffset = 0.25;
   capsule_controller_desc.material = material;
 
   physx::PxCapsuleController *controller =
@@ -273,7 +274,7 @@ int main(int argc, char *argv[]) {
       fps += 1;
       if (current_time - last_time_for_fps >= 1.0) {
         char buf[1 << 10];
-        sprintf(buf, "Model Visualizer | FPS: %d\n", fps);
+        sprintf(buf, "PhysX Demo | FPS: %d\n", fps);
         glfwSetWindowTitle(window, buf);
         fps = 0;
         last_time_for_fps = current_time;

@@ -11,6 +11,10 @@ class CharacterController {
   physx::PxCapsuleController* controller_;
 
   physx::PxVec3 velocity_;
+  float since_head_hit_ = 0;
+  float since_grouned_ = 0;
+
+  bool IsTouched(bool down, float distance_offset);
 
  public:
   explicit CharacterController(physx::PxScene* scene,
@@ -20,7 +24,8 @@ class CharacterController {
   // CharacterController does not own scene and controller.
   // So it will not release them.
 
-  bool IsGrounded();
+  inline bool IsGrounded() { return IsTouched(true, 0); }
+  inline bool IsHeadHit() { return IsTouched(false, 0); }
 
   void Move(glm::vec3 disp, float delta_time);
   void Jump(glm::vec3 jump_power, float delta_time);
