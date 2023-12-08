@@ -4,6 +4,8 @@
 
 #include "shadow_sources.h"
 
+#include <imgui.h>
+
 #include <glm/gtc/matrix_transform.hpp>
 
 DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
@@ -114,6 +116,19 @@ void DirectionalShadow::SetForDepthPass(Shader *shader) {
       "uDirectionalShadowViewProjectionMatrices", view_projection_matrices());
 }
 
+void DirectionalShadow::ImGuiWindow(
+    uint32_t index, const std::function<void()> &erase_callback) {
+  ImGui::Text("Shadow Source #%d Type: Directional", index);
+  if (ImGui::Button(
+          ("Erase##shadow_source_" + std::to_string(index)).c_str())) {
+    erase_callback();
+  }
+  float d_arr[3] = {direction_.x, direction_.y, direction_.z};
+  ImGui::InputFloat3(
+      ("Direction##shadow_source_" + std::to_string(index)).c_str(), d_arr);
+  direction_ = glm::vec3(d_arr[0], d_arr[1], d_arr[2]);
+}
+
 void ShadowSources::Add(std::unique_ptr<Shadow> shadow) {
   shadows_.emplace_back(std::move(shadow));
 }
@@ -137,6 +152,28 @@ void ShadowSources::DrawDepthForShadow(
     render_pass(shadows_[i].get());
     shadows_[i]->Unbind();
   }
+}
+
+void ShadowSources::ImGuiWindow() {
+  ImGui::Begin("Shadow Sources:");
+
+  const char *shadow_source_types[] = {"Directional"};
+  static int shadow_source_type = 0;
+  ImGui::ListBox("##add_shadow_source", &shadow_source_type,
+                 shadow_source_types, IM_ARRAYSIZE(shadow_source_types));
+  ImGui::SameLine();
+  if (ImGui::Button("Add##add_shadow_source")) {
+    if (shadow_source_type == 0) {
+      Add(std::make_unique<DirectionalShadow>(glm::vec3(0, -1, 0), 2048, 2048,
+                                              camera_));
+    }
+  }
+
+  for (int i = 0; i < shadows_.size(); i++) {
+    shadows_[i]->ImGuiWindow(
+        i, [this, i]() { this->shadows_.erase(shadows_.begin() + i); });
+  }
+  ImGui::End();
 }
 
 std::string ShadowSources::FsSource() {

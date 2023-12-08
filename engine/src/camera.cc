@@ -1,5 +1,7 @@
 #include "camera.h"
 
+#include <imgui.h>
+
 #include <cmath>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -134,4 +136,26 @@ std::vector<glm::vec3> Camera::frustum_corners(double z_near,
   }
 
   return corners;
+}
+
+void Camera::ImGuiWindow() {
+  auto p = position();
+  auto f = front();
+  float p_arr[3] = {p.x, p.y, p.z};
+  float f_arr[3] = {f.x, f.y, f.z};
+  float a = alpha();
+  float b = beta();
+
+  ImGui::Begin("Camera:");
+  ImGui::InputFloat3("position", p_arr);
+  ImGui::InputFloat3("front", f_arr);
+  ImGui::InputFloat("alpha", &a);
+  ImGui::InputFloat("beta", &b);
+  ImGui::End();
+
+  // camera
+  set_position(vec3(p_arr[0], p_arr[1], p_arr[2]));
+  set_front(vec3(f_arr[0], f_arr[1], f_arr[2]));
+  set_alpha(a);
+  set_beta(b);
 }

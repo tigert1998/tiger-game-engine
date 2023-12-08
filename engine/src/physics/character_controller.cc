@@ -4,19 +4,18 @@ namespace {
 class QueryFilterCallback : public physx::PxQueryFilterCallback {
  public:
   QueryFilterCallback(physx::PxActor* actor) : actor_(actor) {}
-  physx::PxQueryHitType::Enum preFilter(const physx::PxFilterData& filterData,
-                                        const physx::PxShape* shape,
-                                        const physx::PxRigidActor* actor,
-                                        physx::PxHitFlags& queryFlags) {
+  physx::PxQueryHitType::Enum preFilter(
+      const physx::PxFilterData& filterData, const physx::PxShape* shape,
+      const physx::PxRigidActor* actor,
+      physx::PxHitFlags& queryFlags) override {
     if (actor == actor_) {
       return physx::PxQueryHitType::eNONE;
     }
     return physx::PxQueryHitType::eBLOCK;
   }
-  physx::PxQueryHitType::Enum postFilter(const physx::PxFilterData& filterData,
-                                         const physx::PxQueryHit& hit,
-                                         const physx::PxShape* shape,
-                                         const physx::PxRigidActor* actor) {
+  physx::PxQueryHitType::Enum postFilter(
+      const physx::PxFilterData& filterData, const physx::PxQueryHit& hit,
+      const physx::PxShape* shape, const physx::PxRigidActor* actor) override {
     return physx::PxQueryHitType::eNONE;
   }
 

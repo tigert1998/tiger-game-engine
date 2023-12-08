@@ -14,6 +14,8 @@ class Shadow {
   virtual void Unbind() = 0;
   virtual void Set(Shader *shader, int32_t *num_samplers) = 0;
   virtual void SetForDepthPass(Shader *shader) = 0;
+  virtual void ImGuiWindow(uint32_t index,
+                           const std::function<void()> &erase_callback) = 0;
   virtual ~Shadow(){};
 };
 
@@ -56,11 +58,15 @@ class DirectionalShadow : public Shadow {
       ret[i] = camera_->z_near() + dis * CASCADE_PLANE_RATIO[i];
     return ret;
   }
+
+  void ImGuiWindow(uint32_t index,
+                   const std::function<void()> &erase_callback) override;
 };
 
 class ShadowSources : public Shadow {
  private:
   std::vector<std::unique_ptr<Shadow>> shadows_;
+  const Camera *camera_;
 
  public:
   void Add(std::unique_ptr<Shadow> shadow);
@@ -70,9 +76,13 @@ class ShadowSources : public Shadow {
   void Set(Shader *shader, int32_t *num_samplers) override;
   inline void SetForDepthPass(Shader *shader) override {}
   static std::string FsSource();
+  inline ShadowSources(const Camera *camera) : camera_(camera) {}
   inline ~ShadowSources() override {}
 
   void DrawDepthForShadow(const std::function<void(Shadow *)> &render_pass);
+  inline void ImGuiWindow(
+      uint32_t index, const std::function<void()> &erase_callback) override {}
+  void ImGuiWindow();
 };
 
 #endif

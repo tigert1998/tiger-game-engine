@@ -69,6 +69,7 @@ class Camera {
   std::vector<glm::vec3> frustum_corners(double z_near, double z_far) const;
   double z_near() const { return near_; }
   double z_far() const { return far_; }
+  void ImGuiWindow();
 
  private:
   static const double kMaxElevationAngle;

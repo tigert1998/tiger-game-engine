@@ -66,26 +66,7 @@ void ImGuiInit(uint32_t width, uint32_t height) {
   io.Fonts->Build();
 }
 
-void ImGuiWindow() {
-  auto p = camera_ptr->position();
-  auto f = camera_ptr->front();
-  float p_arr[3] = {p.x, p.y, p.z};
-  float f_arr[3] = {f.x, f.y, f.z};
-  float alpha = camera_ptr->alpha();
-  float beta = camera_ptr->beta();
-
-  ImGui::Begin("Panel");
-  ImGui::InputFloat3("camera.position", p_arr);
-  ImGui::InputFloat3("camera.front", f_arr);
-  ImGui::InputFloat("camera.alpha", &alpha);
-  ImGui::InputFloat("camera.beta", &beta);
-  ImGui::End();
-
-  camera_ptr->set_position(glm::vec3(p_arr[0], p_arr[1], p_arr[2]));
-  camera_ptr->set_front(glm::vec3(f_arr[0], f_arr[1], f_arr[2]));
-  camera_ptr->set_alpha(alpha);
-  camera_ptr->set_beta(beta);
-}
+void ImGuiWindow() { camera_ptr->ImGuiWindow(); }
 
 void Init(uint32_t width, uint32_t height) {
   glfwInit();
@@ -107,7 +88,7 @@ void Init(uint32_t width, uint32_t height) {
       std::make_unique<Directional>(glm::vec3(0, -1, -1), glm::vec3(1, 1, 1)));
   light_sources_ptr->Add(std::make_unique<Ambient>(glm::vec3(0.04)));
 
-  shadow_sources_ptr = std::make_unique<ShadowSources>();
+  shadow_sources_ptr = std::make_unique<ShadowSources>(camera_ptr.get());
 
   camera_ptr = std::make_unique<Camera>(
       glm::vec3(0, 10, 0), static_cast<double>(width) / height,
