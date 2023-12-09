@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 #include <glog/logging.h>
 
+#include <algorithm>
 #include <cctype>
 #include <fstream>
 #include <vector>
@@ -80,4 +81,10 @@ std::string ReadFile(const std::string &file_path) {
   std::string content((std::istreambuf_iterator<char>(ifs)),
                       (std::istreambuf_iterator<char>()));
   return content;
+}
+
+std::string ToLower(const std::string &str) {
+  std::string ans;
+  std::transform(str.begin(), str.end(), std::back_inserter(ans), std::tolower);
+  return ans;
 }

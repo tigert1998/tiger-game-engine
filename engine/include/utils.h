@@ -71,4 +71,6 @@ void CheckOpenGLError();
 
 std::string ReadFile(const std::string &file_path);
 
+std::string ToLower(const std::string &str);
+
 #endif

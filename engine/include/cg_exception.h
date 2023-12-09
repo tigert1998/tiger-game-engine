@@ -27,7 +27,7 @@ class ShaderLinkError : public std::exception {
 class LoadPictureError : public std::exception {
  public:
   LoadPictureError() = delete;
-  LoadPictureError(const std::string &path);
+  LoadPictureError(const std::string &path, const std::string &format);
   const char *what() const noexcept;
 
  private:

@@ -1,20 +1,19 @@
-#ifndef STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-#endif
+#define NOMINMAX
 
 #include "texture_manager.h"
 
+#include <SOIL2.h>
 #include <glad/glad.h>
 #include <glog/logging.h>
+#include <stb_image.h>
 
 #include <map>
 #include <string>
 #include <vector>
 
 #include "cg_exception.h"
-#include "stb_image.h"
+#include "utils.h"
 
-using std::map;
 using std::string;
 using std::vector;
 
@@ -24,29 +23,19 @@ uint32_t TextureManager::LoadTexture(const std::string& path) {
 
 uint32_t TextureManager::LoadTexture(const std::string& path, uint32_t wrap) {
   uint32_t texture;
-  static map<string, uint32_t> memory;
+  static std::map<string, uint32_t> memory;
   if (memory.count(path.c_str())) return memory[path.c_str()];
   LOG(INFO) << "loading texture at: \"" << path << "\"";
+
   int w, h, comp;
+  uint8_t* image;
+
   stbi_set_flip_vertically_on_load(true);
-  unsigned char* image = stbi_load(path.c_str(), &w, &h, &comp, 0);
-  if (image == nullptr) throw LoadPictureError(path.c_str());
+  image = SOIL_load_image(path.c_str(), &w, &h, &comp, SOIL_LOAD_AUTO);
+  if (image == nullptr) throw LoadPictureError(path.c_str(), "");
 
   glGenTextures(1, &texture);
-
   glBindTexture(GL_TEXTURE_2D, texture);
-
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                  GL_LINEAR_MIPMAP_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-  if (wrap == GL_CLAMP_TO_BORDER) {
-    vector<float> border_color(4);
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR,
-                     border_color.data());
-  }
 
   if (comp == 1) {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -62,11 +51,24 @@ uint32_t TextureManager::LoadTexture(const std::string& path, uint32_t wrap) {
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
                  image);
 
+  SOIL_free_image_data(image);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                  GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  if (wrap == GL_CLAMP_TO_BORDER) {
+    vector<float> border_color(4);
+    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR,
+                     border_color.data());
+  }
+
   glGenerateMipmap(GL_TEXTURE_2D);
 
   glBindTexture(GL_TEXTURE_2D, 0);
 
-  stbi_image_free(image);
   return memory[path.c_str()] = texture;
 }
 

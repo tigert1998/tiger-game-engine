@@ -18,9 +18,13 @@ const char *ShaderLinkError::what() const noexcept {
   return error_message.c_str();
 }
 
-LoadPictureError::LoadPictureError(const std::string &path) {
-  error_message =
-      "[picture format error] fail to load picture at " + string(path.c_str());
+LoadPictureError::LoadPictureError(const std::string &path,
+                                   const std::string &format) {
+  error_message = "[picture format error] fail to load picture at \"" +
+                  string(path.c_str()) + "\"";
+  if (format != "") {
+    error_message += " (format: " + format + ")";
+  }
 }
 
 const char *LoadPictureError::what() const noexcept {

@@ -27,7 +27,7 @@ void CubemapTexture::Load() {
     // https://stackoverflow.com/questions/11685608/convention-of-faces-in-opengl-cubemapping/
     stbi_set_flip_vertically_on_load(false);
     unsigned char* image = stbi_load(image_path.c_str(), &w, &h, &comp, 0);
-    if (image == nullptr) throw LoadPictureError(image_path.c_str());
+    if (image == nullptr) throw LoadPictureError(image_path.c_str(), "");
 
     if (comp == 3) {
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);

@@ -475,6 +475,8 @@ vec4 CalcFragColorWithPhong() {
         alpha = sampled.a;
     }
 
+    if (alpha <= zero) discard;
+
     if (uMaterial.ambientTextureEnabled) {
         ka = texture(uMaterial.ambientTexture, vTexCoord).rgb;
     }
@@ -513,6 +515,8 @@ vec4 CalcFragColorWithPBR() {
         albedo = pow(sampled.rgb, vec3(2.2));
         alpha = sampled.a;
     }
+
+    if (alpha <= zero) discard;
 
     if (uMaterial.bindMetalnessAndDiffuseRoughness) {
         vec2 sampled = texture(uMaterial.metalnessTexture, vTexCoord).gb;

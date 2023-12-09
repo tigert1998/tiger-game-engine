@@ -33,6 +33,9 @@ set(stb_dir "stb")
 add_library(stb INTERFACE)
 target_include_directories(stb INTERFACE "${stb_dir}")
 
+# SOIL2
+add_subdirectory(SOIL2)
+
 # imgui
 set(imgui_dir "imgui")
 set(imgui_srcs 
