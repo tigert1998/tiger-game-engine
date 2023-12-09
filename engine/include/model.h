@@ -19,7 +19,7 @@
 class Model {
  public:
   Model() = delete;
-  Model(const std::string &path, OITRenderQuad *oit_render_quad);
+  Model(const std::string &path, OITRenderQuad *oit_render_quad, bool flip_y);
   ~Model();
   void Draw(Camera *camera_ptr, LightSources *light_sources,
             ShadowSources *shadow_sources, glm::mat4 model_matrix);
@@ -43,6 +43,7 @@ class Model {
 
  private:
   OITRenderQuad *oit_render_quad_;
+  bool flip_y_;
   std::string directory_path_;
   std::vector<std::shared_ptr<Mesh>> mesh_ptrs_;
   const aiScene *scene_;

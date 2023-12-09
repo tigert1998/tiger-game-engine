@@ -28,10 +28,9 @@ else()
     endif()
 endif()
 
-# stb
-set(stb_dir "stb")
-add_library(stb INTERFACE)
-target_include_directories(stb INTERFACE "${stb_dir}")
+# gli
+add_library(gli INTERFACE)
+target_include_directories(gli INTERFACE gli)
 
 # SOIL2
 add_subdirectory(SOIL2)

@@ -1,11 +1,13 @@
 #include "cubemap_texture.h"
 
+#include <SOIL2.h>
 #include <glad/glad.h>
 #include <stb_image.h>
 
 #include <vector>
 
 #include "cg_exception.h"
+#include "utils.h"
 
 const std::vector<std::pair<uint32_t, std::string>> CubemapTexture::kTypes = {
     {GL_TEXTURE_CUBE_MAP_POSITIVE_X, "posx"},
@@ -26,19 +28,20 @@ void CubemapTexture::Load() {
     // Cubemap follows RenderMan's convention:
     // https://stackoverflow.com/questions/11685608/convention-of-faces-in-opengl-cubemapping/
     stbi_set_flip_vertically_on_load(false);
-    unsigned char* image = stbi_load(image_path.c_str(), &w, &h, &comp, 0);
-    if (image == nullptr) throw LoadPictureError(image_path.c_str(), "");
+    uint8_t* image = SOIL_load_image(image_path.c_str(), &w, &h, &comp, 0);
+    if (image == nullptr) throw LoadPictureError(path_, "");
 
     if (comp == 3) {
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
       glTexImage2D(kTypes[i].first, 0, GL_RGB, w, h, 0, GL_RGB,
                    GL_UNSIGNED_BYTE, image);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-    } else if (comp == 4)
+    } else if (comp == 4) {
       glTexImage2D(kTypes[i].first, 0, GL_RGB, w, h, 0, GL_RGBA,
                    GL_UNSIGNED_BYTE, image);
+    }
 
-    stbi_image_free(image);
+    SOIL_free_image_data(image);
   }
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);

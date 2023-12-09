@@ -38,7 +38,7 @@ using VertexWithBones = Vertex<kMaxBonesPerVertex>;
 
 Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
            const aiScene *scene, Namer &bone_namer,
-           std::vector<glm::mat4> &bone_offsets) {
+           std::vector<glm::mat4> &bone_offsets, bool flip_y) {
   std::vector<VertexWithBones> vertices;
   std::vector<uint32_t> indices;
   name_ = mesh->mName.C_Str();
@@ -74,12 +74,17 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
       material_.shininess = value;
     }
     aiString material_texture_path;
-#define INTERNAL_ADD_TEXTURE(name)                                         \
-  do {                                                                     \
-    textures_[#name].enabled = true;                                       \
-    material->GetTexture(aiTextureType_##name, 0, &material_texture_path); \
-    auto item = path + "/" + std::string(material_texture_path.C_Str());   \
-    textures_[#name].id = TextureManager::LoadTexture(item, GL_REPEAT);    \
+#define INTERNAL_ADD_TEXTURE(name)                                          \
+  do {                                                                      \
+    textures_[#name].enabled = true;                                        \
+    material->GetTexture(aiTextureType_##name, 0, &material_texture_path);  \
+    auto item = path + "/" + std::string(material_texture_path.C_Str());    \
+    textures_[#name].id = TextureManager::LoadTexture(item, GL_REPEAT);     \
+    bool is_dds = ToLower(item.substr(item.size() - 4)) == ".dds";          \
+    CHECK((is_dds && flip_y) || (!is_dds && !flip_y))                       \
+        << "Currently, DDS image format does not support flipping. So you " \
+           "must flip the UV coordinates by passing flip_y = true when "    \
+           "initializing Model.";                                           \
   } while (0)
 #define TRY_ADD_TEXTURE(name)                                     \
   if (material->GetTextureCount(aiTextureType_##name) >= 1) {     \

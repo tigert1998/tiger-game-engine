@@ -28,12 +28,16 @@ constexpr int MAX_BONES = 170;  // please change the shader's MAX_BONES as well
 std::shared_ptr<Shader> Model::kShader = nullptr, Model::kOITShader = nullptr,
                         Model::kShadowShader = nullptr;
 
-Model::Model(const std::string &path, OITRenderQuad *oit_render_quad)
-    : directory_path_(ParentPath(path)), oit_render_quad_(oit_render_quad) {
+Model::Model(const std::string &path, OITRenderQuad *oit_render_quad,
+             bool flip_y)
+    : directory_path_(ParentPath(path)),
+      oit_render_quad_(oit_render_quad),
+      flip_y_(flip_y) {
   LOG(INFO) << "loading model at: \"" << path << "\"";
-  scene_ = aiImportFile(path.c_str(), aiProcess_GlobalScale |
-                                          aiProcess_CalcTangentSpace |
-                                          aiProcess_Triangulate);
+  uint32_t flags = aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
+                   aiProcess_Triangulate;
+  if (flip_y_) flags |= aiProcess_FlipUVs;
+  scene_ = aiImportFile(path.c_str(), flags);
 
   if (kShader == nullptr && kOITShader == nullptr && kShadowShader == nullptr) {
     std::map<std::string, std::any> constants = {
@@ -101,7 +105,7 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
       auto mesh = scene_->mMeshes[id];
       try {
         mesh_ptrs_[id] = make_shared<Mesh>(directory_path_, mesh, scene_,
-                                           bone_namer_, bone_offsets_);
+                                           bone_namer_, bone_offsets_, flip_y_);
         max_ = (glm::max)(max_, mesh_ptrs_[id]->max());
         min_ = (glm::min)(min_, mesh_ptrs_[id]->min());
       } catch (std::exception &e) {
@@ -462,6 +466,11 @@ vec3 CalcDefaultShading() {
     );
 }
 
+vec3 ConvertDerivativeMapToNormalMap(vec3 normal) {
+    if (normal.z > -1 + zero) return normal;
+    return normalize(vec3(-normal.x, -normal.y, 1));
+}
+
 vec4 CalcFragColorWithPhong() {
     float alpha = 1.0f;
 
@@ -486,8 +495,9 @@ vec4 CalcFragColorWithPhong() {
 
     vec3 normal = vTBN[2];
     if (uMaterial.normalsTextureEnabled) {
-        normal = texture(uMaterial.normalsTexture, vTexCoord).xyz;
-        normal = normalize(vTBN * (normal * 2 - 1));
+        normal = texture(uMaterial.normalsTexture, vTexCoord).xyz * 2 - 1;
+        normal = ConvertDerivativeMapToNormalMap(normal);
+        normal = normalize(vTBN * normal);
     }
 
     float shadow = CalcShadow(vPosition, normal);
@@ -538,8 +548,9 @@ vec4 CalcFragColorWithPBR() {
 
     vec3 normal = vTBN[2];
     if (uMaterial.normalsTextureEnabled) {
-        normal = texture(uMaterial.normalsTexture, vTexCoord).xyz;
-        normal = normalize(vTBN * (normal * 2 - 1));
+        normal = texture(uMaterial.normalsTexture, vTexCoord).xyz * 2 - 1;
+        normal = ConvertDerivativeMapToNormalMap(normal);
+        normal = normalize(vTBN * normal);
     }
 
     float shadow = CalcShadow(vPosition, normal);

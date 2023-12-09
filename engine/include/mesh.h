@@ -29,7 +29,7 @@ class Namer {
 class Mesh {
  public:
   Mesh(const std::string &directory_path, aiMesh *mesh, const aiScene *scene,
-       Namer &bone_namer, std::vector<glm::mat4> &bone_offsets);
+       Namer &bone_namer, std::vector<glm::mat4> &bone_offsets, bool flip_y);
 
   ~Mesh();
 

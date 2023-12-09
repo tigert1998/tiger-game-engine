@@ -1,12 +1,10 @@
-#define NOMINMAX
-
 #include "texture_manager.h"
 
 #include <SOIL2.h>
 #include <glad/glad.h>
 #include <glog/logging.h>
-#include <stb_image.h>
 
+#include <gli/gli.hpp>
 #include <map>
 #include <string>
 #include <vector>
@@ -22,36 +20,44 @@ uint32_t TextureManager::LoadTexture(const std::string& path) {
 }
 
 uint32_t TextureManager::LoadTexture(const std::string& path, uint32_t wrap) {
-  uint32_t texture;
   static std::map<string, uint32_t> memory;
   if (memory.count(path.c_str())) return memory[path.c_str()];
   LOG(INFO) << "loading texture at: \"" << path << "\"";
 
-  int w, h, comp;
-  uint8_t* image;
+  uint32_t texture;
 
-  stbi_set_flip_vertically_on_load(true);
-  image = SOIL_load_image(path.c_str(), &w, &h, &comp, SOIL_LOAD_AUTO);
-  if (image == nullptr) throw LoadPictureError(path.c_str(), "");
+  if (ToLower(path.substr(path.size() - 4)) == ".dds") {
+    // We do not flip DDS image since it's not supported!
+    gli::texture gli_texture = gli::load(path);
+    if (gli_texture.empty()) throw LoadPictureError(path, "");
 
-  glGenTextures(1, &texture);
-  glBindTexture(GL_TEXTURE_2D, texture);
+    gli::gl gl(gli::gl::PROFILE_GL33);
+    gli::gl::format format =
+        gl.translate(gli_texture.format(), gli_texture.swizzles());
+    auto target = gl.translate(gli_texture.target());
+    CHECK(gli::is_compressed(gli_texture.format()) && target == GL_TEXTURE_2D);
 
-  if (comp == 1) {
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, w, h, 0, GL_RED, GL_UNSIGNED_BYTE,
-                 image);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-  } else if (comp == 3) {
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGB, GL_UNSIGNED_BYTE,
-                 image);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-  } else if (comp == 4)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
-                 image);
-
-  SOIL_free_image_data(image);
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, 0);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL,
+                    static_cast<GLint>(gli_texture.levels() - 1));
+    glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA,
+                     &format.Swizzles[0]);
+    glTexStorage2D(GL_TEXTURE_2D, static_cast<GLint>(gli_texture.levels()),
+                   format.Internal, gli_texture.extent(0).x,
+                   gli_texture.extent(0).y);
+    for (auto level = 0; level < gli_texture.levels(); ++level) {
+      auto extent = gli_texture.extent(level);
+      glCompressedTexSubImage2D(GL_TEXTURE_2D, static_cast<int32_t>(level), 0,
+                                0, extent.x, extent.y, format.Internal,
+                                static_cast<int32_t>(gli_texture.size(level)),
+                                gli_texture.data(0, 0, level));
+    }
+  } else {
+    texture = SOIL_load_OGL_texture(path.c_str(), 0, 0, SOIL_FLAG_INVERT_Y);
+    if (texture == 0) throw LoadPictureError(path, "");
+  }
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);

@@ -16,3 +16,6 @@
 [submodule "third_party/SOIL2"]
 	path = third_party/SOIL2
 	url = https://github.com/SpartanJ/SOIL2.git
+[submodule "third_party/gli"]
+	path = third_party/gli
+	url = https://github.com/g-truc/gli.git
