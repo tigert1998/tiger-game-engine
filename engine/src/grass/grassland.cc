@@ -13,7 +13,6 @@
 #include <iostream>
 #include <random>
 
-#include "texture_manager.h"
 #include "utils.h"
 #include "vertex.h"
 

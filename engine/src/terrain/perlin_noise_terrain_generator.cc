@@ -5,7 +5,6 @@
 
 #include <vector>
 
-#include "texture_manager.h"
 #include "vertex.h"
 
 PerlinNoiseTerrainGenerator::PerlinNoiseTerrainGenerator(int size,

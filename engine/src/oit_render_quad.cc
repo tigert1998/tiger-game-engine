@@ -5,7 +5,6 @@
 #include <iostream>
 #include <memory>
 
-#include "texture_manager.h"
 #include "utils.h"
 
 void OITRenderQuad::Allocate(uint32_t width, uint32_t height,

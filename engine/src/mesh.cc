@@ -10,7 +10,6 @@
 #include <limits>
 #include <vector>
 
-#include "texture_manager.h"
 #include "utils.h"
 
 using glm::vec2;
@@ -90,7 +89,7 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     textures_[#name].enabled = true;                                        \
     material->GetTexture(aiTextureType_##name, 0, &material_texture_path);  \
     auto item = path + "/" + std::string(material_texture_path.C_Str());    \
-    textures_[#name].texture = Texture(                                     \
+    textures_[#name].texture = Texture::LoadFromFS(                         \
         item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, {}, true);     \
     bool is_dds = ToLower(item.substr(item.size() - 4)) == ".dds";          \
     CHECK((is_dds && flip_y) || (!is_dds && !flip_y))                       \

@@ -143,6 +143,7 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
 Texture::Texture(const std::string &path, uint32_t wrap, uint32_t min_filter,
                  uint32_t mag_filter, const std::vector<float> &border_color,
                  bool mipmap) {
+  has_ownership_ = true;
   if (fs::is_directory(fs::path(path))) {
     LoadCubeMapTextureFromPath(path, wrap, min_filter, mag_filter, border_color,
                                mipmap);
@@ -152,10 +153,30 @@ Texture::Texture(const std::string &path, uint32_t wrap, uint32_t min_filter,
   }
 }
 
+Texture Texture::LoadFromFS(const std::string &path, uint32_t wrap,
+                            uint32_t min_filter, uint32_t mag_filter,
+                            const std::vector<float> &border_color,
+                            bool mipmap) {
+  static std::map<std::string, Texture> textures;
+
+  if (textures.count(path)) return textures[path];
+
+  Texture texture(path, wrap, min_filter, mag_filter, border_color, mipmap);
+  Texture texture_reference;
+  texture_reference.has_ownership_ = false;
+  texture_reference.target_ = texture.target_;
+  texture_reference.id_ = texture.id_;
+
+  textures[path] = texture_reference;
+
+  return texture;
+}
+
 Texture::Texture(uint32_t width, uint32_t height, uint32_t internal_format,
                  uint32_t format, uint32_t type, uint32_t wrap,
                  uint32_t min_filter, uint32_t mag_filter,
                  const std::vector<float> &border_color, bool mipmap) {
+  has_ownership_ = true;
   target_ = GL_TEXTURE_2D;
 
   glGenTextures(1, &id_);
@@ -186,6 +207,7 @@ Texture::Texture(uint32_t target, uint32_t width, uint32_t height,
                  uint32_t type, uint32_t wrap, uint32_t min_filter,
                  uint32_t mag_filter, const std::vector<float> &border_color,
                  bool mipmap) {
+  has_ownership_ = true;
   CHECK(target == GL_TEXTURE_3D || target == GL_TEXTURE_2D_ARRAY);
   target_ = target;
 
@@ -215,11 +237,12 @@ Texture::Texture(uint32_t target, uint32_t width, uint32_t height,
 }
 
 void Texture::Clear() {
-  if (id_ != 0) {
+  if (has_ownership_ && id_ != 0) {
     glDeleteTextures(1, &id_);
-    id_ = 0;
-    target_ = 0;
   }
+  id_ = 0;
+  target_ = 0;
+  has_ownership_ = false;
 }
 
 Texture::~Texture() { Clear(); }
