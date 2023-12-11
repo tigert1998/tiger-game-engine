@@ -41,7 +41,13 @@ void OITRenderQuad::Allocate(uint32_t width, uint32_t height,
 
   glGenTextures(1, &fragment_storage_texture_);
 
-  fbo_.reset(new FrameBufferObject(width, height, true));
+  std::vector<Texture> color_textures;
+  color_textures.push_back(Texture(width, height, GL_RGBA, GL_RGBA,
+                                   GL_UNSIGNED_BYTE, GL_REPEAT, GL_LINEAR,
+                                   GL_LINEAR, {}, false));
+  Texture depth_texture(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
+                        GL_FLOAT, GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
+  fbo_.reset(new FrameBufferObject(color_textures, depth_texture));
 }
 
 void OITRenderQuad::Deallocate() {
@@ -113,7 +119,7 @@ void OITRenderQuad::Draw() {
   glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32UI, fragment_storage_buffer_);
   shader_->SetUniform<int32_t>("uList", 1);
 
-  shader_->SetUniformSampler("uBackground", fbo_->color_texture(), 2);
+  shader_->SetUniformSampler("uBackground", fbo_->color_texture(0), 2);
   shader_->SetUniformSampler("uBackgroundDepth", fbo_->depth_texture(), 3);
 
   shader_->SetUniform<glm::vec2>("uScreenSize", glm::vec2(width_, height_));

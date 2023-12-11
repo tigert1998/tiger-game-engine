@@ -35,6 +35,8 @@ class Texture {
     return *this;
   }
 
+  Texture Reference() const;
+
   // load from image/images
   explicit Texture(const std::string &path, uint32_t wrap, uint32_t min_filter,
                    uint32_t mag_filter, const std::vector<float> &border_color,

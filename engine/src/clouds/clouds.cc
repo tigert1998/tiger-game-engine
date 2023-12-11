@@ -16,7 +16,13 @@ void Clouds::Allocate(uint32_t width, uint32_t height) {
   frag_color_texture_ = Texture(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT,
                                 GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
 
-  fbo_.reset(new FrameBufferObject(width, height, true));
+  std::vector<Texture> color_textures;
+  color_textures.push_back(Texture(width, height, GL_RGBA, GL_RGBA,
+                                   GL_UNSIGNED_BYTE, GL_REPEAT, GL_LINEAR,
+                                   GL_LINEAR, {}, false));
+  Texture depth_texture(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
+                        GL_FLOAT, GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
+  fbo_.reset(new FrameBufferObject(color_textures, depth_texture));
 }
 
 void Clouds::Deallocate() { frag_color_texture_.Clear(); }
@@ -62,7 +68,7 @@ void Clouds::Draw(Camera *camera, LightSources *light_sources, double time) {
   glBindVertexArray(vao_);
   screen_space_shader_->Use();
   screen_space_shader_->SetUniformSampler("uScreenTexture",
-                                          fbo_->color_texture(), 0);
+                                          fbo_->color_texture(0), 0);
   screen_space_shader_->SetUniformSampler("uCloudTexture", frag_color_texture_,
                                           1);
   screen_space_shader_->SetUniformSampler("uDepthTexture",

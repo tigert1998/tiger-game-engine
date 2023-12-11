@@ -23,14 +23,14 @@ class DirectionalShadow : public Shadow {
  private:
   glm::vec3 direction_;
   uint32_t fbo_width_, fbo_height_;
-  FrameBufferObject fbo_;
+  std::unique_ptr<FrameBufferObject> fbo_;
   const Camera *camera_;
 
  public:
   DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
                     uint32_t fbo_height, const Camera *camera);
   void Bind() override;
-  inline void Unbind() override { fbo_.Unbind(); }
+  inline void Unbind() override { fbo_->Unbind(); }
   void Set(Shader *shader, int32_t *num_samplers) override;
   void SetForDepthPass(Shader *shader) override;
   inline ~DirectionalShadow() override {}

@@ -4,54 +4,44 @@
 
 #include "utils.h"
 
-FrameBufferObject::FrameBufferObject(uint32_t width, uint32_t height,
-                                     bool color) {
+void FrameBufferObject::AttachTexture(uint32_t attachment,
+                                      const Texture &texture) {
+  if (texture.target() == GL_TEXTURE_2D_ARRAY) {
+    glFramebufferTexture(GL_FRAMEBUFFER, attachment, texture.id(), 0);
+  } else {
+    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, texture.target(),
+                           texture.id(), 0);
+  }
+}
+
+FrameBufferObject::FrameBufferObject(std::vector<Texture> &color_textures,
+                                     Texture &depth_texture) {
   glGenFramebuffers(1, &id_);
   glBindFramebuffer(GL_FRAMEBUFFER, id_);
 
-  if (color) {
-    color_texture_ = Texture(width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
-                             GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           color_texture_.id(), 0);
+  glReadBuffer(GL_NONE);
+
+  if (color_textures.size() >= 1) {
+    color_textures_ = color_textures;
+
+    std::vector<uint32_t> attachments;
+    for (int i = 0; i < color_textures_.size(); i++) {
+      attachments.push_back(GL_COLOR_ATTACHMENT0 + i);
+      AttachTexture(attachments.back(), color_textures_[i]);
+    }
+    glDrawBuffers(attachments.size(), attachments.data());
   } else {
     glDrawBuffer(GL_NONE);
-    glReadBuffer(GL_NONE);
   }
 
-  depth_texture_ =
-      Texture(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT,
-              GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
-                         depth_texture_.id(), 0);
-  CheckOpenGLError();
+  depth_texture_ = depth_texture;
+  AttachTexture(GL_DEPTH_ATTACHMENT, depth_texture_);
+
   CHECK_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-FrameBufferObject::FrameBufferObject(uint32_t width, uint32_t height,
-                                     uint32_t depth) {
-  // now for cascaded shadow mapping
-  glGenFramebuffers(1, &id_);
-  glBindFramebuffer(GL_FRAMEBUFFER, id_);
-  glDrawBuffer(GL_NONE);
-  glReadBuffer(GL_NONE);
-  depth_texture_ =
-      Texture(GL_TEXTURE_2D_ARRAY, width, height, depth, GL_DEPTH_COMPONENT,
-              GL_DEPTH_COMPONENT, GL_FLOAT, GL_CLAMP_TO_BORDER, GL_NEAREST,
-              GL_NEAREST, {1, 1, 1, 1}, false);
-  glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_texture_.id(),
-                       0);
-  CheckOpenGLError();
-  CHECK_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-FrameBufferObject::~FrameBufferObject() {
-  color_texture_.Clear();
-  depth_texture_.Clear();
-  glDeleteFramebuffers(1, &id_);
-}
+FrameBufferObject::~FrameBufferObject() { glDeleteFramebuffers(1, &id_); }
 
 void FrameBufferObject::Bind() const { glBindFramebuffer(GL_FRAMEBUFFER, id_); }
 

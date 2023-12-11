@@ -14,6 +14,14 @@
 
 namespace fs = std::filesystem;
 
+Texture Texture::Reference() const {
+  Texture texture;
+  texture.id_ = id_;
+  texture.target_ = target_;
+  texture.has_ownership_ = false;
+  return texture;
+}
+
 void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                                     uint32_t min_filter, uint32_t mag_filter,
                                     const std::vector<float> &border_color,
@@ -160,15 +168,8 @@ Texture Texture::LoadFromFS(const std::string &path, uint32_t wrap,
   static std::map<std::string, Texture> textures;
 
   if (textures.count(path)) return textures[path];
-
   Texture texture(path, wrap, min_filter, mag_filter, border_color, mipmap);
-  Texture texture_reference;
-  texture_reference.has_ownership_ = false;
-  texture_reference.target_ = texture.target_;
-  texture_reference.id_ = texture.id_;
-
-  textures[path] = texture_reference;
-
+  textures[path] = texture.Reference();
   return texture;
 }
 

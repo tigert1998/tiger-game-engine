@@ -13,8 +13,13 @@ DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
     : direction_(direction),
       fbo_width_(fbo_width),
       fbo_height_(fbo_height),
-      fbo_(fbo_width, fbo_height, NUM_CASCADES),
-      camera_(camera) {}
+      camera_(camera) {
+  Texture depth_texture(GL_TEXTURE_2D_ARRAY, fbo_width, fbo_height,
+                        NUM_CASCADES, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
+                        GL_FLOAT, GL_CLAMP_TO_BORDER, GL_NEAREST, GL_NEAREST,
+                        {1, 1, 1, 1}, false);
+  fbo_.reset(new FrameBufferObject(std::vector<Texture>{}, depth_texture));
+}
 
 std::vector<glm::mat4> DirectionalShadow::view_projection_matrices() const {
   std::vector<glm::mat4> matrices;
@@ -50,14 +55,14 @@ void DirectionalShadow::Set(Shader *shader, int32_t *num_samplers) {
   shader->SetUniform<float>("uDirectionalShadow.farPlaneDistance",
                             camera_->z_far());
   shader->SetUniformSampler("uDirectionalShadow.shadowMap",
-                            fbo_.depth_texture(), (*num_samplers)++);
+                            fbo_->depth_texture(), (*num_samplers)++);
   shader->SetUniform<glm::vec3>(std::string("uDirectionalShadow.dir"),
                                 direction_);
 }
 
 void DirectionalShadow::Bind() {
   glViewport(0, 0, fbo_width_, fbo_height_);
-  fbo_.Bind();
+  fbo_->Bind();
 }
 
 glm::mat4 DirectionalShadow::view_matrix(
