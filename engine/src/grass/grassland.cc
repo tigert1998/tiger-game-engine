@@ -115,8 +115,8 @@ uint32_t Grassland::CreateAndBindSSBO(uint32_t size, void* data, uint32_t usage,
 Grassland::Grassland(const std::string& terrain_model_path,
                      const std::string& distortion_texture_path)
     : blade_(std::make_unique<Blade>()) {
-  distortion_texture_id_ =
-      TextureManager::LoadTexture(distortion_texture_path, GL_REPEAT);
+  distortion_texture_ = Texture(distortion_texture_path, GL_REPEAT,
+                                GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, {}, true);
 
   // load mesh and prepare data
 
@@ -260,10 +260,7 @@ Grassland::Grassland(const std::string& terrain_model_path,
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-Grassland::~Grassland() {
-  glDeleteBuffers(1, &vbo_);
-  glDeleteTextures(1, &distortion_texture_id_);
-}
+Grassland::~Grassland() { glDeleteBuffers(1, &vbo_); }
 
 void Grassland::Draw(Camera* camera, LightSources* light_sources, double time) {
   // copy blade_transforms to vbo
@@ -311,9 +308,8 @@ void Grassland::Draw(Camera* camera, LightSources* light_sources, double time) {
                                           camera->position());
   blade_->shader()->SetUniform<glm::vec2>("uWindFrequency", glm::vec2(0.1));
   blade_->shader()->SetUniform<float>("uTime", (float)time);
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, distortion_texture_id_);
-  blade_->shader()->SetUniform<int32_t>("uDistortionTexture", 0);
+  blade_->shader()->SetUniformSampler("uDistortionTexture", distortion_texture_,
+                                      0);
 
   // draw blades
   glDrawElementsInstanced(GL_TRIANGLES, blade_->indices_size(), GL_UNSIGNED_INT,

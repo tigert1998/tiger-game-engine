@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "shader.h"
+#include "texture.h"
 #include "vertex.h"
 
 class Namer {
@@ -55,36 +56,41 @@ class Mesh {
   std::vector<glm::mat4> transforms_;
   uint32_t vao_, vbo_, ebo_, indices_size_;
   std::string name_;
-  bool has_bone_ = false;
+  bool has_bone_ = false, bind_metalness_and_diffuse_roughness_ = false;
   glm::vec3 center_, min_, max_;
 
   struct TextureRecord {
-    bool enabled;  // whether the model contains this kind of texture
-    uint32_t id;   // OpenGL texture ID
-    int32_t op;    // ASSIMP aiTextureOp, not used yet in the shader
+    bool enabled;     // whether the model contains this kind of texture
+    Texture texture;  // OpenGL texture ID
+    int32_t op;       // ASSIMP aiTextureOp, not used yet in the shader
     float blend;
     glm::vec3 base_color;  // the base color for this kind of texture, not used
                            // yet in the shader
+
+    inline explicit TextureRecord() = default;
+
+    inline explicit TextureRecord(bool enabled, Texture texture, int32_t op,
+                                  float blend, glm::vec3 base_color)
+        : enabled(enabled),
+          texture(texture),
+          op(op),
+          blend(blend),
+          base_color(base_color) {}
+
+    inline TextureRecord(TextureRecord &record)
+        : enabled(record.enabled),
+          texture(record.texture),
+          op(record.op),
+          blend(record.blend),
+          base_color(record.base_color) {}
   };
 
-#define REGISTER(name)                        \
-  {                                           \
-    #name, { false, 0, -1, -1, glm::vec3(0) } \
-  }
-
-  std::map<std::string, TextureRecord> textures_ = {
-      REGISTER(DIFFUSE),           REGISTER(AMBIENT),
-      REGISTER(SPECULAR),          REGISTER(NORMALS),
-      REGISTER(METALNESS),         REGISTER(DIFFUSE_ROUGHNESS),
-      REGISTER(AMBIENT_OCCLUSION),
-  };
+  std::map<std::string, TextureRecord> textures_;
 
   struct PhongMaterial {
     glm::vec3 ka, kd, ks;
     float shininess;
   } material_;
-
-#undef REGISTER
 };
 
 #endif

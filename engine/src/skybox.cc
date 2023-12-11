@@ -5,8 +5,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 
-Skybox::Skybox(const std::string &path, const std::string &ext)
-    : tex_(path, ext) {
+Skybox::Skybox(const std::string &path)
+    : tex_(path, GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false) {
   shader_ptr_ = std::unique_ptr<Shader>(
       new Shader(Skybox::kVsSource, Skybox::kFsSource, {}));
 
@@ -32,8 +32,7 @@ void Skybox::Draw(Camera *camera) {
       "uViewMatrix", glm::mat4(glm::mat3(camera->view_matrix())));
   shader_ptr_->SetUniform<glm::mat4>("uProjectionMatrix",
                                      camera->projection_matrix());
-  tex_.Bind(GL_TEXTURE0);
-  shader_ptr_->SetUniform("uSkyboxTexture", 0);
+  shader_ptr_->SetUniformSampler("uSkyboxTexture", tex_, 0);
 
   glBindVertexArray(vao_);
   glDrawArrays(GL_TRIANGLES, 0, 36);

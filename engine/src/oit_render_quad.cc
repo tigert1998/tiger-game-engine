@@ -114,13 +114,8 @@ void OITRenderQuad::Draw() {
   glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32UI, fragment_storage_buffer_);
   shader_->SetUniform<int32_t>("uList", 1);
 
-  glActiveTexture(GL_TEXTURE2);
-  glBindTexture(GL_TEXTURE_2D, fbo_->color_texture_id());
-  shader_->SetUniform<int32_t>("uBackground", 2);
-
-  glActiveTexture(GL_TEXTURE3);
-  glBindTexture(GL_TEXTURE_2D, fbo_->depth_texture_id());
-  shader_->SetUniform<int32_t>("uBackgroundDepth", 3);
+  shader_->SetUniformSampler("uBackground", fbo_->color_texture(), 2);
+  shader_->SetUniformSampler("uBackgroundDepth", fbo_->depth_texture(), 3);
 
   shader_->SetUniform<glm::vec2>("uScreenSize", glm::vec2(width_, height_));
 

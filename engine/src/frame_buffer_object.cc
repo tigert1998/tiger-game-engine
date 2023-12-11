@@ -2,26 +2,28 @@
 
 #include <glad/glad.h>
 
-#include "texture_manager.h"
 #include "utils.h"
 
 FrameBufferObject::FrameBufferObject(uint32_t width, uint32_t height,
                                      bool color) {
   glGenFramebuffers(1, &id_);
   glBindFramebuffer(GL_FRAMEBUFFER, id_);
+
   if (color) {
-    color_texture_id_ = TextureManager::AllocateTexture(
-        width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, false);
+    color_texture_ = Texture(width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE,
+                             GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
-                           color_texture_id_, 0);
+                           color_texture_.id(), 0);
   } else {
     glDrawBuffer(GL_NONE);
     glReadBuffer(GL_NONE);
   }
-  depth_texture_id_ = TextureManager::AllocateTexture(
-      width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT, false);
+
+  depth_texture_ =
+      Texture(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT,
+              GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
-                         depth_texture_id_, 0);
+                         depth_texture_.id(), 0);
   CheckOpenGLError();
   CHECK_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -34,9 +36,11 @@ FrameBufferObject::FrameBufferObject(uint32_t width, uint32_t height,
   glBindFramebuffer(GL_FRAMEBUFFER, id_);
   glDrawBuffer(GL_NONE);
   glReadBuffer(GL_NONE);
-  depth_texture_id_ = TextureManager::AllocateTexture2DArray(
-      width, height, depth, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT);
-  glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_texture_id_,
+  depth_texture_ =
+      Texture(GL_TEXTURE_2D_ARRAY, width, height, depth, GL_DEPTH_COMPONENT,
+              GL_DEPTH_COMPONENT, GL_FLOAT, GL_CLAMP_TO_BORDER, GL_NEAREST,
+              GL_NEAREST, {1, 1, 1, 1}, false);
+  glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depth_texture_.id(),
                        0);
   CheckOpenGLError();
   CHECK_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
@@ -44,12 +48,8 @@ FrameBufferObject::FrameBufferObject(uint32_t width, uint32_t height,
 }
 
 FrameBufferObject::~FrameBufferObject() {
-  if (color_texture_id_ != 0) {
-    glDeleteTextures(1, &color_texture_id_);
-  }
-  if (depth_texture_id_ != 0) {
-    glDeleteTextures(1, &depth_texture_id_);
-  }
+  color_texture_.Clear();
+  depth_texture_.Clear();
   glDeleteFramebuffers(1, &id_);
 }
 

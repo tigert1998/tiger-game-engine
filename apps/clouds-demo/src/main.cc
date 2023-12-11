@@ -95,8 +95,8 @@ void Init(uint32_t width, uint32_t height) {
       -0.5 * glm::pi<float>(), 0, glm::radians(60.f), 0.1, 5000);
 
   oit_render_quad_ptr.reset(new OITRenderQuad(width, height));
-  model_ptr.reset(
-      new Model("resources/sphere/sphere.obj", oit_render_quad_ptr.get()));
+  model_ptr.reset(new Model("resources/sphere/sphere.obj",
+                            oit_render_quad_ptr.get(), false));
   clouds_ptr.reset(new Clouds(width, height));
 
   controller.reset(new Controller(camera_ptr.get(), oit_render_quad_ptr.get(),

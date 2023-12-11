@@ -4,12 +4,12 @@
 #include <memory>
 
 #include "camera.h"
-#include "cubemap_texture.h"
 #include "shader.h"
+#include "texture.h"
 
 class Skybox {
  private:
-  CubemapTexture tex_;
+  Texture tex_;
   std::unique_ptr<Shader> shader_ptr_;
   uint32_t vao_, vbo_;
 
@@ -18,7 +18,7 @@ class Skybox {
   static const float vertices_[36 * 3];
 
  public:
-  Skybox(const std::string &path, const std::string &ext);
+  Skybox(const std::string &path);
   void Draw(Camera *camera);
 };
 

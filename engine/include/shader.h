@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include "texture.h"
+
 class Shader {
  public:
   Shader(const std::string &vs, const std::string &fs,
@@ -16,12 +18,8 @@ class Shader {
   void Use() const;
   template <typename T>
   void SetUniform(const std::string &identifier, const T &) const;
-  void SetUniformSampler2D(const std::string &identifier, uint32_t id,
-                           uint32_t unit);
-  void SetUniformSampler2DArray(const std::string &identifier, uint32_t id,
-                                uint32_t unit);
-  void SetUniformSampler3D(const std::string &identifier, uint32_t id,
-                           uint32_t unit);
+  void SetUniformSampler(const std::string &identifier, const Texture &texture,
+                         uint32_t unit);
   template <typename T>
   T GetUniform(const std::string &identifier) const;
   std::vector<std::string> GetUniformVariables() const;

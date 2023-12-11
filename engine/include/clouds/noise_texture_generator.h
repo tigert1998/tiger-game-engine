@@ -2,23 +2,23 @@
 #define CLOUDS_NOISE_TEXTURE_GENERATOR_H_
 
 #include <stdint.h>
+#include <texture.h>
 
 class NoiseTextureGenerator {
  public:
   NoiseTextureGenerator(float weather_texture_perlin_frequency);
   ~NoiseTextureGenerator();
 
-  inline uint32_t perlin_worley_texture_id() {
-    return perlin_worley_texture_id_;
+  inline const Texture& perlin_worley_texture() {
+    return perlin_worley_texture_;
   }
-  inline uint32_t worley_texture_id() { return worley_texture_id_; }
-  inline uint32_t weather_texture_id() { return weather_texture_id_; }
+  inline const Texture& worley_texture() { return worley_texture_; }
+  inline const Texture& weather_texture() { return weather_texture_; }
 
  private:
   float weather_texture_perlin_frequency_;
 
-  uint32_t perlin_worley_texture_id_ = 0, weather_texture_id_ = 0,
-           worley_texture_id_ = 0;
+  Texture perlin_worley_texture_, weather_texture_, worley_texture_;
 };
 
 #endif

@@ -3,7 +3,6 @@
 #include <glad/glad.h>
 
 #include "light_sources.h"
-#include "texture_manager.h"
 #include "utils.h"
 
 void Clouds::Bind() {
@@ -14,13 +13,13 @@ void Clouds::Bind() {
 void Clouds::Allocate(uint32_t width, uint32_t height) {
   width_ = width;
   height_ = height;
-  frag_color_texture_id_ = TextureManager::AllocateTexture(
-      width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT, false);
+  frag_color_texture_ = Texture(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT,
+                                GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
 
   fbo_.reset(new FrameBufferObject(width, height, true));
 }
 
-void Clouds::Deallocate() { glDeleteTextures(1, &frag_color_texture_id_); }
+void Clouds::Deallocate() { frag_color_texture_.Clear(); }
 
 Clouds::Clouds(uint32_t width, uint32_t height) {
   noise_texture_generator_.reset(new NoiseTextureGenerator(0.8));
@@ -38,16 +37,16 @@ void Clouds::Resize(uint32_t width, uint32_t height) {
 void Clouds::Draw(Camera *camera, LightSources *light_sources, double time) {
   shader_->Use();
   light_sources->Set(shader_.get(), true);
-  glBindImageTexture(0, frag_color_texture_id_, 0, GL_FALSE, 0, GL_WRITE_ONLY,
+  glBindImageTexture(0, frag_color_texture_.id(), 0, GL_FALSE, 0, GL_WRITE_ONLY,
                      GL_RGBA32F);
   shader_->SetUniform<int32_t>("uFragColor", 0);
-  shader_->SetUniformSampler3D(
-      "uPerlinWorleyTexture",
-      noise_texture_generator_->perlin_worley_texture_id(), 0);
-  shader_->SetUniformSampler3D(
-      "uWorleyTexture", noise_texture_generator_->worley_texture_id(), 1);
-  shader_->SetUniformSampler2D(
-      "uWeatherTexture", noise_texture_generator_->weather_texture_id(), 2);
+  shader_->SetUniformSampler("uPerlinWorleyTexture",
+                             noise_texture_generator_->perlin_worley_texture(),
+                             0);
+  shader_->SetUniformSampler("uWorleyTexture",
+                             noise_texture_generator_->worley_texture(), 1);
+  shader_->SetUniformSampler("uWeatherTexture",
+                             noise_texture_generator_->weather_texture(), 2);
   shader_->SetUniform<glm::vec2>("uScreenSize", glm::vec2(width_, height_));
   shader_->SetUniform<glm::vec3>("uCameraPosition", camera->position());
   shader_->SetUniform<glm::mat4>(
@@ -62,15 +61,12 @@ void Clouds::Draw(Camera *camera, LightSources *light_sources, double time) {
 
   glBindVertexArray(vao_);
   screen_space_shader_->Use();
-  glActiveTexture(GL_TEXTURE0);
-  glBindTexture(GL_TEXTURE_2D, fbo_->color_texture_id());
-  screen_space_shader_->SetUniform<int32_t>("uScreenTexture", 0);
-  glActiveTexture(GL_TEXTURE1);
-  glBindTexture(GL_TEXTURE_2D, frag_color_texture_id_);
-  screen_space_shader_->SetUniform<int32_t>("uCloudTexture", 1);
-  glActiveTexture(GL_TEXTURE2);
-  glBindTexture(GL_TEXTURE_2D, fbo_->depth_texture_id());
-  screen_space_shader_->SetUniform<int32_t>("uDepthTexture", 2);
+  screen_space_shader_->SetUniformSampler("uScreenTexture",
+                                          fbo_->color_texture(), 0);
+  screen_space_shader_->SetUniformSampler("uCloudTexture", frag_color_texture_,
+                                          1);
+  screen_space_shader_->SetUniformSampler("uDepthTexture",
+                                          fbo_->depth_texture(), 2);
   screen_space_shader_->SetUniform<glm::vec2>("uScreenSize",
                                               glm::vec2(width_, height_));
   glDrawArrays(GL_POINTS, 0, 1);

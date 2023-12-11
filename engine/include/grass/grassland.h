@@ -13,6 +13,7 @@
 #include "camera.h"
 #include "light_sources.h"
 #include "shader.h"
+#include "texture.h"
 
 class Grassland {
  public:
@@ -45,7 +46,7 @@ class Grassland {
   std::map<BVHNode *, std::vector<InstancingData>> blade_data_;
   std::vector<InstancingData> blade_data_for_gpu_;
 
-  uint32_t distortion_texture_id_;
+  Texture distortion_texture_;
 
   static uint32_t CreateAndBindSSBO(uint32_t size, void *data, uint32_t usage,
                                     uint32_t index);

@@ -39,6 +39,17 @@ using VertexWithBones = Vertex<kMaxBonesPerVertex>;
 Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
            const aiScene *scene, Namer &bone_namer,
            std::vector<glm::mat4> &bone_offsets, bool flip_y) {
+#define REGISTER(name) \
+  textures_[#name] = TextureRecord(false, Texture(), -1, -1, glm::vec3(0))
+  REGISTER(DIFFUSE);
+  REGISTER(AMBIENT);
+  REGISTER(SPECULAR);
+  REGISTER(NORMALS);
+  REGISTER(METALNESS);
+  REGISTER(DIFFUSE_ROUGHNESS);
+  REGISTER(AMBIENT_OCCLUSION);
+#undef REGISTER
+
   std::vector<VertexWithBones> vertices;
   std::vector<uint32_t> indices;
   name_ = mesh->mName.C_Str();
@@ -79,7 +90,8 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     textures_[#name].enabled = true;                                        \
     material->GetTexture(aiTextureType_##name, 0, &material_texture_path);  \
     auto item = path + "/" + std::string(material_texture_path.C_Str());    \
-    textures_[#name].id = TextureManager::LoadTexture(item, GL_REPEAT);     \
+    textures_[#name].texture = Texture(                                     \
+        item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, {}, true);     \
     bool is_dds = ToLower(item.substr(item.size() - 4)) == ".dds";          \
     CHECK((is_dds && flip_y) || (!is_dds && !flip_y))                       \
         << "Currently, DDS image format does not support flipping. So you " \
@@ -111,6 +123,20 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
 #undef INTERNAL_ADD_TEXTURE
 #undef TRY_ADD_TEXTURE
 #undef TRY_ADD_TEXTURE_WITH_BASE_COLOR
+
+    bind_metalness_and_diffuse_roughness_ = [material]() {
+      if (material->GetTextureCount(aiTextureType_METALNESS) >= 1 &&
+          material->GetTextureCount(aiTextureType_DIFFUSE_ROUGHNESS) >= 1) {
+        aiString metalness_path;
+        material->GetTexture(aiTextureType_METALNESS, 0, &metalness_path);
+        aiString diffuse_roughness_path;
+        material->GetTexture(aiTextureType_METALNESS, 0,
+                             &diffuse_roughness_path);
+        return metalness_path == diffuse_roughness_path;
+      } else {
+        return false;
+      }
+    }();
   }
 
   LOG(INFO) << "\"" << name() << "\": #vertices: " << mesh->mNumVertices
@@ -228,11 +254,6 @@ Mesh::~Mesh() {
   glDeleteVertexArrays(1, &vao_);
   glDeleteBuffers(1, &vbo_);
   glDeleteBuffers(1, &ebo_);
-  for (auto kv : textures_) {
-    if (kv.second.enabled) {
-      glDeleteTextures(1, &kv.second.id);
-    }
-  }
 }
 
 void Mesh::Draw(Shader *shader_ptr, int num_instances, bool shadow,
@@ -242,15 +263,15 @@ void Mesh::Draw(Shader *shader_ptr, int num_instances, bool shadow,
   }
 
   if (!shadow) {
-    for (auto kv : textures_) {
-      bool enabled = kv.second.enabled;
-      std::string name = SnakeToPascal(kv.first);
+    for (auto iter = textures_.begin(); iter != textures_.end(); iter++) {
+      bool enabled = iter->second.enabled;
+      std::string name = SnakeToPascal(iter->first);
       name[0] = tolower(name[0]);  // e.g. "Ambient" -> "ambient"
       shader_ptr->SetUniform<int32_t>(
           std::string("uMaterial.") + name + "TextureEnabled", enabled);
       if (enabled) {
-        shader_ptr->SetUniformSampler2D(
-            std::string("uMaterial.") + name + "Texture", kv.second.id,
+        shader_ptr->SetUniformSampler(
+            std::string("uMaterial.") + name + "Texture", iter->second.texture,
             sampler_offset++);
       }
     }
@@ -259,12 +280,9 @@ void Mesh::Draw(Shader *shader_ptr, int num_instances, bool shadow,
     shader_ptr->SetUniform<glm::vec3>("uMaterial.kd", material_.kd);
     shader_ptr->SetUniform<glm::vec3>("uMaterial.ks", material_.ks);
     shader_ptr->SetUniform<float>("uMaterial.shininess", material_.shininess);
-    bool bind_metalness_and_diffuse_roughness =
-        textures_.at("METALNESS").id == textures_.at("DIFFUSE_ROUGHNESS").id &&
-        textures_.at("METALNESS").enabled;
     shader_ptr->SetUniform<int32_t>(
         "uMaterial.bindMetalnessAndDiffuseRoughness",
-        bind_metalness_and_diffuse_roughness);
+        bind_metalness_and_diffuse_roughness_);
   }
 
   CHECK(transforms_.size() == 1);

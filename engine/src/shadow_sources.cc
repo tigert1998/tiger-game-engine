@@ -49,8 +49,8 @@ void DirectionalShadow::Set(Shader *shader, int32_t *num_samplers) {
       "uDirectionalShadow.cascadePlaneDistances", cascade_plane_distances());
   shader->SetUniform<float>("uDirectionalShadow.farPlaneDistance",
                             camera_->z_far());
-  shader->SetUniformSampler2DArray("uDirectionalShadow.shadowMap",
-                                   fbo_.depth_texture_id(), (*num_samplers)++);
+  shader->SetUniformSampler("uDirectionalShadow.shadowMap",
+                            fbo_.depth_texture(), (*num_samplers)++);
   shader->SetUniform<glm::vec3>(std::string("uDirectionalShadow.dir"),
                                 direction_);
 }

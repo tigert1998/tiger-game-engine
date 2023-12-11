@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "cg_exception.h"
+#include "texture.h"
 
 std::unique_ptr<Shader> ScreenSpaceShader(
     const std::string &fs,
@@ -219,30 +220,14 @@ void Shader::SetUniform<std::vector<glm::mat4>>(
                      glm::value_ptr(value[0]));
 }
 
-void Shader::SetUniformSampler2D(const std::string &identifier, uint32_t id,
-                                 uint32_t unit) {
-  glActiveTexture(GL_TEXTURE0 + unit);
-  glBindTexture(GL_TEXTURE_2D, id);
-  glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
-  glBindTexture(GL_TEXTURE_3D, 0);
-  SetUniform<int32_t>(identifier, unit);
-}
-
-void Shader::SetUniformSampler2DArray(const std::string &identifier,
-                                      uint32_t id, uint32_t unit) {
-  glActiveTexture(GL_TEXTURE0 + unit);
-  glBindTexture(GL_TEXTURE_2D, 0);
-  glBindTexture(GL_TEXTURE_2D_ARRAY, id);
-  glBindTexture(GL_TEXTURE_3D, 0);
-  SetUniform<int32_t>(identifier, unit);
-}
-
-void Shader::SetUniformSampler3D(const std::string &identifier, uint32_t id,
-                                 uint32_t unit) {
+void Shader::SetUniformSampler(const std::string &identifier,
+                               const Texture &texture, uint32_t unit) {
   glActiveTexture(GL_TEXTURE0 + unit);
   glBindTexture(GL_TEXTURE_2D, 0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
-  glBindTexture(GL_TEXTURE_3D, id);
+  glBindTexture(GL_TEXTURE_3D, 0);
+  glBindTexture(GL_TEXTURE_CUBE_MAP, 0);
+  glBindTexture(texture.target(), texture.id());
   SetUniform<int32_t>(identifier, unit);
 }
 

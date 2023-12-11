@@ -207,7 +207,7 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   scene_model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
-                                       oit_render_quad_ptr.get());
+                                       oit_render_quad_ptr.get(), false);
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
       -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
@@ -217,7 +217,7 @@ void Init(uint32_t width, uint32_t height) {
   shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
       vec3(0, -1, 0.1), 2048, 2048, camera_ptr.get()));
 
-  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", "png");
+  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), oit_render_quad_ptr.get(), character_controller.get(),

@@ -9,6 +9,7 @@
 #include "frame_buffer_object.h"
 #include "light_sources.h"
 #include "shader.h"
+#include "texture.h"
 
 class Clouds {
  private:
@@ -18,7 +19,7 @@ class Clouds {
   std::unique_ptr<Shader> shader_, screen_space_shader_;
 
   uint32_t width_, height_;
-  uint32_t frag_color_texture_id_;
+  Texture frag_color_texture_;
   std::unique_ptr<FrameBufferObject> fbo_;
   uint32_t vao_;
 

@@ -61,7 +61,7 @@ void Init(uint32_t width, uint32_t height) {
   camera_ptr = std::make_unique<Camera>(
       glm::vec3(0, 10, 0), static_cast<double>(width) / height,
       -0.5 * glm::pi<float>(), 0, glm::radians(60.0f), 0.1, 5000);
-  skybox_ptr = std::make_unique<Skybox>("resources/skyboxes/cloud", "png");
+  skybox_ptr = std::make_unique<Skybox>("resources/skyboxes/cloud");
   grassland_ptr = std::make_unique<Grassland>("resources/terrain/sample.obj",
                                               "resources/distortion.png");
 
