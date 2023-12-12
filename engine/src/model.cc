@@ -471,93 +471,120 @@ vec3 ConvertDerivativeMapToNormalMap(vec3 normal) {
     return normalize(vec3(-normal.x, -normal.y, 1));
 }
 
-vec4 CalcFragColorWithPhong() {
-    float alpha = 1.0f;
+void SampleForGBuffer(
+    out vec3 ka, out vec3 kd, out vec3 ks, out float shininess, // for Phong
+    out vec3 albedo, out float metallic, out float roughness, out float ao, // for PBR
+    out vec3 normal, out vec3 position, out float alpha // shared variable
+) {
+    if (!uMaterial.metalnessTextureEnabled) {
+        // for Phong
+        alpha = 1.0f;
 
-    vec3 ka = vec3(uMaterial.ka);
-    vec3 kd = vec3(uMaterial.kd);
-    vec3 ks = vec3(uMaterial.ks);
+        ka = vec3(uMaterial.ka);
+        kd = vec3(uMaterial.kd);
+        ks = vec3(uMaterial.ks);
 
-    if (uMaterial.diffuseTextureEnabled) {
-        vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
-        kd = sampled.rgb;
-        alpha = sampled.a;
+        if (uMaterial.diffuseTextureEnabled) {
+            vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
+            kd = sampled.rgb;
+            alpha = sampled.a;
+        }
+
+        if (alpha <= zero) discard;
+
+        if (uMaterial.ambientTextureEnabled) {
+            ka = texture(uMaterial.ambientTexture, vTexCoord).rgb;
+        }
+        if (uMaterial.specularTextureEnabled) {
+            ks = texture(uMaterial.specularTexture, vTexCoord).rgb;
+        }
+
+        shininess = uMaterial.shininess;
+    } else {
+        // for PBR
+        alpha = 1.0f;
+
+        albedo = vec3(0.0f);
+        metallic = 0.0f;
+        roughness = 0.0f;
+        ao = 1.0f;
+
+        if (uMaterial.diffuseTextureEnabled) {
+            vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
+            // convert from sRGB to linear space
+            albedo = pow(sampled.rgb, vec3(2.2));
+            alpha = sampled.a;
+        }
+
+        if (alpha <= zero) discard;
+
+        if (uMaterial.bindMetalnessAndDiffuseRoughness) {
+            vec2 sampled = texture(uMaterial.metalnessTexture, vTexCoord).gb;
+            // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
+            metallic = sampled[1]; // blue
+            roughness = sampled[0]; // green
+        } else {
+            if (uMaterial.metalnessTextureEnabled) {
+                metallic = texture(uMaterial.metalnessTexture, vTexCoord).r;
+            }
+            if (uMaterial.diffuseRoughnessTextureEnabled) {
+                roughness = texture(uMaterial.diffuseRoughnessTexture, vTexCoord).r;
+            }
+        }
+
+        if (uMaterial.ambientOcclusionTextureEnabled) {
+            ao = texture(uMaterial.ambientOcclusionTexture, vTexCoord).r;
+        }
     }
 
-    if (alpha <= zero) discard;
-
-    if (uMaterial.ambientTextureEnabled) {
-        ka = texture(uMaterial.ambientTexture, vTexCoord).rgb;
-    }
-    if (uMaterial.specularTextureEnabled) {
-        ks = texture(uMaterial.specularTexture, vTexCoord).rgb;
-    }
-
-    vec3 normal = vTBN[2];
+    normal = vTBN[2];
     if (uMaterial.normalsTextureEnabled) {
         normal = texture(uMaterial.normalsTexture, vTexCoord).xyz * 2 - 1;
         normal = ConvertDerivativeMapToNormalMap(normal);
         normal = normalize(vTBN * normal);
     }
 
-    float shadow = CalcShadow(vPosition, normal);
+    position = vPosition;
+}
+
+vec4 CalcFragColorWithPhong() {
+    vec3 ka; vec3 kd; vec3 ks; float shininess; // for Phong
+    vec3 albedo; float metallic; float roughness; float ao; // for PBR
+    vec3 normal; vec3 position; float alpha; // shared variable
+
+    SampleForGBuffer(
+        ka, kd, ks, shininess, // for Phong
+        albedo, metallic, roughness, ao, // for PBR
+        normal, position, alpha // shared variable
+    );
+
+    float shadow = CalcShadow(position, normal);
 
     vec3 color = CalcPhongLighting(
         ka, kd, ks,
-        normal, uCameraPosition, vPosition,
-        uMaterial.shininess, shadow
+        normal, uCameraPosition, position,
+        shininess, shadow
     );
 
     return vec4(color, alpha);
 }
 
 vec4 CalcFragColorWithPBR() {
-    float alpha = 1.0f;
+    vec3 ka; vec3 kd; vec3 ks; float shininess; // for Phong
+    vec3 albedo; float metallic; float roughness; float ao; // for PBR
+    vec3 normal; vec3 position; float alpha; // shared variable
 
-    vec3 albedo = vec3(0.0f);
-    float metallic = 0.0f;
-    float roughness = 0.0f;
-    float ao = 1.0f;
+    SampleForGBuffer(
+        ka, kd, ks, shininess, // for Phong
+        albedo, metallic, roughness, ao, // for PBR
+        normal, position, alpha // shared variable
+    );
 
-    if (uMaterial.diffuseTextureEnabled) {
-        vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
-        // convert from sRGB to linear space
-        albedo = pow(sampled.rgb, vec3(2.2));
-        alpha = sampled.a;
-    }
-
-    if (alpha <= zero) discard;
-
-    if (uMaterial.bindMetalnessAndDiffuseRoughness) {
-        vec2 sampled = texture(uMaterial.metalnessTexture, vTexCoord).gb;
-        // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
-        metallic = sampled[1]; // blue
-        roughness = sampled[0]; // green
-    } else {
-        if (uMaterial.metalnessTextureEnabled) {
-            metallic = texture(uMaterial.metalnessTexture, vTexCoord).r;
-        }
-        if (uMaterial.diffuseRoughnessTextureEnabled) {
-            roughness = texture(uMaterial.diffuseRoughnessTexture, vTexCoord).r;
-        }
-    }
-
-    if (uMaterial.ambientOcclusionTextureEnabled) {
-        ao = texture(uMaterial.ambientOcclusionTexture, vTexCoord).r;
-    }
-
-    vec3 normal = vTBN[2];
-    if (uMaterial.normalsTextureEnabled) {
-        normal = texture(uMaterial.normalsTexture, vTexCoord).xyz * 2 - 1;
-        normal = ConvertDerivativeMapToNormalMap(normal);
-        normal = normalize(vTBN * normal);
-    }
-
-    float shadow = CalcShadow(vPosition, normal);
+    float shadow = CalcShadow(position, normal);
 
     vec3 color = CalcPBRLighting(
         albedo, metallic, roughness, ao,
-        normal, uCameraPosition, vPosition,
+        normal, uCameraPosition, position,
         shadow
     );
 
