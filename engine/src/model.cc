@@ -26,20 +26,26 @@ using namespace glm;
 constexpr int MAX_BONES = 170;  // please change the shader's MAX_BONES as well
 
 std::shared_ptr<Shader> Model::kShader = nullptr, Model::kOITShader = nullptr,
-                        Model::kShadowShader = nullptr;
+                        Model::kShadowShader = nullptr,
+                        Model::kDeferredShadingShader = nullptr;
 
 Model::Model(const std::string &path, OITRenderQuad *oit_render_quad,
-             bool flip_y)
+             bool deferred_shading, bool flip_y)
     : directory_path_(ParentPath(path)),
       oit_render_quad_(oit_render_quad),
+      deferred_shading_(deferred_shading),
       flip_y_(flip_y) {
+  CHECK(oit_render_quad == nullptr || !deferred_shading_)
+      << "We do not support both using OIT and deferred shading at the same "
+         "time.";
   LOG(INFO) << "loading model at: \"" << path << "\"";
   uint32_t flags = aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
                    aiProcess_Triangulate;
   if (flip_y_) flags |= aiProcess_FlipUVs;
   scene_ = aiImportFile(path.c_str(), flags);
 
-  if (kShader == nullptr && kOITShader == nullptr && kShadowShader == nullptr) {
+  if (kShader == nullptr && kOITShader == nullptr && kShadowShader == nullptr &&
+      kDeferredShadingShader == nullptr) {
     std::map<std::string, std::any> constants = {
         {"MAX_BONES", std::any(MAX_BONES)},
         {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
@@ -50,6 +56,9 @@ Model::Model(const std::string &path, OITRenderQuad *oit_render_quad,
     kOITShader = std::shared_ptr<Shader>(
         new Shader(Model::kVsSource, Model::kFsSource + Model::kFsOITMainSource,
                    constants));
+    kDeferredShadingShader = std::shared_ptr<Shader>(new Shader(
+        Model::kVsSource,
+        Model::kFsSource + Model::kFsDeferredShadingMainSource, constants));
 
     constants["IS_SHADOW_PASS"] = std::any(true);
     kShadowShader = std::shared_ptr<Shader>(new Shader(
@@ -60,8 +69,13 @@ Model::Model(const std::string &path, OITRenderQuad *oit_render_quad,
         },
         constants));
   }
-  bool enable_oit = oit_render_quad != nullptr;
-  shader_ptr_ = enable_oit ? kOITShader : kShader;
+  if (oit_render_quad_ != nullptr) {
+    shader_ptr_ = kOITShader;
+  } else if (deferred_shading) {
+    shader_ptr_ = kDeferredShadingShader;
+  } else {
+    shader_ptr_ = kShader;
+  }
   glGenBuffers(1, &vbo_);
 
   animation_channel_map_.clear();
@@ -309,14 +323,16 @@ void Model::InternalDraw(bool animated, Camera *camera_ptr,
   if (oit_render_quad_ != nullptr) {
     oit_render_quad_->Set(shader_ptr_.get());
   }
-  light_sources->Set(shader_ptr_.get(), false);
-  shadow_sources->Set(shader_ptr_.get(), &num_samplers);
+  if (!deferred_shading_) {
+    light_sources->Set(shader_ptr_.get(), false);
+    shadow_sources->Set(shader_ptr_.get(), &num_samplers);
+    shader_ptr_->SetUniform<vec3>("uCameraPosition", camera_ptr->position());
+  }
   shader_ptr_->SetUniform<vec4>("uClipPlane", clip_plane);
   shader_ptr_->SetUniform<mat4>("uViewMatrix", camera_ptr->view_matrix());
   shader_ptr_->SetUniform<mat4>("uProjectionMatrix",
                                 camera_ptr->projection_matrix());
   shader_ptr_->SetUniform<vector<mat4>>("uBoneMatrices", bone_matrices_);
-  shader_ptr_->SetUniform<vec3>("uCameraPosition", camera_ptr->position());
   shader_ptr_->SetUniform<int32_t>("uDefaultShading", default_shading_);
 
   for (int i = 0; i < mesh_ptrs_.size(); i++) {
@@ -453,126 +469,130 @@ struct Material {
 
 uniform Material uMaterial;
 
-vec3 CalcDefaultShading() {
-    // gold material
-    vec3 color = vec3(0.944, 0.776, 0.373);
-    vec3 albedo = pow(color, vec3(2.2));
-    float metallic = 0.95;
-    float roughness = 0.05;
-    return CalcPBRLighting(
-        albedo, metallic, roughness, 1,
-        vTBN[2], uCameraPosition, vPosition,
-        0
-    );
-}
-
 vec3 ConvertDerivativeMapToNormalMap(vec3 normal) {
     if (normal.z > -1 + zero) return normal;
     return normalize(vec3(-normal.x, -normal.y, 1));
 }
 
-vec4 CalcFragColorWithPhong() {
-    float alpha = 1.0f;
-
-    vec3 ka = vec3(uMaterial.ka);
-    vec3 kd = vec3(uMaterial.kd);
-    vec3 ks = vec3(uMaterial.ks);
-
-    if (uMaterial.diffuseTextureEnabled) {
-        vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
-        kd = sampled.rgb;
-        alpha = sampled.a;
+void SampleForGBuffer(
+    out vec3 ka, out vec3 kd, out vec3 ks, out float shininess, // for Phong
+    out vec3 albedo, out float metallic, out float roughness, out float ao, // for PBR
+    out vec3 normal, out vec3 position, out float alpha, out int flag // shared variable
+) {
+    if (uDefaultShading) {
+        albedo = pow(vec3(0.944, 0.776, 0.373), vec3(2.2));
+        metallic = 0.95;
+        roughness = 0.05;
+        ao = 1;
+        normal = vTBN[2];
+        position = vPosition;
+        alpha = 1;
+        flag = 2;
+        return;
     }
 
-    if (alpha <= zero) discard;
+    if (!uMaterial.metalnessTextureEnabled) {
+        // for Phong
+        alpha = 1.0f;
 
-    if (uMaterial.ambientTextureEnabled) {
-        ka = texture(uMaterial.ambientTexture, vTexCoord).rgb;
-    }
-    if (uMaterial.specularTextureEnabled) {
-        ks = texture(uMaterial.specularTexture, vTexCoord).rgb;
-    }
+        ka = vec3(uMaterial.ka);
+        kd = vec3(uMaterial.kd);
+        ks = vec3(uMaterial.ks);
 
-    vec3 normal = vTBN[2];
-    if (uMaterial.normalsTextureEnabled) {
-        normal = texture(uMaterial.normalsTexture, vTexCoord).xyz * 2 - 1;
-        normal = ConvertDerivativeMapToNormalMap(normal);
-        normal = normalize(vTBN * normal);
-    }
+        if (uMaterial.diffuseTextureEnabled) {
+            vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
+            kd = sampled.rgb;
+            alpha = sampled.a;
+        }
 
-    float shadow = CalcShadow(vPosition, normal);
+        if (alpha <= zero) discard;
 
-    vec3 color = CalcPhongLighting(
-        ka, kd, ks,
-        normal, uCameraPosition, vPosition,
-        uMaterial.shininess, shadow
-    );
+        if (uMaterial.ambientTextureEnabled) {
+            ka = texture(uMaterial.ambientTexture, vTexCoord).rgb;
+        }
+        if (uMaterial.specularTextureEnabled) {
+            ks = texture(uMaterial.specularTexture, vTexCoord).rgb;
+        }
 
-    return vec4(color, alpha);
-}
-
-vec4 CalcFragColorWithPBR() {
-    float alpha = 1.0f;
-
-    vec3 albedo = vec3(0.0f);
-    float metallic = 0.0f;
-    float roughness = 0.0f;
-    float ao = 1.0f;
-
-    if (uMaterial.diffuseTextureEnabled) {
-        vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
-        // convert from sRGB to linear space
-        albedo = pow(sampled.rgb, vec3(2.2));
-        alpha = sampled.a;
-    }
-
-    if (alpha <= zero) discard;
-
-    if (uMaterial.bindMetalnessAndDiffuseRoughness) {
-        vec2 sampled = texture(uMaterial.metalnessTexture, vTexCoord).gb;
-        // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
-        metallic = sampled[1]; // blue
-        roughness = sampled[0]; // green
+        shininess = uMaterial.shininess;
+        flag = 1;
     } else {
-        if (uMaterial.metalnessTextureEnabled) {
-            metallic = texture(uMaterial.metalnessTexture, vTexCoord).r;
+        // for PBR
+        alpha = 1.0f;
+
+        albedo = vec3(0.0f);
+        metallic = 0.0f;
+        roughness = 0.0f;
+        ao = 1.0f;
+
+        if (uMaterial.diffuseTextureEnabled) {
+            vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
+            // convert from sRGB to linear space
+            albedo = pow(sampled.rgb, vec3(2.2));
+            alpha = sampled.a;
         }
-        if (uMaterial.diffuseRoughnessTextureEnabled) {
-            roughness = texture(uMaterial.diffuseRoughnessTexture, vTexCoord).r;
+
+        if (alpha <= zero) discard;
+
+        if (uMaterial.bindMetalnessAndDiffuseRoughness) {
+            vec2 sampled = texture(uMaterial.metalnessTexture, vTexCoord).gb;
+            // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
+            metallic = sampled[1]; // blue
+            roughness = sampled[0]; // green
+        } else {
+            if (uMaterial.metalnessTextureEnabled) {
+                metallic = texture(uMaterial.metalnessTexture, vTexCoord).r;
+            }
+            if (uMaterial.diffuseRoughnessTextureEnabled) {
+                roughness = texture(uMaterial.diffuseRoughnessTexture, vTexCoord).r;
+            }
         }
+
+        if (uMaterial.ambientOcclusionTextureEnabled) {
+            ao = texture(uMaterial.ambientOcclusionTexture, vTexCoord).r;
+        }
+        flag = 2;
     }
 
-    if (uMaterial.ambientOcclusionTextureEnabled) {
-        ao = texture(uMaterial.ambientOcclusionTexture, vTexCoord).r;
-    }
-
-    vec3 normal = vTBN[2];
+    normal = vTBN[2];
     if (uMaterial.normalsTextureEnabled) {
         normal = texture(uMaterial.normalsTexture, vTexCoord).xyz * 2 - 1;
         normal = ConvertDerivativeMapToNormalMap(normal);
         normal = normalize(vTBN * normal);
     }
 
-    float shadow = CalcShadow(vPosition, normal);
-
-    vec3 color = CalcPBRLighting(
-        albedo, metallic, roughness, ao,
-        normal, uCameraPosition, vPosition,
-        shadow
-    );
-
-    return vec4(color, alpha);
+    position = vPosition;
 }
 
 vec4 CalcFragColor() {
-    if (uDefaultShading) {
-        return vec4(CalcDefaultShading(), 1);
+    vec3 ka; vec3 kd; vec3 ks; float shininess; // for Phong
+    vec3 albedo; float metallic; float roughness; float ao; // for PBR
+    vec3 normal; vec3 position; float alpha; int flag; // shared variable
+
+    SampleForGBuffer(
+        ka, kd, ks, shininess, // for Phong
+        albedo, metallic, roughness, ao, // for PBR
+        normal, position, alpha, flag // shared variable
+    );
+
+    float shadow = CalcShadow(position, normal);
+    vec3 color;
+
+    if (flag == 1) {
+        color = CalcPhongLighting(
+            ka, kd, ks,
+            normal, uCameraPosition, position,
+            shininess, shadow
+        );
+    } else if (flag == 2) {
+        color = CalcPBRLighting(
+            albedo, metallic, roughness, ao,
+            normal, uCameraPosition, position,
+            shadow
+        );
     }
-    if (uMaterial.metalnessTextureEnabled) {
-        return CalcFragColorWithPBR();
-    } else {
-        return CalcFragColorWithPhong();
-    }
+
+    return vec4(color, alpha);
 }
 )";
 
@@ -625,4 +645,26 @@ void main() {
 
 const std::string Model::kFsShadowSource = R"(
 void main() {}
+)";
+
+const std::string Model::kFsDeferredShadingMainSource = R"(
+layout (location = 0) out vec3 ka;
+layout (location = 1) out vec3 kd;
+layout (location = 2) out vec4 ksAndShininess; // for Phong
+layout (location = 3) out vec3 albedo;
+layout (location = 4) out vec3 metallicAndRoughnessAndAo; // for PBR
+layout (location = 5) out vec3 normal;
+layout (location = 6) out vec4 positionAndAlpha;
+layout (location = 7) out int flag; // shared variable
+
+void main() {
+    SampleForGBuffer(
+        ka, kd, ksAndShininess.xyz, ksAndShininess.w,
+        // for Phong
+        albedo, metallicAndRoughnessAndAo.x, metallicAndRoughnessAndAo.y, metallicAndRoughnessAndAo.z,
+        // for PBR
+        normal, positionAndAlpha.xyz, positionAndAlpha.w, flag
+        // shared variable
+    );
+}
 )";
