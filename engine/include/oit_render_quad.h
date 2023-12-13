@@ -28,11 +28,6 @@ class OITRenderQuad {
 
   std::shared_ptr<Shader> shader_;
 
-  inline void Bind() {
-    glViewport(0, 0, width_, height_);
-    fbo_->Bind();
-  }
-  inline void Unbind() { fbo_->Unbind(); }
   void ResetBeforeRender();
   void Draw();
 
@@ -43,10 +38,9 @@ class OITRenderQuad {
   void Set(Shader* shader);
 
   // Please use this API for rendering
-  void TwoPasses(uint32_t width, uint32_t height,
-                 const std::function<void()>& first_pass,
+  void TwoPasses(const std::function<void()>& first_pass,
                  const std::function<void()>& second_pass,
-                 const FrameBufferObject *dest_fbo);
+                 const FrameBufferObject* dest_fbo);
 };
 
 #endif

@@ -19,7 +19,8 @@
 class Model {
  public:
   Model() = delete;
-  Model(const std::string &path, OITRenderQuad *oit_render_quad, bool flip_y);
+  Model(const std::string &path, OITRenderQuad *oit_render_quad,
+        bool deferred_shading, bool flip_y);
   ~Model();
   void Draw(Camera *camera_ptr, LightSources *light_sources,
             ShadowSources *shadow_sources, glm::mat4 model_matrix);
@@ -43,7 +44,7 @@ class Model {
 
  private:
   OITRenderQuad *oit_render_quad_;
-  bool flip_y_;
+  bool flip_y_, deferred_shading_;
   std::string directory_path_;
   std::vector<std::shared_ptr<Mesh>> mesh_ptrs_;
   const aiScene *scene_;
@@ -83,8 +84,10 @@ class Model {
   static const std::string kFsMainSource;
   static const std::string kFsOITMainSource;
   static const std::string kFsShadowSource;
+  static const std::string kFsDeferredShadingMainSource;
 
-  static std::shared_ptr<Shader> kShader, kOITShader, kShadowShader;
+  static std::shared_ptr<Shader> kShader, kOITShader, kShadowShader,
+      kDeferredShadingShader;
 };
 
 #endif

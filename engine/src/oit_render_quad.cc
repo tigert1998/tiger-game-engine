@@ -132,18 +132,18 @@ void OITRenderQuad::Draw() {
   glDepthFunc(GL_LESS);
 }
 
-void OITRenderQuad::TwoPasses(uint32_t width, uint32_t height,
-                              const std::function<void()> &first_pass,
+void OITRenderQuad::TwoPasses(const std::function<void()> &first_pass,
                               const std::function<void()> &second_pass,
                               const FrameBufferObject *dest_fbo) {
-  Bind();
+  glViewport(0, 0, width_, height_);
+  fbo_->Bind();
   // draw background for OIT render quad
   // all opaque objects must be draw here
   first_pass();
-  Unbind();
+  fbo_->Unbind();
 
   // append transparent objects to the linked list
-  glViewport(0, 0, width, height);
+  glViewport(0, 0, width_, height_);
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
   glDepthMask(GL_FALSE);

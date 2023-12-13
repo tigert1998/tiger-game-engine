@@ -207,7 +207,7 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   scene_model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
-                                       oit_render_quad_ptr.get(), false);
+                                       oit_render_quad_ptr.get(), false, false);
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
       -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
@@ -264,7 +264,6 @@ int main(int argc, char *argv[]) {
     });
 
     oit_render_quad_ptr->TwoPasses(
-        controller_ptr->width(), controller_ptr->height(),
         []() {
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
