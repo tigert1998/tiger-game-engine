@@ -29,8 +29,10 @@ class DeferredShadingRenderQuad {
 
   void Resize(uint32_t width, uint32_t height);
 
-  void Pass(const Camera* camera, LightSources* light_sources,
-            ShadowSources* shadow_sources, const std::function<void()>& pass);
+  void TwoPasses(const Camera* camera, LightSources* light_sources,
+                 ShadowSources* shadow_sources,
+                 const std::function<void()>& first_pass,
+                 const std::function<void()>& second_pass);
 };
 
 #endif

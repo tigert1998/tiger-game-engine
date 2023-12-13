@@ -61,21 +61,21 @@ void DeferredShadingRenderQuad::Resize(uint32_t width, uint32_t height) {
   Allocate(width, height);
 }
 
-void DeferredShadingRenderQuad::Pass(const Camera* camera,
-                                     LightSources* light_sources,
-                                     ShadowSources* shadow_sources,
-                                     const std::function<void()>& pass) {
+void DeferredShadingRenderQuad::TwoPasses(
+    const Camera* camera, LightSources* light_sources,
+    ShadowSources* shadow_sources, const std::function<void()>& first_pass,
+    const std::function<void()>& second_pass) {
+  glViewport(0, 0, width_, height_);
+  first_pass();
+
   glDisable(GL_BLEND);
   fbo_->Bind();
   ClearTextures();
   glViewport(0, 0, width_, height_);
   // Draw objects into G-Buffer
-  pass();
+  second_pass();
   fbo_->Unbind();
   glEnable(GL_BLEND);
-
-  glClearColor(0, 0, 0, 1);
-  glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
   glBindVertexArray(vao_);
   shader_->Use();
@@ -92,8 +92,9 @@ void DeferredShadingRenderQuad::Pass(const Camera* camera,
   shader_->SetUniformSampler("normal", fbo_->color_texture(5), 5);
   shader_->SetUniformSampler("positionAndAlpha", fbo_->color_texture(6), 6);
   shader_->SetUniformSampler("flag", fbo_->color_texture(7), 7);
+  shader_->SetUniformSampler("depth", fbo_->depth_texture(), 8);
 
-  int num_samplers = 8;
+  int num_samplers = 9;
 
   light_sources->Set(shader_.get(), false);
   shadow_sources->Set(shader_.get(), &num_samplers);
@@ -128,15 +129,17 @@ uniform sampler2D metallicAndRoughnessAndAo;
 uniform sampler2D normal;
 uniform sampler2D positionAndAlpha;
 uniform usampler2D flag;
+uniform sampler2D depth;
 
 uniform vec2 uScreenSize;
 
 void main() {
     vec2 coord = gl_FragCoord.xy / uScreenSize;
+    gl_FragDepth = texture(depth, coord).r;
 
     uint renderType = texture(flag, coord).r; 
     if (renderType == 0) {
-        fragColor = vec4(0, 0, 0, 1);
+        discard;
     } else if (renderType == 1) {
         float shadow = CalcShadow(
             texture(positionAndAlpha, coord).xyz, 
