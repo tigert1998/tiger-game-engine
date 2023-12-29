@@ -84,18 +84,14 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
       material_.shininess = value;
     }
     aiString material_texture_path;
-#define INTERNAL_ADD_TEXTURE(name)                                          \
-  do {                                                                      \
-    textures_[#name].enabled = true;                                        \
-    material->GetTexture(aiTextureType_##name, 0, &material_texture_path);  \
-    auto item = path + "/" + std::string(material_texture_path.C_Str());    \
-    textures_[#name].texture = Texture::LoadFromFS(                         \
-        item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, {}, true);     \
-    bool is_dds = ToLower(item.substr(item.size() - 4)) == ".dds";          \
-    CHECK((is_dds && flip_y) || (!is_dds && !flip_y))                       \
-        << "Currently, DDS image format does not support flipping. So you " \
-           "must flip the UV coordinates by passing flip_y = true when "    \
-           "initializing Model.";                                           \
+#define INTERNAL_ADD_TEXTURE(name)                                         \
+  do {                                                                     \
+    textures_[#name].enabled = true;                                       \
+    material->GetTexture(aiTextureType_##name, 0, &material_texture_path); \
+    auto item = path + "/" + std::string(material_texture_path.C_Str());   \
+    textures_[#name].texture =                                             \
+        Texture::LoadFromFS(item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR,      \
+                            GL_LINEAR, {}, true, !flip_y);                 \
   } while (0)
 #define TRY_ADD_TEXTURE(name)                                     \
   if (material->GetTextureCount(aiTextureType_##name) >= 1) {     \

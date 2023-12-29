@@ -25,11 +25,11 @@ Texture Texture::Reference() const {
 void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                                     uint32_t min_filter, uint32_t mag_filter,
                                     const std::vector<float> &border_color,
-                                    bool mipmap) {
+                                    bool mipmap, bool flip_y) {
   target_ = GL_TEXTURE_2D;
 
   if (ToLower(path.substr(path.size() - 4)) == ".dds") {
-    // We do not flip DDS image since it's not supported!
+    CHECK(!flip_y) << "We do not flip DDS image since it's not supported!";
     gli::texture gli_texture = gli::load_dds(path);
     if (gli_texture.empty()) throw LoadPictureError(path, "");
 
@@ -57,7 +57,8 @@ void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                                 gli_texture.data(0, 0, level));
     }
   } else {
-    id_ = SOIL_load_OGL_texture(path.c_str(), 0, 0, SOIL_FLAG_INVERT_Y);
+    id_ = SOIL_load_OGL_texture(path.c_str(), 0, 0,
+                                flip_y ? SOIL_FLAG_INVERT_Y : 0);
     if (id_ == 0) throw LoadPictureError(path, "");
   }
 
@@ -82,7 +83,9 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
                                          uint32_t min_filter,
                                          uint32_t mag_filter,
                                          const std::vector<float> &border_color,
-                                         bool mipmap) {
+                                         bool mipmap, bool flip_y) {
+  CHECK(!flip_y);
+
   const static std::map<std::string, uint32_t> kTypes = {
       {"posx", GL_TEXTURE_CUBE_MAP_POSITIVE_X},
       {"negx", GL_TEXTURE_CUBE_MAP_NEGATIVE_X},
@@ -150,25 +153,26 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
 
 Texture::Texture(const std::string &path, uint32_t wrap, uint32_t min_filter,
                  uint32_t mag_filter, const std::vector<float> &border_color,
-                 bool mipmap) {
+                 bool mipmap, bool flip_y) {
   has_ownership_ = true;
   if (fs::is_directory(fs::path(path))) {
     LoadCubeMapTextureFromPath(path, wrap, min_filter, mag_filter, border_color,
-                               mipmap);
+                               mipmap, flip_y);
   } else {
     Load2DTextureFromPath(path, wrap, min_filter, mag_filter, border_color,
-                          mipmap);
+                          mipmap, flip_y);
   }
 }
 
 Texture Texture::LoadFromFS(const std::string &path, uint32_t wrap,
                             uint32_t min_filter, uint32_t mag_filter,
-                            const std::vector<float> &border_color,
-                            bool mipmap) {
+                            const std::vector<float> &border_color, bool mipmap,
+                            bool flip_y) {
   static std::map<std::string, Texture> textures;
 
   if (textures.count(path)) return textures[path];
-  Texture texture(path, wrap, min_filter, mag_filter, border_color, mipmap);
+  Texture texture(path, wrap, min_filter, mag_filter, border_color, mipmap,
+                  flip_y);
   textures[path] = texture.Reference();
   return texture;
 }

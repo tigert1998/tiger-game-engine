@@ -12,12 +12,12 @@ class Texture {
   void Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                              uint32_t min_filter, uint32_t mag_filter,
                              const std::vector<float> &border_color,
-                             bool mipmap);
+                             bool mipmap, bool flip_y);
 
   void LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
                                   uint32_t min_filter, uint32_t mag_filter,
                                   const std::vector<float> &border_color,
-                                  bool mipmap);
+                                  bool mipmap, bool flip_y);
 
   inline void MoveOwnership(Texture &&texture) {
     this->target_ = texture.target_;
@@ -40,13 +40,13 @@ class Texture {
   // load from image/images
   explicit Texture(const std::string &path, uint32_t wrap, uint32_t min_filter,
                    uint32_t mag_filter, const std::vector<float> &border_color,
-                   bool mipmap);
+                   bool mipmap, bool flip_y);
 
   // Load from image/images with deduplication
   static Texture LoadFromFS(const std::string &path, uint32_t wrap,
                             uint32_t min_filter, uint32_t mag_filter,
-                            const std::vector<float> &border_color,
-                            bool mipmap);
+                            const std::vector<float> &border_color, bool mipmap,
+                            bool flip_y);
 
   // create 2D texture
   explicit Texture(uint32_t width, uint32_t height, uint32_t internal_format,

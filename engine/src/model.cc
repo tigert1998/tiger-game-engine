@@ -666,5 +666,8 @@ void main() {
         normal, positionAndAlpha.xyz, positionAndAlpha.w, flag
         // shared variable
     );
+    if (positionAndAlpha.w < 0.5) {
+        discard;
+    }
 }
 )";

@@ -155,9 +155,7 @@ void main() {
             texture(positionAndAlpha, coord).xyz,
             texture(ksAndShininess, coord).w,
             shadow
-        );
-
-        fragColor.a = texture(positionAndAlpha, coord).a;
+        );    
     } else if (renderType == 2) {
         float shadow = CalcShadow(
             texture(positionAndAlpha, coord).xyz,
@@ -174,8 +172,8 @@ void main() {
             texture(positionAndAlpha, coord).xyz,
             shadow
         );
-
-        fragColor.a = texture(positionAndAlpha, coord).a;
     }
+
+    fragColor.a = 1;
 }
 )";

@@ -9,7 +9,8 @@ Skybox::Skybox(const std::string &path) {
   shader_ptr_ = std::unique_ptr<Shader>(
       new Shader(Skybox::kVsSource, Skybox::kFsSource, {}));
 
-  tex_ = Texture::LoadFromFS(path, GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
+  tex_ = Texture::LoadFromFS(path, GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false,
+                             false);
 
   glGenVertexArrays(1, &vao_);
   glBindVertexArray(vao_);

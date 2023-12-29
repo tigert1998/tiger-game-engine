@@ -12,6 +12,7 @@
 #include <memory>
 
 #include "controller/sightseeing_controller.h"
+#include "deferred_shading_render_quad.h"
 #include "model.h"
 #include "mouse.h"
 #include "skybox.h"
@@ -21,18 +22,19 @@ using namespace std;
 
 class Controller : public SightseeingController {
  private:
-  OITRenderQuad *oit_render_quad_;
+  DeferredShadingRenderQuad *deferred_shading_render_quad_;
 
   void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
     SightseeingController::FramebufferSizeCallback(window, width, height);
-    oit_render_quad_->Resize(width, height);
+    deferred_shading_render_quad_->Resize(width, height);
   }
 
  public:
-  Controller(Camera *camera, OITRenderQuad *oit_render_quad, uint32_t width,
-             uint32_t height, GLFWwindow *window)
+  Controller(Camera *camera,
+             DeferredShadingRenderQuad *deferred_shading_render_quad,
+             uint32_t width, uint32_t height, GLFWwindow *window)
       : SightseeingController(camera, width, height, window),
-        oit_render_quad_(oit_render_quad) {
+        deferred_shading_render_quad_(deferred_shading_render_quad) {
     glfwSetFramebufferSizeCallback(
         window, [](GLFWwindow *window, int width, int height) {
           Controller *self = (Controller *)glfwGetWindowUserPointer(window);
@@ -41,7 +43,7 @@ class Controller : public SightseeingController {
   }
 };
 
-std::unique_ptr<OITRenderQuad> oit_render_quad_ptr;
+std::unique_ptr<DeferredShadingRenderQuad> deferred_shading_render_quad_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
@@ -78,7 +80,7 @@ void ImGuiWindow() {
   if (ImGui::InputText("model path", buf, sizeof(buf),
                        ImGuiInputTextFlags_EnterReturnsTrue)) {
     LOG(INFO) << "loading model: " << buf;
-    model_ptr.reset(new Model(buf, oit_render_quad_ptr.get()));
+    model_ptr.reset(new Model(buf, nullptr, true, false));
     animation_time = 0;
   }
   ImGui::InputInt("animation id", &animation_id, 1, 1);
@@ -120,14 +122,15 @@ void Init(uint32_t width, uint32_t height) {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  oit_render_quad_ptr = make_unique<OITRenderQuad>(width, height);
+  deferred_shading_render_quad_ptr.reset(
+      new DeferredShadingRenderQuad(width, height));
 
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.1), vec3(10)));
+  light_sources_ptr->Add(make_unique<Directional>(vec3(1, -1, 0), vec3(1)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
-  model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
-                                 oit_render_quad_ptr.get());
+  model_ptr = make_unique<Model>("resources/Bistro_v5_2/BistroExterior.fbx",
+                                 nullptr, true, true);
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
       -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
@@ -137,10 +140,11 @@ void Init(uint32_t width, uint32_t height) {
   shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
       vec3(0, -1, 0.1), 2048, 2048, camera_ptr.get()));
 
-  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", "png");
+  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
 
   controller_ptr = make_unique<Controller>(
-      camera_ptr.get(), oit_render_quad_ptr.get(), width, height, window);
+      camera_ptr.get(), deferred_shading_render_quad_ptr.get(), width, height,
+      window);
 
   ImGuiInit();
 }
@@ -185,8 +189,8 @@ int main(int argc, char *argv[]) {
       }
     });
 
-    oit_render_quad_ptr->TwoPasses(
-        controller_ptr->width(), controller_ptr->height(),
+    deferred_shading_render_quad_ptr->TwoPasses(
+        camera_ptr.get(), light_sources_ptr.get(), shadow_sources_ptr.get(),
         []() {
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -201,8 +205,7 @@ int main(int argc, char *argv[]) {
                             light_sources_ptr.get(), shadow_sources_ptr.get(),
                             mat4(1), vec4(0));
           }
-        },
-        nullptr);
+        });
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();
