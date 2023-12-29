@@ -18,18 +18,23 @@
 
 class Model {
  public:
+  using TextureConfig = std::map<std::string, bool>;
+
   Model() = delete;
   Model(const std::string &path, OITRenderQuad *oit_render_quad,
         bool deferred_shading, bool flip_y);
   ~Model();
   void Draw(Camera *camera_ptr, LightSources *light_sources,
-            ShadowSources *shadow_sources, glm::mat4 model_matrix);
+            ShadowSources *shadow_sources, glm::mat4 model_matrix,
+            const TextureConfig &config);
   void Draw(Camera *camera_ptr, LightSources *light_sources,
             ShadowSources *shadow_sources,
-            const std::vector<glm::mat4> &model_matrices, glm::vec4 clip_plane);
+            const std::vector<glm::mat4> &model_matrices, glm::vec4 clip_plane,
+            const TextureConfig &config);
   void Draw(uint32_t animation_id, double time, Camera *camera_ptr,
             LightSources *light_sources, ShadowSources *shadow_sources,
-            glm::mat4 model_matrix, glm::vec4 clip_plane);
+            glm::mat4 model_matrix, glm::vec4 clip_plane,
+            const TextureConfig &config);
   void DrawDepthForShadow(Shadow *shadow, glm::mat4 model_matrix);
   void DrawDepthForShadow(Shadow *shadow,
                           const std::vector<glm::mat4> &model_matrices);
@@ -69,12 +74,12 @@ class Model {
 
   void DrawMesh(Mesh *mesh_ptr, Shader *shader_ptr,
                 const std::vector<glm::mat4> &model_matrices, bool shadow,
-                int32_t sampler_offset);
+                int32_t sampler_offset, const TextureConfig &config);
 
   void InternalDraw(bool animated, Camera *camera_ptr,
                     LightSources *light_sources, ShadowSources *shadow_sources,
                     const std::vector<glm::mat4> &model_matrices,
-                    glm::vec4 clip_plane);
+                    glm::vec4 clip_plane, const TextureConfig &config);
   void InternalDrawDepthForShadow(bool animated, Shadow *shadow,
                                   const std::vector<glm::mat4> &model_matrices);
 

@@ -9,6 +9,7 @@
 #include <glog/logging.h>
 
 #include <assimp/Importer.hpp>
+#include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
@@ -22,6 +23,7 @@ using std::string;
 using std::vector;
 using namespace Assimp;
 using namespace glm;
+namespace fs = std::filesystem;
 
 constexpr int MAX_BONES = 170;  // please change the shader's MAX_BONES as well
 
@@ -31,7 +33,7 @@ std::shared_ptr<Shader> Model::kShader = nullptr, Model::kOITShader = nullptr,
 
 Model::Model(const std::string &path, OITRenderQuad *oit_render_quad,
              bool deferred_shading, bool flip_y)
-    : directory_path_(ParentPath(path)),
+    : directory_path_(fs::path::path(path).parent_path().string()),
       oit_render_quad_(oit_render_quad),
       deferred_shading_(deferred_shading),
       flip_y_(flip_y) {
@@ -256,26 +258,28 @@ void Model::RecursivelyUpdateBoneMatrices(int animation_id, aiNode *node,
 
 void Model::Draw(uint32_t animation_id, double time, Camera *camera_ptr,
                  LightSources *light_sources, ShadowSources *shadow_sources,
-                 mat4 model_matrix, vec4 clip_plane) {
+                 mat4 model_matrix, vec4 clip_plane,
+                 const TextureConfig &config) {
   RecursivelyUpdateBoneMatrices(
       animation_id, scene_->mRootNode, mat4(1),
       time * scene_->mAnimations[animation_id]->mTicksPerSecond);
   InternalDraw(true, camera_ptr, light_sources, shadow_sources,
-               std::vector<glm::mat4>{model_matrix}, clip_plane);
+               std::vector<glm::mat4>{model_matrix}, clip_plane, config);
 }
 
 void Model::Draw(Camera *camera_ptr, LightSources *light_sources,
                  ShadowSources *shadow_sources,
-                 const std::vector<glm::mat4> &model_matrices,
-                 vec4 clip_plane) {
+                 const std::vector<glm::mat4> &model_matrices, vec4 clip_plane,
+                 const TextureConfig &config) {
   InternalDraw(false, camera_ptr, light_sources, shadow_sources, model_matrices,
-               clip_plane);
+               clip_plane, config);
 }
 
 void Model::Draw(Camera *camera_ptr, LightSources *light_sources,
-                 ShadowSources *shadow_sources, mat4 model_matrix) {
+                 ShadowSources *shadow_sources, mat4 model_matrix,
+                 const TextureConfig &config) {
   InternalDraw(false, camera_ptr, light_sources, shadow_sources,
-               std::vector<glm::mat4>{model_matrix}, glm::vec4(0));
+               std::vector<glm::mat4>{model_matrix}, glm::vec4(0), config);
 }
 
 void Model::DrawDepthForShadow(Shadow *shadow, glm::mat4 model_matrix) {
@@ -297,7 +301,7 @@ void Model::DrawDepthForShadow(uint32_t animation_id, double time,
 
 void Model::DrawMesh(Mesh *mesh_ptr, Shader *shader_ptr,
                      const std::vector<glm::mat4> &model_matrices, bool shadow,
-                     int32_t sampler_offset) {
+                     int32_t sampler_offset, const TextureConfig &config) {
   glBindVertexArray(mesh_ptr->vao());
   glBindBuffer(GL_ARRAY_BUFFER, vbo_);
   glBufferData(GL_ARRAY_BUFFER, model_matrices.size() * sizeof(glm::mat4),
@@ -310,14 +314,15 @@ void Model::DrawMesh(Mesh *mesh_ptr, Shader *shader_ptr,
     glVertexAttribDivisor(location, 1);
   }
 
-  mesh_ptr->Draw(shader_ptr, model_matrices.size(), shadow, sampler_offset);
+  mesh_ptr->Draw(shader_ptr, model_matrices.size(), shadow, sampler_offset,
+                 config);
 }
 
 void Model::InternalDraw(bool animated, Camera *camera_ptr,
                          LightSources *light_sources,
                          ShadowSources *shadow_sources,
                          const std::vector<glm::mat4> &model_matrices,
-                         glm::vec4 clip_plane) {
+                         glm::vec4 clip_plane, const TextureConfig &config) {
   int32_t num_samplers = 0;
   shader_ptr_->Use();
   if (oit_render_quad_ != nullptr) {
@@ -339,7 +344,7 @@ void Model::InternalDraw(bool animated, Camera *camera_ptr,
     if (mesh_ptrs_[i] == nullptr) continue;
     shader_ptr_->SetUniform<int32_t>("uAnimated", animated);
     DrawMesh(mesh_ptrs_[i].get(), shader_ptr_.get(), model_matrices, false,
-             num_samplers);
+             num_samplers, config);
   }
 }
 
@@ -352,7 +357,8 @@ void Model::InternalDrawDepthForShadow(
   for (int i = 0; i < mesh_ptrs_.size(); i++) {
     if (mesh_ptrs_[i] == nullptr) continue;
     kShadowShader->SetUniform<int32_t>("uAnimated", animated);
-    DrawMesh(mesh_ptrs_[i].get(), kShadowShader.get(), model_matrices, true, 0);
+    DrawMesh(mesh_ptrs_[i].get(), kShadowShader.get(), model_matrices, true, 0,
+             {});
   }
 }
 
@@ -667,6 +673,7 @@ void main() {
         // shared variable
     );
     if (positionAndAlpha.w < 0.5) {
+        // punch-through method
         discard;
     }
 }

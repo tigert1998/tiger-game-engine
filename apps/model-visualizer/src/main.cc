@@ -199,11 +199,12 @@ int main(int argc, char *argv[]) {
         []() {
           if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
             model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
-                            shadow_sources_ptr.get(), mat4(1));
+                            shadow_sources_ptr.get(), mat4(1),
+                            {{"SPECULAR", false}});
           } else {
             model_ptr->Draw(animation_id, animation_time, camera_ptr.get(),
                             light_sources_ptr.get(), shadow_sources_ptr.get(),
-                            mat4(1), vec4(0));
+                            mat4(1), vec4(0), {{"SPECULAR", false}});
           }
         });
 

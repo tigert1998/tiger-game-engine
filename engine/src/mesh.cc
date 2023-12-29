@@ -252,14 +252,16 @@ Mesh::~Mesh() {
 }
 
 void Mesh::Draw(Shader *shader_ptr, int num_instances, bool shadow,
-                int32_t sampler_offset) const {
+                int32_t sampler_offset, const TextureConfig &config) const {
   if (!has_bone_) {
     shader_ptr->SetUniform<int32_t>("uAnimated", 0);
   }
 
   if (!shadow) {
     for (auto iter = textures_.begin(); iter != textures_.end(); iter++) {
-      bool enabled = iter->second.enabled;
+      bool enabled = config.count(iter->first) && !config.at(iter->first)
+                         ? false
+                         : iter->second.enabled;
       std::string name = SnakeToPascal(iter->first);
       name[0] = tolower(name[0]);  // e.g. "Ambient" -> "ambient"
       shader_ptr->SetUniform<int32_t>(

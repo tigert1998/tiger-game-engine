@@ -29,13 +29,15 @@ class Namer {
 
 class Mesh {
  public:
+  using TextureConfig = std::map<std::string, bool>;
+
   Mesh(const std::string &directory_path, aiMesh *mesh, const aiScene *scene,
        Namer &bone_namer, std::vector<glm::mat4> &bone_offsets, bool flip_y);
 
   ~Mesh();
 
   void Draw(Shader *shader_ptr, int num_instances, bool shadow,
-            int32_t sampler_offset) const;
+            int32_t sampler_offset, const TextureConfig &config) const;
 
   inline std::string name() { return name_; }
 

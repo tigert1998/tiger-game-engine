@@ -57,9 +57,27 @@ void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                                 gli_texture.data(0, 0, level));
     }
   } else {
-    id_ = SOIL_load_OGL_texture(path.c_str(), 0, 0,
-                                flip_y ? SOIL_FLAG_INVERT_Y : 0);
-    if (id_ == 0) throw LoadPictureError(path, "");
+    stbi_set_flip_vertically_on_load(flip_y);
+    int32_t width, height, comp;
+    uint8_t *image = stbi_load(path.c_str(), &width, &height, &comp, 0);
+    if (image == nullptr) throw LoadPictureError(path, "");
+
+    glGenTextures(1, &id_);
+    glBindTexture(GL_TEXTURE_2D, id_);
+    if (comp == 1) {
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, width, height, 0, GL_RED,
+                   GL_UNSIGNED_BYTE, image);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    } else if (comp == 3) {
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGB,
+                   GL_UNSIGNED_BYTE, image);
+      glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+    } else if (comp == 4) {
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+                   GL_UNSIGNED_BYTE, image);
+    }
   }
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
@@ -84,7 +102,7 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
                                          uint32_t mag_filter,
                                          const std::vector<float> &border_color,
                                          bool mipmap, bool flip_y) {
-  CHECK(!flip_y);
+  CHECK(!flip_y) << "CubeMap does not support flipping";
 
   const static std::map<std::string, uint32_t> kTypes = {
       {"posx", GL_TEXTURE_CUBE_MAP_POSITIVE_X},

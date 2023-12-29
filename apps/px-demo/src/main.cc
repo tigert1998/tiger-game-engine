@@ -271,7 +271,7 @@ int main(int argc, char *argv[]) {
         },
         []() {
           scene_model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
-                                shadow_sources_ptr.get(), mat4(1));
+                                shadow_sources_ptr.get(), mat4(1), {});
         },
         nullptr);
 

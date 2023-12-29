@@ -85,7 +85,7 @@ void Init(uint32_t width, uint32_t height) {
 
   light_sources_ptr = std::make_unique<LightSources>();
   light_sources_ptr->Add(
-      std::make_unique<Directional>(glm::vec3(0, -1, -1), glm::vec3(1, 1, 1)));
+      std::make_unique<Directional>(glm::vec3(0, -1, -1), glm::vec3(1)));
   light_sources_ptr->Add(std::make_unique<Ambient>(glm::vec3(0.04)));
 
   shadow_sources_ptr = std::make_unique<ShadowSources>(camera_ptr.get());
@@ -96,7 +96,7 @@ void Init(uint32_t width, uint32_t height) {
 
   oit_render_quad_ptr.reset(new OITRenderQuad(width, height));
   model_ptr.reset(new Model("resources/sphere/sphere.obj",
-                            oit_render_quad_ptr.get(), false));
+                            oit_render_quad_ptr.get(), false, false));
   clouds_ptr.reset(new Clouds(width, height));
 
   controller.reset(new Controller(camera_ptr.get(), oit_render_quad_ptr.get(),
@@ -135,14 +135,13 @@ int main(int argc, char *argv[]) {
     glfwPollEvents();
 
     oit_render_quad_ptr->TwoPasses(
-        controller->width(), controller->height(),
         []() {
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         },
         []() {
           model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
-                          shadow_sources_ptr.get(), glm::mat4(1));
+                          shadow_sources_ptr.get(), glm::mat4(1), {});
         },
         clouds_ptr->fbo());
 
