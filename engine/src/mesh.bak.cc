@@ -1,5 +1,5 @@
 
-#include "mesh.h"
+#include "mesh.bak.h"
 
 #include <glad/glad.h>
 #include <glog/logging.h>
@@ -14,6 +14,8 @@
 
 using glm::vec2;
 using glm::vec3;
+
+namespace deprecated {
 
 Namer::Namer() { Clear(); }
 
@@ -291,3 +293,5 @@ void Mesh::Draw(Shader *shader_ptr, int num_instances, bool shadow,
   glBindVertexArray(0);
   glBindTexture(GL_TEXTURE_2D, 0);
 }
+
+}  // namespace deprecated

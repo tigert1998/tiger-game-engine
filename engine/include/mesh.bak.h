@@ -1,5 +1,5 @@
-#ifndef MESH_H_
-#define MESH_H_
+#ifndef MESH_BAK_H_
+#define MESH_BAK_H_
 
 #include <assimp/scene.h>
 
@@ -13,6 +13,8 @@
 #include "shader.h"
 #include "texture.h"
 #include "vertex.h"
+
+namespace deprecated {
 
 class Namer {
  public:
@@ -94,5 +96,7 @@ class Mesh {
     float shininess;
   } material_;
 };
+
+}  // namespace deprecated
 
 #endif

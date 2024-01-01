@@ -269,3 +269,14 @@ void Texture::Clear() {
 }
 
 Texture::~Texture() { Clear(); }
+
+uint64_t Texture::handle() {
+  if (!handle_.has_value()) {
+    handle_ = {glGetTextureHandleARB(id_)};
+  }
+  return handle_.value();
+}
+
+void Texture::MakeResident() { glMakeTextureHandleResidentARB(handle()); }
+
+void Texture::MakeNonResident() { glMakeTextureHandleNonResidentARB(handle()); }

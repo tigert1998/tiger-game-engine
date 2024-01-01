@@ -1,7 +1,7 @@
 
 #define NOMINMAX
 
-#include "model.h"
+#include "model.bak.h"
 
 #include <assimp/cimport.h>
 #include <assimp/postprocess.h>
@@ -24,6 +24,8 @@ using std::vector;
 using namespace Assimp;
 using namespace glm;
 namespace fs = std::filesystem;
+
+namespace deprecated {
 
 constexpr int MAX_BONES = 170;  // please change the shader's MAX_BONES as well
 
@@ -678,3 +680,5 @@ void main() {
     }
 }
 )";
+
+}  // namespace deprecated
