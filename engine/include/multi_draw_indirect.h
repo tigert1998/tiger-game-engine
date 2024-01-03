@@ -111,7 +111,7 @@ class MultiDrawIndirect {
     alignas(16) glm::vec3 ka;
     alignas(16) glm::vec3 kd;
     alignas(16) glm::vec3 ks;
-    float shininess;
+    alignas(16) float shininess;
     bool bindMetalnessAndDiffuseRoughness;
   };
 

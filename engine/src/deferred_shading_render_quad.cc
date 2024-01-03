@@ -155,7 +155,7 @@ void main() {
             texture(positionAndAlpha, coord).xyz,
             texture(ksAndShininess, coord).w,
             shadow
-        );    
+        );
     } else if (renderType == 2) {
         float shadow = CalcShadow(
             texture(positionAndAlpha, coord).xyz,
