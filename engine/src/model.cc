@@ -37,11 +37,12 @@ Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
 
   bone_matrices_.resize(bone_namer_.total());
 
+  multi_draw_indirect_->ModelBeginSubmission(this);
   for (int i = 0; i < meshes_.size(); i++) {
     if (meshes_[i] == nullptr) continue;
     meshes_[i]->SubmitToMultiDrawIndirect();
   }
-  multi_draw_indirect_->ModelFinializeSubmission(this, bone_matrices_.size());
+  multi_draw_indirect_->ModelEndSubmission(this, bone_matrices_.size());
 }
 
 Model::~Model() { aiReleaseImport(scene_); }
@@ -256,6 +257,7 @@ layout (location = 9) in vec4 aBoneWeights2;
 out vec3 vPosition;
 out vec2 vTexCoord;
 out mat3 vTBN;
+flat out int vInstanceID;
 
 layout (std430, binding = 0) buffer modelMatricesBuffer {
     mat4 modelMatrices[]; // per instance
@@ -279,10 +281,8 @@ layout (std430, binding = 5) buffer clipPlanesBuffer {
 uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;
 
-int InstanceID() { return gl_BaseInstance + gl_InstanceID; }
-
 mat4 CalcBoneMatrix() {
-    int offset = boneMatricesOffset[InstanceID()];
+    int offset = boneMatricesOffset[vInstanceID];
     mat4 boneMatrix = mat4(0);
     for (int i = 0; i < 4; i++) {
         if (aBoneIDs0[i] < 0) return boneMatrix;
@@ -300,13 +300,14 @@ mat4 CalcBoneMatrix() {
 }
 
 void main() {
+    vInstanceID = gl_BaseInstance + gl_InstanceID;
     mat4 transform;
-    if (animated[InstanceID()]) {
+    if (animated[vInstanceID]) {
         transform = CalcBoneMatrix();
     } else {
-        transform = transforms[InstanceID()];
+        transform = transforms[vInstanceID];
     }
-    mat4 modelMatrix = modelMatrices[InstanceID()];
+    mat4 modelMatrix = modelMatrices[vInstanceID];
     if (IS_SHADOW_PASS) {
         gl_Position = modelMatrix * transform * vec4(aPosition, 1);
     } else {
@@ -321,7 +322,7 @@ void main() {
         vec3 B = cross(N, T);
         vTBN = mat3(T, B, N);
 
-        gl_ClipDistance[0] = dot(vec4(vPosition, 1), clipPlanes[InstanceID()]);
+        gl_ClipDistance[0] = dot(vec4(vPosition, 1), clipPlanes[vInstanceID]);
     }
 }
 )";
@@ -339,6 +340,7 @@ uniform mat4 uViewMatrix;
 in vec3 vPosition;
 in vec2 vTexCoord;
 in mat3 vTBN;
+flat in int vInstanceID;
 )" + LightSources::FsSource() + ShadowSources::FsSource() +
                                      R"(
 uniform bool uDefaultShading;
@@ -363,8 +365,6 @@ layout (std430, binding = 7) buffer texturesBuffer {
     sampler2D textures[];
 };
 
-int InstanceID() { return gl_BaseInstance + gl_InstanceID; }
-
 vec3 ConvertDerivativeMapToNormalMap(vec3 normal) {
     if (normal.z > -1 + zero) return normal;
     return normalize(vec3(-normal.x, -normal.y, 1));
@@ -387,7 +387,7 @@ void SampleForGBuffer(
         return;
     }
 
-    Material material = materials[InstanceID()];
+    Material material = materials[vInstanceID];
 
     if (material.metalnessTexture < 0) {
         // for Phong

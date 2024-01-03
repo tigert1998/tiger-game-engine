@@ -204,6 +204,9 @@ void MultiDrawIndirect::PrepareForDraw() {
                texture_handles_.data(), GL_STATIC_DRAW, 7));
 
   bone_matrices_.resize(num_bone_matrices_);
+  animated_.resize(num_instances_);
+  model_matrices_.resize(num_instances_);
+  clip_planes_.resize(num_instances_);
   for (int i = 0; i < textures_.size(); i++) textures_[i].MakeResident();
 }
 

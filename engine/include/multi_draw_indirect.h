@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "camera.h"
+#include "light_sources.h"
 #include "oit_render_quad.h"
 #include "shader.h"
 #include "shadow_sources.h"
@@ -40,7 +41,7 @@ struct TextureRecord {
         base_color(base_color) {}
 
   inline TextureRecord(TextureRecord &record)
-      : type(type),
+      : type(record.type),
         enabled(record.enabled),
         texture(record.texture),
         op(record.op),
@@ -51,7 +52,7 @@ struct TextureRecord {
 struct PhongMaterial {
   glm::vec3 ka, kd, ks;
   float shininess;
-} material_;
+};
 
 struct DrawElementsIndirectCommand {
   uint32_t count;
@@ -79,9 +80,11 @@ class MultiDrawIndirect {
                const PhongMaterial &phong_material, bool has_bone,
                glm::mat4 transform);
 
-  inline void ModelFinializeSubmission(Model *model,
-                                       uint32_t num_bone_matrices) {
+  inline void ModelBeginSubmission(Model *model) {
     model_to_instance_count_[model] = num_instances_;
+  }
+
+  inline void ModelEndSubmission(Model *model, uint32_t num_bone_matrices) {
     model_to_bone_matrices_offset_[model] = num_bone_matrices_;
     num_bone_matrices_ += num_bone_matrices;
   }
