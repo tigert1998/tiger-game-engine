@@ -376,14 +376,14 @@ void SampleForGBuffer(
     out vec3 normal, out vec3 position, out float alpha, out int flag // shared variable
 ) {
     if (uDefaultShading) {
-        albedo = pow(vec3(0.944, 0.776, 0.373), vec3(2.2));
-        metallic = 0.95;
-        roughness = 0.05;
-        ao = 1;
+        ka = vec3(0.2);
+        kd = vec3(0, 0, 0.9);
+        ks = vec3(0.2);
+        shininess = 20;
         normal = vTBN[2];
         position = vPosition;
         alpha = 1;
-        flag = 2;
+        flag = 1;
         return;
     }
 
