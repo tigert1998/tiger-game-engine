@@ -9,7 +9,7 @@ class Texture {
  private:
   bool has_ownership_ = false;
   uint32_t target_ = 0, id_ = 0;
-  std::optional<uint64_t> handle_ = std::nullopt;
+  mutable std::optional<uint64_t> handle_ = std::nullopt;
 
   void Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                              uint32_t min_filter, uint32_t mag_filter,
@@ -65,9 +65,9 @@ class Texture {
 
   inline uint32_t target() const { return target_; }
   inline uint32_t id() const { return id_; }
-  uint64_t handle();
-  void MakeResident();
-  void MakeNonResident();
+  uint64_t handle() const;
+  void MakeResident() const;
+  void MakeNonResident() const;
 
   void Clear();
 

@@ -221,7 +221,7 @@ void Shader::SetUniform<std::vector<glm::mat4>>(
 }
 
 void Shader::SetUniformSampler(const std::string &identifier,
-                               const Texture &texture, uint32_t unit) {
+                               const Texture &texture, uint32_t unit) const {
   glActiveTexture(GL_TEXTURE0 + unit);
   glBindTexture(GL_TEXTURE_2D, 0);
   glBindTexture(GL_TEXTURE_2D_ARRAY, 0);

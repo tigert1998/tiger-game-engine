@@ -19,7 +19,7 @@ class Shader {
   template <typename T>
   void SetUniform(const std::string &identifier, const T &) const;
   void SetUniformSampler(const std::string &identifier, const Texture &texture,
-                         uint32_t unit);
+                         uint32_t unit) const;
   template <typename T>
   T GetUniform(const std::string &identifier) const;
   std::vector<std::string> GetUniformVariables() const;
