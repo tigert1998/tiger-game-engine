@@ -96,7 +96,7 @@ class MultiDrawIndirect {
       const std::vector<RenderTargetParameter> &render_target_params);
   void Draw(Camera *camera, LightSources *light_sources,
             ShadowSources *shadow_sources, OITRenderQuad *oit_render_quad,
-            bool deferred_shading, bool default_shading,
+            bool deferred_shading, bool default_shading, bool force_pbr,
             const std::vector<RenderTargetParameter> &render_target_params);
 
  private:

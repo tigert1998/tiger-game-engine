@@ -344,6 +344,7 @@ flat in int vInstanceID;
 )" + LightSources::FsSource() + ShadowSources::FsSource() +
                                      R"(
 uniform bool uDefaultShading;
+uniform bool uForcePBR;
 
 struct Material {
     int ambientTexture;
@@ -389,7 +390,7 @@ void SampleForGBuffer(
 
     Material material = materials[vInstanceID];
 
-    if (material.metalnessTexture < 0) {
+    if (material.metalnessTexture < 0 && !uForcePBR) {
         // for Phong
         alpha = 1.0f;
 
@@ -420,7 +421,7 @@ void SampleForGBuffer(
 
         albedo = vec3(0.0f);
         metallic = 0.0f;
-        roughness = 0.0f;
+        roughness = 0.25f; // default metallic and roughness
         ao = 1.0f;
 
         if (material.diffuseTexture >= 0) {

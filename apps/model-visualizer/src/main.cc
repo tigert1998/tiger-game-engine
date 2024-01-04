@@ -128,7 +128,7 @@ void Init(uint32_t width, uint32_t height) {
       new DeferredShadingRenderQuad(width, height));
 
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->Add(make_unique<Directional>(vec3(1, -1, 0), vec3(1)));
+  light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.1), vec3(10)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
         []() {
           multi_draw_indirect->Draw(
               camera_ptr.get(), nullptr, nullptr, nullptr, true,
-              default_shading_choice,
+              default_shading_choice, true,
               {{model_ptr.get(), animation_id, animation_time, glm::mat4(1),
                 glm::vec4(0)}});
         });

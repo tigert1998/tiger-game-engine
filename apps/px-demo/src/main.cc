@@ -278,6 +278,7 @@ int main(int argc, char *argv[]) {
           multi_draw_indirect->Draw(
               camera_ptr.get(), light_sources_ptr.get(),
               shadow_sources_ptr.get(), oit_render_quad_ptr.get(), false, false,
+              true,
               {{scene_model_ptr.get(), -1, 0, glm::mat4(1), glm::vec4(0)}});
         },
         nullptr);

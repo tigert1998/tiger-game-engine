@@ -94,6 +94,7 @@ void MultiDrawIndirect::DrawDepthForShadow(
 void MultiDrawIndirect::Draw(
     Camera *camera, LightSources *light_sources, ShadowSources *shadow_sources,
     OITRenderQuad *oit_render_quad, bool deferred_shading, bool default_shading,
+    bool force_pbr,
     const std::vector<RenderTargetParameter> &render_target_params) {
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
@@ -122,6 +123,7 @@ void MultiDrawIndirect::Draw(
   shader->SetUniform<glm::mat4>("uProjectionMatrix",
                                 camera->projection_matrix());
   shader->SetUniform<int32_t>("uDefaultShading", default_shading);
+  shader->SetUniform<int32_t>("uForcePBR", force_pbr);
 
   glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                               commands_.size(), 0);
