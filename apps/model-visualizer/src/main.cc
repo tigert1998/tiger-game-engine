@@ -129,7 +129,7 @@ void Init(uint32_t width, uint32_t height) {
       new DeferredShadingRenderQuad(width, height));
 
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.1), vec3(10)));
+  light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.5), vec3(10)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
@@ -143,7 +143,7 @@ void Init(uint32_t width, uint32_t height) {
 
   shadow_sources_ptr = make_unique<ShadowSources>(camera_ptr.get());
   shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
-      vec3(0, -1, 0.1), 2048, 2048, camera_ptr.get()));
+      vec3(0, -1, 0.5), 2048, 2048, camera_ptr.get()));
 
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
 
