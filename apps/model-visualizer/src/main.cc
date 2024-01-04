@@ -17,6 +17,7 @@
 #include "mouse.h"
 #include "multi_draw_indirect.h"
 #include "skybox.h"
+#include "utils.h"
 
 using namespace glm;
 using namespace std;

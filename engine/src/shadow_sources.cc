@@ -1,3 +1,5 @@
+#define NOMINMAX
+
 // clang-format off
 #include <glad/glad.h>
 // clang-format on
@@ -7,6 +9,8 @@
 #include <imgui.h>
 
 #include <glm/gtc/matrix_transform.hpp>
+
+#include "utils.h"
 
 DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
                                      uint32_t fbo_height, const Camera *camera)

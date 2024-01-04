@@ -4,8 +4,10 @@
 #include <glog/logging.h>
 
 #include <iterator>
+#include <set>
 
 #include "model.h"
+#include "utils.h"
 
 void MultiDrawIndirect::CheckRenderTargetParameter(
     const std::vector<RenderTargetParameter> &render_target_params) {
@@ -209,7 +211,14 @@ void MultiDrawIndirect::PrepareForDraw() {
   animated_.resize(num_instances_);
   model_matrices_.resize(num_instances_);
   clip_planes_.resize(num_instances_);
-  for (int i = 0; i < textures_.size(); i++) textures_[i].MakeResident();
+  std::set<uint32_t> ids;
+  for (int i = 0; i < textures_.size(); i++) {
+    if (ids.count(textures_[i].id()) == 0) {
+      textures_[i].MakeResident();
+    }
+    ids.insert(textures_[i].id());
+  }
+  CHECK_OPENGL_ERROR();
 }
 
 void MultiDrawIndirect::Receive(

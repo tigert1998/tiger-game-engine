@@ -22,7 +22,7 @@ NoiseTextureGenerator::NoiseTextureGenerator(
     glBindImageTexture(0, perlin_worley_texture_.id(), 0, GL_FALSE, 0,
                        GL_WRITE_ONLY, GL_RGBA8);
     glDispatchCompute(128, 128, 128);
-    CheckOpenGLError();
+    CHECK_OPENGL_ERROR();
   }
   {
     std::unique_ptr<Shader> shader(new Shader(
@@ -35,7 +35,7 @@ NoiseTextureGenerator::NoiseTextureGenerator(
     glBindImageTexture(0, worley_texture_.id(), 0, GL_FALSE, 0, GL_WRITE_ONLY,
                        GL_RGBA8);
     glDispatchCompute(32, 32, 32);
-    CheckOpenGLError();
+    CHECK_OPENGL_ERROR();
   }
   {
     std::unique_ptr<Shader> shader(new Shader(
@@ -51,7 +51,7 @@ NoiseTextureGenerator::NoiseTextureGenerator(
     glBindImageTexture(0, weather_texture_.id(), 0, GL_FALSE, 0, GL_WRITE_ONLY,
                        GL_RGBA8);
     glDispatchCompute(1024 / 16, 1024 / 16, 1);
-    CheckOpenGLError();
+    CHECK_OPENGL_ERROR();
   }
 }
 

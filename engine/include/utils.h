@@ -63,7 +63,33 @@ std::ostream &operator<<(std::ostream &os, const glm::vec<N, T, Q> &vec) {
 
 std::string SnakeToPascal(const std::string &name);
 
-void CheckOpenGLError();
+#define CHECK_OPENGL_ERROR()                            \
+  do {                                                  \
+    auto err = glGetError();                            \
+    if (err != GL_NO_ERROR) {                           \
+      std::string err_str;                              \
+      switch (err) {                                    \
+        case GL_INVALID_ENUM:                           \
+          err_str = "GL_INVALID_ENUM";                  \
+          break;                                        \
+        case GL_INVALID_VALUE:                          \
+          err_str = "GL_INVALID_VALUE";                 \
+          break;                                        \
+        case GL_INVALID_OPERATION:                      \
+          err_str = "GL_INVALID_OPERATION";             \
+          break;                                        \
+        case GL_OUT_OF_MEMORY:                          \
+          err_str = "GL_OUT_OF_MEMORY";                 \
+          break;                                        \
+        case GL_INVALID_FRAMEBUFFER_OPERATION:          \
+          err_str = "GL_INVALID_FRAMEBUFFER_OPERATION"; \
+          break;                                        \
+        default:                                        \
+          err_str = std::to_string(err);                \
+      }                                                 \
+      LOG(FATAL) << err_str;                            \
+    }                                                   \
+  } while (0)
 
 std::string ReadFile(const std::string &file_path);
 
