@@ -126,7 +126,7 @@ class MultiDrawIndirect {
   // the buffers corresponding to the SSBOs
   std::vector<glm::mat4> model_matrices_, bone_matrices_;
   std::vector<uint32_t> bone_matrices_offset_;
-  std::vector<uint8_t> has_bone_, animated_;
+  std::vector<uint32_t> has_bone_, animated_;
   std::vector<glm::mat4> transforms_;
   std::vector<glm::vec4> clip_planes_;
   std::vector<Material> materials_;

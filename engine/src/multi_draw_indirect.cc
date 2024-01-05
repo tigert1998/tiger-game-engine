@@ -50,10 +50,11 @@ void MultiDrawIndirect::UpdateBuffers(
     }
   }
 
-  glNamedBufferSubData(bone_matrices_offset_ssbo_->id(), 0,
+  glNamedBufferSubData(bone_matrices_ssbo_->id(), 0,
                        bone_matrices_.size() * sizeof(bone_matrices_[0]),
                        bone_matrices_.data());
-  glNamedBufferSubData(animated_ssbo_->id(), 0, animated_.size() * sizeof(bool),
+  glNamedBufferSubData(animated_ssbo_->id(), 0,
+                       animated_.size() * sizeof(animated_[0]),
                        animated_.data());
   glNamedBufferSubData(model_matrices_ssbo_->id(), 0,
                        model_matrices_.size() * sizeof(model_matrices_[0]),

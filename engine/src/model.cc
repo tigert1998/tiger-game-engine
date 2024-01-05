@@ -269,7 +269,7 @@ layout (std430, binding = 2) buffer boneMatricesOffsetBuffer {
     int boneMatricesOffset[]; // per instance
 };
 layout (std430, binding = 3) buffer animatedBuffer {
-    bool animated[]; // per instance
+    uint animated[]; // per instance
 };
 layout (std430, binding = 4) buffer transformsBuffer {
     mat4 transforms[]; // per instance
@@ -302,7 +302,7 @@ mat4 CalcBoneMatrix() {
 void main() {
     vInstanceID = gl_BaseInstance + gl_InstanceID;
     mat4 transform;
-    if (animated[vInstanceID]) {
+    if (bool(animated[vInstanceID])) {
         transform = CalcBoneMatrix();
     } else {
         transform = transforms[vInstanceID];
