@@ -9,6 +9,7 @@
 #include "light_sources.h"
 #include "shader.h"
 #include "shadow_sources.h"
+#include "ssbo.h"
 
 class DeferredShadingRenderQuad {
  private:
@@ -17,12 +18,15 @@ class DeferredShadingRenderQuad {
 
   void ClearTextures();
   void Allocate(uint32_t width, uint32_t height);
+  void InitSSAO();
 
-  static const std::string kFsSource;
-  static std::shared_ptr<Shader> kShader;
+  std::unique_ptr<SSBO> ssao_kernel_ssbo_;
+  Texture ssao_noise_texture_;
+  std::unique_ptr<FrameBufferObject> ssao_fbo_, ssao_blur_fbo_;
+
+  static const std::string kFsSource, kSSAOFsSource, kSSAOBlurFsSource;
+  static std::unique_ptr<Shader> kShader, kSSAOShader, kSSAOBlurShader;
   static uint32_t vao_;
-
-  std::shared_ptr<Shader> shader_;
 
  public:
   explicit DeferredShadingRenderQuad(uint32_t width, uint32_t height);
@@ -30,7 +34,7 @@ class DeferredShadingRenderQuad {
   void Resize(uint32_t width, uint32_t height);
 
   void TwoPasses(const Camera* camera, LightSources* light_sources,
-                 ShadowSources* shadow_sources,
+                 ShadowSources* shadow_sources, bool enable_ssao,
                  const std::function<void()>& first_pass,
                  const std::function<void()>& second_pass);
 };

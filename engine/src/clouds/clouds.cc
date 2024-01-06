@@ -13,15 +13,17 @@ void Clouds::Bind() {
 void Clouds::Allocate(uint32_t width, uint32_t height) {
   width_ = width;
   height_ = height;
-  frag_color_texture_ = Texture(width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT,
-                                GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
+  frag_color_texture_ =
+      Texture(nullptr, width, height, GL_RGBA32F, GL_RGBA, GL_FLOAT, GL_REPEAT,
+              GL_LINEAR, GL_LINEAR, {}, false);
 
   std::vector<Texture> color_textures;
-  color_textures.push_back(Texture(width, height, GL_RGBA, GL_RGBA,
+  color_textures.push_back(Texture(nullptr, width, height, GL_RGBA, GL_RGBA,
                                    GL_UNSIGNED_BYTE, GL_REPEAT, GL_LINEAR,
                                    GL_LINEAR, {}, false));
-  Texture depth_texture(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
-                        GL_FLOAT, GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
+  Texture depth_texture(nullptr, width, height, GL_DEPTH_COMPONENT,
+                        GL_DEPTH_COMPONENT, GL_FLOAT, GL_REPEAT, GL_LINEAR,
+                        GL_LINEAR, {}, false);
   fbo_.reset(new FrameBufferObject(color_textures, depth_texture));
 }
 

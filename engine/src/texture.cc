@@ -195,9 +195,9 @@ Texture Texture::LoadFromFS(const std::string &path, uint32_t wrap,
   return texture;
 }
 
-Texture::Texture(uint32_t width, uint32_t height, uint32_t internal_format,
-                 uint32_t format, uint32_t type, uint32_t wrap,
-                 uint32_t min_filter, uint32_t mag_filter,
+Texture::Texture(void *data, uint32_t width, uint32_t height,
+                 uint32_t internal_format, uint32_t format, uint32_t type,
+                 uint32_t wrap, uint32_t min_filter, uint32_t mag_filter,
                  const std::vector<float> &border_color, bool mipmap) {
   has_ownership_ = true;
   target_ = GL_TEXTURE_2D;
@@ -206,7 +206,7 @@ Texture::Texture(uint32_t width, uint32_t height, uint32_t internal_format,
   glBindTexture(GL_TEXTURE_2D, id_);
 
   glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, format,
-               type, nullptr);
+               type, data);
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
@@ -225,7 +225,7 @@ Texture::Texture(uint32_t width, uint32_t height, uint32_t internal_format,
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-Texture::Texture(uint32_t target, uint32_t width, uint32_t height,
+Texture::Texture(void *data, uint32_t target, uint32_t width, uint32_t height,
                  uint32_t depth, uint32_t internal_format, uint32_t format,
                  uint32_t type, uint32_t wrap, uint32_t min_filter,
                  uint32_t mag_filter, const std::vector<float> &border_color,
@@ -245,7 +245,7 @@ Texture::Texture(uint32_t target, uint32_t width, uint32_t height,
   glTexParameteri(target, GL_TEXTURE_MIN_FILTER, min_filter);
   glTexParameteri(target, GL_TEXTURE_MAG_FILTER, mag_filter);
   glTexImage3D(target, 0, internal_format, width, height, depth, 0, format,
-               type, nullptr);
+               type, data);
 
   if (wrap == GL_CLAMP_TO_BORDER) {
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR,

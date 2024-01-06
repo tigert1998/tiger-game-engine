@@ -14,13 +14,8 @@ void FrameBufferObject::AttachTexture(uint32_t attachment,
   }
 }
 
-FrameBufferObject::FrameBufferObject(std::vector<Texture> &color_textures,
-                                     Texture &depth_texture) {
-  glGenFramebuffers(1, &id_);
-  glBindFramebuffer(GL_FRAMEBUFFER, id_);
-
-  glReadBuffer(GL_NONE);
-
+void FrameBufferObject::AttachColorTextures(
+    std::vector<Texture> &color_textures) {
   if (color_textures.size() >= 1) {
     color_textures_ = color_textures;
 
@@ -33,9 +28,29 @@ FrameBufferObject::FrameBufferObject(std::vector<Texture> &color_textures,
   } else {
     glDrawBuffer(GL_NONE);
   }
+}
+
+FrameBufferObject::FrameBufferObject(std::vector<Texture> &color_textures,
+                                     Texture &depth_texture) {
+  glGenFramebuffers(1, &id_);
+  glBindFramebuffer(GL_FRAMEBUFFER, id_);
+
+  glReadBuffer(GL_NONE);
+  AttachColorTextures(color_textures);
 
   depth_texture_ = depth_texture;
-  AttachTexture(GL_DEPTH_ATTACHMENT, depth_texture_);
+  AttachTexture(GL_DEPTH_ATTACHMENT, depth_texture_.value());
+
+  CHECK_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+FrameBufferObject::FrameBufferObject(std::vector<Texture> &color_textures) {
+  glGenFramebuffers(1, &id_);
+  glBindFramebuffer(GL_FRAMEBUFFER, id_);
+
+  glReadBuffer(GL_NONE);
+  AttachColorTextures(color_textures);
 
   CHECK_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
   glBindFramebuffer(GL_FRAMEBUFFER, 0);

@@ -193,6 +193,7 @@ int main(int argc, char *argv[]) {
 
     deferred_shading_render_quad_ptr->TwoPasses(
         camera_ptr.get(), light_sources_ptr.get(), shadow_sources_ptr.get(),
+        true,
         []() {
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

@@ -18,7 +18,7 @@ DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
       fbo_width_(fbo_width),
       fbo_height_(fbo_height),
       camera_(camera) {
-  Texture depth_texture(GL_TEXTURE_2D_ARRAY, fbo_width, fbo_height,
+  Texture depth_texture(nullptr, GL_TEXTURE_2D_ARRAY, fbo_width, fbo_height,
                         NUM_CASCADES, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
                         GL_FLOAT, GL_CLAMP_TO_BORDER, GL_LINEAR, GL_LINEAR,
                         {1, 1, 1, 1}, false);
@@ -105,7 +105,7 @@ glm::mat4 DirectionalShadow::projection_matrix(
   }
 
   // tune this parameter according to the scene
-  constexpr float MULT = 5.0f;
+  constexpr float MULT = 10.0f;
   if (min_z < 0) {
     min_z *= MULT;
   } else {

@@ -42,11 +42,12 @@ void OITRenderQuad::Allocate(uint32_t width, uint32_t height,
   glGenTextures(1, &fragment_storage_texture_);
 
   std::vector<Texture> color_textures;
-  color_textures.push_back(Texture(width, height, GL_RGBA, GL_RGBA,
+  color_textures.push_back(Texture(nullptr, width, height, GL_RGBA, GL_RGBA,
                                    GL_UNSIGNED_BYTE, GL_REPEAT, GL_LINEAR,
                                    GL_LINEAR, {}, false));
-  Texture depth_texture(width, height, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
-                        GL_FLOAT, GL_REPEAT, GL_LINEAR, GL_LINEAR, {}, false);
+  Texture depth_texture(nullptr, width, height, GL_DEPTH_COMPONENT,
+                        GL_DEPTH_COMPONENT, GL_FLOAT, GL_REPEAT, GL_LINEAR,
+                        GL_LINEAR, {}, false);
   fbo_.reset(new FrameBufferObject(color_textures, depth_texture));
 }
 
