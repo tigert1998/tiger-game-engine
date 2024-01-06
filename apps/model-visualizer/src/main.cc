@@ -15,7 +15,9 @@
 #include "deferred_shading_render_quad.h"
 #include "model.h"
 #include "mouse.h"
+#include "multi_draw_indirect.h"
 #include "skybox.h"
+#include "utils.h"
 
 using namespace glm;
 using namespace std;
@@ -43,6 +45,7 @@ class Controller : public SightseeingController {
   }
 };
 
+std::unique_ptr<MultiDrawIndirect> multi_draw_indirect;
 std::unique_ptr<DeferredShadingRenderQuad> deferred_shading_render_quad_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
@@ -53,6 +56,8 @@ std::unique_ptr<Controller> controller_ptr;
 
 double animation_time = 0;
 int animation_id = -1;
+int default_shading_choice = 0;
+int enable_ssao = 0;
 
 GLFWwindow *window;
 
@@ -73,24 +78,23 @@ void ImGuiWindow() {
   // model
   char buf[1 << 10] = {0};
   static int prev_animation_id = animation_id;
-  const char *default_shading_choices[] = {"off", "on"};
-  int default_shading_choice = model_ptr->default_shading() ? 1 : 0;
+  const char *choices[] = {"off", "on"};
 
   ImGui::Begin("Panel");
   if (ImGui::InputText("model path", buf, sizeof(buf),
                        ImGuiInputTextFlags_EnterReturnsTrue)) {
-    LOG(INFO) << "loading model: " << buf;
-    model_ptr.reset(new Model(buf, nullptr, true, false));
+    multi_draw_indirect.reset(new MultiDrawIndirect());
+    model_ptr.reset(new Model(buf, multi_draw_indirect.get(), true));
+    multi_draw_indirect->PrepareForDraw();
     animation_time = 0;
   }
   ImGui::InputInt("animation id", &animation_id, 1, 1);
-  ImGui::ListBox("default shading", &default_shading_choice,
-                 default_shading_choices,
-                 IM_ARRAYSIZE(default_shading_choices));
+  ImGui::ListBox("default shading", &default_shading_choice, choices,
+                 IM_ARRAYSIZE(choices));
+  ImGui::ListBox("enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::End();
 
   // model
-  model_ptr->set_default_shading(default_shading_choice == 1);
   if (prev_animation_id != animation_id) {
     if (0 <= animation_id && animation_id < model_ptr->NumAnimations()) {
       LOG(INFO) << "switching to animation #" << animation_id;
@@ -126,11 +130,13 @@ void Init(uint32_t width, uint32_t height) {
       new DeferredShadingRenderQuad(width, height));
 
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->Add(make_unique<Directional>(vec3(1, -1, 0), vec3(1)));
+  light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.5), vec3(10)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
-  model_ptr = make_unique<Model>("resources/Bistro_v5_2/BistroExterior.fbx",
-                                 nullptr, true, true);
+  multi_draw_indirect.reset(new MultiDrawIndirect());
+  model_ptr.reset(new Model("resources/Bistro_v5_2/BistroExterior.fbx",
+                            multi_draw_indirect.get(), true));
+  multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
       -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
@@ -138,7 +144,7 @@ void Init(uint32_t width, uint32_t height) {
 
   shadow_sources_ptr = make_unique<ShadowSources>(camera_ptr.get());
   shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
-      vec3(0, -1, 0.1), 2048, 2048, camera_ptr.get()));
+      vec3(0, -1, 0.5), 2048, 2048, camera_ptr.get()));
 
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
 
@@ -181,31 +187,25 @@ int main(int argc, char *argv[]) {
 
     // draw depth map first
     shadow_sources_ptr->DrawDepthForShadow([](Shadow *shadow) {
-      if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
-        model_ptr->DrawDepthForShadow(shadow, mat4(1));
-      } else {
-        model_ptr->DrawDepthForShadow(animation_id, animation_time, shadow,
-                                      mat4(1));
-      }
+      multi_draw_indirect->DrawDepthForShadow(
+          shadow, {{model_ptr.get(), animation_id, animation_time, glm::mat4(1),
+                    glm::vec4(0)}});
     });
 
     deferred_shading_render_quad_ptr->TwoPasses(
         camera_ptr.get(), light_sources_ptr.get(), shadow_sources_ptr.get(),
+        enable_ssao,
         []() {
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
           skybox_ptr->Draw(camera_ptr.get());
         },
         []() {
-          if (animation_id < 0 || animation_id >= model_ptr->NumAnimations()) {
-            model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
-                            shadow_sources_ptr.get(), mat4(1),
-                            {{"SPECULAR", false}});
-          } else {
-            model_ptr->Draw(animation_id, animation_time, camera_ptr.get(),
-                            light_sources_ptr.get(), shadow_sources_ptr.get(),
-                            mat4(1), vec4(0), {{"SPECULAR", false}});
-          }
+          multi_draw_indirect->Draw(
+              camera_ptr.get(), nullptr, nullptr, nullptr, true,
+              default_shading_choice, true,
+              {{model_ptr.get(), animation_id, animation_time, glm::mat4(1),
+                glm::vec4(0)}});
         });
 
     ImGui_ImplGlfw_NewFrame();

@@ -1,6 +1,3 @@
-
-#define NOMINMAX
-
 #include "model.h"
 
 #include <assimp/cimport.h>
@@ -8,107 +5,47 @@
 #include <glad/glad.h>
 #include <glog/logging.h>
 
-#include <assimp/Importer.hpp>
 #include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <iostream>
+#include <string>
 
 #include "utils.h"
 
-using std::make_shared;
-using std::pair;
-using std::shared_ptr;
-using std::string;
-using std::vector;
-using namespace Assimp;
-using namespace glm;
 namespace fs = std::filesystem;
 
-constexpr int MAX_BONES = 170;  // please change the shader's MAX_BONES as well
-
-std::shared_ptr<Shader> Model::kShader = nullptr, Model::kOITShader = nullptr,
-                        Model::kShadowShader = nullptr,
-                        Model::kDeferredShadingShader = nullptr;
-
-Model::Model(const std::string &path, OITRenderQuad *oit_render_quad,
-             bool deferred_shading, bool flip_y)
+Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
+             bool flip_y)
     : directory_path_(fs::path::path(path).parent_path().string()),
-      oit_render_quad_(oit_render_quad),
-      deferred_shading_(deferred_shading),
-      flip_y_(flip_y) {
-  CHECK(oit_render_quad == nullptr || !deferred_shading_)
-      << "We do not support both using OIT and deferred shading at the same "
-         "time.";
+      flip_y_(flip_y),
+      multi_draw_indirect_(multi_draw_indirect) {
+  CompileShaders();
+
   LOG(INFO) << "loading model at: \"" << path << "\"";
+
   uint32_t flags = aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
                    aiProcess_Triangulate;
   if (flip_y_) flags |= aiProcess_FlipUVs;
   scene_ = aiImportFile(path.c_str(), flags);
 
-  if (kShader == nullptr && kOITShader == nullptr && kShadowShader == nullptr &&
-      kDeferredShadingShader == nullptr) {
-    std::map<std::string, std::any> constants = {
-        {"MAX_BONES", std::any(MAX_BONES)},
-        {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
-        {"IS_SHADOW_PASS", std::any(false)},
-    };
-    kShader = std::shared_ptr<Shader>(new Shader(
-        Model::kVsSource, Model::kFsSource + Model::kFsMainSource, constants));
-    kOITShader = std::shared_ptr<Shader>(
-        new Shader(Model::kVsSource, Model::kFsSource + Model::kFsOITMainSource,
-                   constants));
-    kDeferredShadingShader = std::shared_ptr<Shader>(new Shader(
-        Model::kVsSource,
-        Model::kFsSource + Model::kFsDeferredShadingMainSource, constants));
+  InitAnimationChannelMap();
 
-    constants["IS_SHADOW_PASS"] = std::any(true);
-    kShadowShader = std::shared_ptr<Shader>(new Shader(
-        {
-            {GL_VERTEX_SHADER, Model::kVsSource},
-            {GL_GEOMETRY_SHADER, Model::kGsShadowSource},
-            {GL_FRAGMENT_SHADER, Model::kFsShadowSource},
-        },
-        constants));
-  }
-  if (oit_render_quad_ != nullptr) {
-    shader_ptr_ = kOITShader;
-  } else if (deferred_shading) {
-    shader_ptr_ = kDeferredShadingShader;
-  } else {
-    shader_ptr_ = kShader;
-  }
-  glGenBuffers(1, &vbo_);
-
-  animation_channel_map_.clear();
-  for (int i = 0; i < scene_->mNumAnimations; i++) {
-    auto animation = scene_->mAnimations[i];
-    for (int j = 0; j < animation->mNumChannels; j++) {
-      auto channel = animation->mChannels[j];
-      animation_channel_map_[{i, channel->mNodeName.C_Str()}] = j;
-    }
-  }
-
-  mesh_ptrs_.resize(scene_->mNumMeshes);
-  LOG(INFO) << "#meshes: " << mesh_ptrs_.size();
+  meshes_.resize(scene_->mNumMeshes);
+  LOG(INFO) << "#meshes: " << meshes_.size();
   LOG(INFO) << "#animations: " << scene_->mNumAnimations;
-  min_ = vec3(INFINITY);
-  max_ = -min_;
-  RecursivelyInitNodes(scene_->mRootNode, mat4(1));
+  RecursivelyInitNodes(scene_->mRootNode, glm::mat4(1));
 
-  if (bone_namer_.total() > MAX_BONES) {
-    throw MaxBoneExceededError();
-  }
   bone_matrices_.resize(bone_namer_.total());
 
-  LOG(INFO) << "min: (" << min_.x << ", " << min_.y << ", " << min_.z << "), "
-            << "max: (" << max_.x << ", " << max_.y << ", " << max_.z << ")";
+  multi_draw_indirect_->ModelBeginSubmission(this);
+  for (int i = 0; i < meshes_.size(); i++) {
+    if (meshes_[i] == nullptr) continue;
+    meshes_[i]->SubmitToMultiDrawIndirect();
+  }
+  multi_draw_indirect_->ModelEndSubmission(this, bone_matrices_.size());
 }
 
-Model::~Model() {
-  aiReleaseImport(scene_);
-  glDeleteBuffers(1, &vbo_);
-}
+Model::~Model() { aiReleaseImport(scene_); }
 
 void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
   auto node_transform = Mat4FromAimatrix4x4(node->mTransformation);
@@ -117,21 +54,20 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
   LOG(INFO) << "initializing node \"" << node->mName.C_Str() << "\"";
   for (int i = 0; i < node->mNumMeshes; i++) {
     int id = node->mMeshes[i];
-    if (mesh_ptrs_[id] == nullptr) {
+    if (meshes_[id] == nullptr) {
       auto mesh = scene_->mMeshes[id];
       try {
-        mesh_ptrs_[id] = make_shared<Mesh>(directory_path_, mesh, scene_,
-                                           bone_namer_, bone_offsets_, flip_y_);
-        max_ = (glm::max)(max_, mesh_ptrs_[id]->max());
-        min_ = (glm::min)(min_, mesh_ptrs_[id]->min());
+        meshes_[id].reset(new Mesh(directory_path_, mesh, scene_, &bone_namer_,
+                                   &bone_offsets_, flip_y_,
+                                   multi_draw_indirect_));
       } catch (std::exception &e) {
-        mesh_ptrs_[id] = nullptr;
+        meshes_[id] = nullptr;
         LOG(WARNING) << "not loading mesh \"" << mesh->mName.C_Str()
                      << "\" because an exception is thrown: " << e.what();
       }
     }
-    if (mesh_ptrs_[id] != nullptr) {
-      mesh_ptrs_[id]->AppendTransform(transform);
+    if (meshes_[id] != nullptr) {
+      meshes_[id]->AppendTransform(transform);
     }
   }
 
@@ -142,10 +78,11 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
 
 glm::mat4 Model::InterpolateTranslationMatrix(aiVectorKey *keys, uint32_t n,
                                               double ticks) {
-  static auto mat4_from_aivector3d = [](aiVector3D vector) -> mat4 {
-    return translate(mat4(1), vec3(vector.x, vector.y, vector.z));
+  static auto mat4_from_aivector3d = [](aiVector3D vector) -> glm::mat4 {
+    return glm::translate(glm::mat4(1),
+                          glm::vec3(vector.x, vector.y, vector.z));
   };
-  if (n == 0) return mat4(1);
+  if (n == 0) return glm::mat4(1);
   if (n == 1) return mat4_from_aivector3d(keys->mValue);
   if (ticks <= keys[0].mTime) return mat4_from_aivector3d(keys[0].mValue);
   if (keys[n - 1].mTime <= ticks)
@@ -167,14 +104,15 @@ glm::mat4 Model::InterpolateTranslationMatrix(aiVectorKey *keys, uint32_t n,
 
 glm::mat4 Model::InterpolateRotationMatrix(aiQuatKey *keys, uint32_t n,
                                            double ticks) {
-  static auto mat4_from_aiquaternion = [](aiQuaternion quaternion) -> mat4 {
+  static auto mat4_from_aiquaternion =
+      [](aiQuaternion quaternion) -> glm::mat4 {
     auto rotation_matrix = quaternion.GetMatrix();
-    mat4 res(1);
+    glm::mat4 res(1);
     for (int i = 0; i < 3; i++)
       for (int j = 0; j < 3; j++) res[j][i] = rotation_matrix[i][j];
     return res;
   };
-  if (n == 0) return mat4(1);
+  if (n == 0) return glm::mat4(1);
   if (n == 1) return mat4_from_aiquaternion(keys->mValue);
   if (ticks <= keys[0].mTime) return mat4_from_aiquaternion(keys[0].mValue);
   if (keys[n - 1].mTime <= ticks)
@@ -196,10 +134,10 @@ glm::mat4 Model::InterpolateRotationMatrix(aiQuatKey *keys, uint32_t n,
 
 glm::mat4 Model::InterpolateScalingMatrix(aiVectorKey *keys, uint32_t n,
                                           double ticks) {
-  static auto mat4_from_aivector3d = [](aiVector3D vector) -> mat4 {
-    return scale(mat4(1), vec3(vector.x, vector.y, vector.z));
+  static auto mat4_from_aivector3d = [](aiVector3D vector) -> glm::mat4 {
+    return glm::scale(glm::mat4(1), glm::vec3(vector.x, vector.y, vector.z));
   };
-  if (n == 0) return mat4(1);
+  if (n == 0) return glm::mat4(1);
   if (n == 1) return mat4_from_aivector3d(keys->mValue);
   if (ticks <= keys[0].mTime) return mat4_from_aivector3d(keys[0].mValue);
   if (keys[n - 1].mTime <= ticks)
@@ -223,23 +161,24 @@ int Model::NumAnimations() const { return scene_->mNumAnimations; }
 
 void Model::RecursivelyUpdateBoneMatrices(int animation_id, aiNode *node,
                                           glm::mat4 transform, double ticks) {
-  string node_name = node->mName.C_Str();
+  std::string node_name = node->mName.C_Str();
   auto animation = scene_->mAnimations[animation_id];
-  mat4 current_transform;
+  glm::mat4 current_transform;
   if (animation_channel_map_.count(
-          pair<uint32_t, string>(animation_id, node_name))) {
+          std::pair<uint32_t, std::string>(animation_id, node_name))) {
     uint32_t channel_id =
-        animation_channel_map_[pair<uint32_t, string>(animation_id, node_name)];
+        animation_channel_map_[std::pair<uint32_t, std::string>(animation_id,
+                                                                node_name)];
     auto channel = animation->mChannels[channel_id];
 
     // translation matrix
-    mat4 translation_matrix = InterpolateTranslationMatrix(
+    glm::mat4 translation_matrix = InterpolateTranslationMatrix(
         channel->mPositionKeys, channel->mNumPositionKeys, ticks);
     // rotation matrix
-    mat4 rotation_matrix = InterpolateRotationMatrix(
+    glm::mat4 rotation_matrix = InterpolateRotationMatrix(
         channel->mRotationKeys, channel->mNumRotationKeys, ticks);
     // scaling matrix
-    mat4 scaling_matrix = InterpolateScalingMatrix(
+    glm::mat4 scaling_matrix = InterpolateScalingMatrix(
         channel->mScalingKeys, channel->mNumScalingKeys, ticks);
 
     current_transform = translation_matrix * rotation_matrix * scaling_matrix;
@@ -256,120 +195,52 @@ void Model::RecursivelyUpdateBoneMatrices(int animation_id, aiNode *node,
   }
 }
 
-void Model::Draw(uint32_t animation_id, double time, Camera *camera_ptr,
-                 LightSources *light_sources, ShadowSources *shadow_sources,
-                 mat4 model_matrix, vec4 clip_plane,
-                 const TextureConfig &config) {
-  RecursivelyUpdateBoneMatrices(
-      animation_id, scene_->mRootNode, mat4(1),
-      time * scene_->mAnimations[animation_id]->mTicksPerSecond);
-  InternalDraw(true, camera_ptr, light_sources, shadow_sources,
-               std::vector<glm::mat4>{model_matrix}, clip_plane, config);
-}
-
-void Model::Draw(Camera *camera_ptr, LightSources *light_sources,
-                 ShadowSources *shadow_sources,
-                 const std::vector<glm::mat4> &model_matrices, vec4 clip_plane,
-                 const TextureConfig &config) {
-  InternalDraw(false, camera_ptr, light_sources, shadow_sources, model_matrices,
-               clip_plane, config);
-}
-
-void Model::Draw(Camera *camera_ptr, LightSources *light_sources,
-                 ShadowSources *shadow_sources, mat4 model_matrix,
-                 const TextureConfig &config) {
-  InternalDraw(false, camera_ptr, light_sources, shadow_sources,
-               std::vector<glm::mat4>{model_matrix}, glm::vec4(0), config);
-}
-
-void Model::DrawDepthForShadow(Shadow *shadow, glm::mat4 model_matrix) {
-  InternalDrawDepthForShadow(false, shadow, {model_matrix});
-}
-
-void Model::DrawDepthForShadow(Shadow *shadow,
-                               const std::vector<glm::mat4> &model_matrices) {
-  InternalDrawDepthForShadow(false, shadow, model_matrices);
-}
-
-void Model::DrawDepthForShadow(uint32_t animation_id, double time,
-                               Shadow *shadow, glm::mat4 model_matrix) {
-  RecursivelyUpdateBoneMatrices(
-      animation_id, scene_->mRootNode, mat4(1),
-      time * scene_->mAnimations[animation_id]->mTicksPerSecond);
-  InternalDrawDepthForShadow(true, shadow, {model_matrix});
-}
-
-void Model::DrawMesh(Mesh *mesh_ptr, Shader *shader_ptr,
-                     const std::vector<glm::mat4> &model_matrices, bool shadow,
-                     int32_t sampler_offset, const TextureConfig &config) {
-  glBindVertexArray(mesh_ptr->vao());
-  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-  glBufferData(GL_ARRAY_BUFFER, model_matrices.size() * sizeof(glm::mat4),
-               model_matrices.data(), GL_DYNAMIC_DRAW);
-  for (int i = 0; i < 4; i++) {
-    uint32_t location = 10 + i;
-    glEnableVertexAttribArray(location);
-    glVertexAttribPointer(location, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4),
-                          (void *)(i * sizeof(glm::vec4)));
-    glVertexAttribDivisor(location, 1);
-  }
-
-  mesh_ptr->Draw(shader_ptr, model_matrices.size(), shadow, sampler_offset,
-                 config);
-}
-
-void Model::InternalDraw(bool animated, Camera *camera_ptr,
-                         LightSources *light_sources,
-                         ShadowSources *shadow_sources,
-                         const std::vector<glm::mat4> &model_matrices,
-                         glm::vec4 clip_plane, const TextureConfig &config) {
-  int32_t num_samplers = 0;
-  shader_ptr_->Use();
-  if (oit_render_quad_ != nullptr) {
-    oit_render_quad_->Set(shader_ptr_.get());
-  }
-  if (!deferred_shading_) {
-    light_sources->Set(shader_ptr_.get(), false);
-    shadow_sources->Set(shader_ptr_.get(), &num_samplers);
-    shader_ptr_->SetUniform<vec3>("uCameraPosition", camera_ptr->position());
-  }
-  shader_ptr_->SetUniform<vec4>("uClipPlane", clip_plane);
-  shader_ptr_->SetUniform<mat4>("uViewMatrix", camera_ptr->view_matrix());
-  shader_ptr_->SetUniform<mat4>("uProjectionMatrix",
-                                camera_ptr->projection_matrix());
-  shader_ptr_->SetUniform<vector<mat4>>("uBoneMatrices", bone_matrices_);
-  shader_ptr_->SetUniform<int32_t>("uDefaultShading", default_shading_);
-
-  for (int i = 0; i < mesh_ptrs_.size(); i++) {
-    if (mesh_ptrs_[i] == nullptr) continue;
-    shader_ptr_->SetUniform<int32_t>("uAnimated", animated);
-    DrawMesh(mesh_ptrs_[i].get(), shader_ptr_.get(), model_matrices, false,
-             num_samplers, config);
+void Model::InitAnimationChannelMap() {
+  animation_channel_map_.clear();
+  for (int i = 0; i < scene_->mNumAnimations; i++) {
+    auto animation = scene_->mAnimations[i];
+    for (int j = 0; j < animation->mNumChannels; j++) {
+      auto channel = animation->mChannels[j];
+      animation_channel_map_[{i, channel->mNodeName.C_Str()}] = j;
+    }
   }
 }
 
-void Model::InternalDrawDepthForShadow(
-    bool animated, Shadow *shadow,
-    const std::vector<glm::mat4> &model_matrices) {
-  kShadowShader->Use();
-  shadow->SetForDepthPass(kShadowShader.get());
+void Model::CompileShaders() {
+  if (kShader == nullptr && kOITShader == nullptr && kShadowShader == nullptr &&
+      kDeferredShadingShader == nullptr) {
+    std::map<std::string, std::any> constants = {
+        {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
+        {"IS_SHADOW_PASS", std::any(false)},
+    };
+    kShader.reset(new Shader(
+        Model::kVsSource, Model::kFsSource + Model::kFsMainSource, constants));
+    kOITShader.reset(new Shader(Model::kVsSource,
+                                Model::kFsSource + Model::kFsOITMainSource,
+                                constants));
+    kDeferredShadingShader.reset(new Shader(
+        Model::kVsSource,
+        Model::kFsSource + Model::kFsDeferredShadingMainSource, constants));
 
-  for (int i = 0; i < mesh_ptrs_.size(); i++) {
-    if (mesh_ptrs_[i] == nullptr) continue;
-    kShadowShader->SetUniform<int32_t>("uAnimated", animated);
-    DrawMesh(mesh_ptrs_[i].get(), kShadowShader.get(), model_matrices, true, 0,
-             {});
+    constants["IS_SHADOW_PASS"] = std::any(true);
+    kShadowShader.reset(new Shader(
+        {
+            {GL_VERTEX_SHADER, Model::kVsSource},
+            {GL_GEOMETRY_SHADER, Model::kGsShadowSource},
+            {GL_FRAGMENT_SHADER, Model::kFsShadowSource},
+        },
+        constants));
   }
 }
 
-void Model::set_default_shading(bool default_shading) {
-  default_shading_ = default_shading;
-}
+std::unique_ptr<Shader> Model::kShader = nullptr;
+std::unique_ptr<Shader> Model::kOITShader = nullptr;
+std::unique_ptr<Shader> Model::kShadowShader = nullptr;
+std::unique_ptr<Shader> Model::kDeferredShadingShader = nullptr;
 
 const std::string Model::kVsSource = R"(
-#version 410 core
+#version 460 core
 
-const int MAX_BONES = <!--MAX_BONES-->;
 const bool IS_SHADOW_PASS = <!--IS_SHADOW_PASS-->;
 
 layout (location = 0) in vec3 aPosition;
@@ -382,64 +253,84 @@ layout (location = 6) in ivec4 aBoneIDs2;
 layout (location = 7) in vec4 aBoneWeights0;
 layout (location = 8) in vec4 aBoneWeights1;
 layout (location = 9) in vec4 aBoneWeights2;
-layout (location = 10) in mat4 aModelMatrix;
 
 out vec3 vPosition;
 out vec2 vTexCoord;
 out mat3 vTBN;
+flat out int vInstanceID;
 
-uniform bool uAnimated;
+layout (std430, binding = 0) buffer modelMatricesBuffer {
+    mat4 modelMatrices[]; // per instance
+};
+layout (std430, binding = 1) buffer boneMatricesBuffer {
+    mat4 boneMatrices[];
+};
+layout (std430, binding = 2) buffer boneMatricesOffsetBuffer {
+    int boneMatricesOffset[]; // per instance
+};
+layout (std430, binding = 3) buffer animatedBuffer {
+    uint animated[]; // per instance
+};
+layout (std430, binding = 4) buffer transformsBuffer {
+    mat4 transforms[]; // per instance
+};
+layout (std430, binding = 5) buffer clipPlanesBuffer {
+    vec4 clipPlanes[]; // per instance
+};
+
 uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;
-uniform mat4 uBoneMatrices[MAX_BONES];
-uniform mat4 uTransform;
-uniform vec4 uClipPlane;
 
 mat4 CalcBoneMatrix() {
+    int offset = boneMatricesOffset[vInstanceID];
     mat4 boneMatrix = mat4(0);
     for (int i = 0; i < 4; i++) {
         if (aBoneIDs0[i] < 0) return boneMatrix;
-        boneMatrix += uBoneMatrices[aBoneIDs0[i]] * aBoneWeights0[i];
+        boneMatrix += boneMatrices[aBoneIDs0[i] + offset] * aBoneWeights0[i];
     }
     for (int i = 0; i < 4; i++) {
         if (aBoneIDs1[i] < 0) return boneMatrix;
-        boneMatrix += uBoneMatrices[aBoneIDs1[i]] * aBoneWeights1[i];
+        boneMatrix += boneMatrices[aBoneIDs1[i] + offset] * aBoneWeights1[i];
     }
     for (int i = 0; i < 4; i++) {
         if (aBoneIDs2[i] < 0) return boneMatrix;
-        boneMatrix += uBoneMatrices[aBoneIDs2[i]] * aBoneWeights2[i];
+        boneMatrix += boneMatrices[aBoneIDs2[i] + offset] * aBoneWeights2[i];
     }
     return boneMatrix;
 }
 
 void main() {
+    vInstanceID = gl_BaseInstance + gl_InstanceID;
     mat4 transform;
-    if (uAnimated) {
+    if (bool(animated[vInstanceID])) {
         transform = CalcBoneMatrix();
     } else {
-        transform = uTransform;
+        transform = transforms[vInstanceID];
     }
+    mat4 modelMatrix = modelMatrices[vInstanceID];
     if (IS_SHADOW_PASS) {
-        gl_Position = aModelMatrix * transform * vec4(aPosition, 1);
+        gl_Position = modelMatrix * transform * vec4(aPosition, 1);
     } else {
-        gl_Position = uProjectionMatrix * uViewMatrix * aModelMatrix * transform * vec4(aPosition, 1);
-        vPosition = vec3(aModelMatrix * transform * vec4(aPosition, 1));
+        gl_Position = uProjectionMatrix * uViewMatrix * modelMatrix * transform * vec4(aPosition, 1);
+        vPosition = vec3(modelMatrix * transform * vec4(aPosition, 1));
         vTexCoord = aTexCoord;
 
-        mat3 normalMatrix = transpose(inverse(mat3(aModelMatrix * transform)));
+        mat3 normalMatrix = transpose(inverse(mat3(modelMatrix * transform)));
         vec3 T = normalize(normalMatrix * aTangent);
         vec3 N = normalize(normalMatrix * aNormal);
         T = normalize(T - dot(T, N) * N);
         vec3 B = cross(N, T);
         vTBN = mat3(T, B, N);
 
-        gl_ClipDistance[0] = dot(vec4(vPosition, 1), uClipPlane);
+        gl_ClipDistance[0] = dot(vec4(vPosition, 1), clipPlanes[vInstanceID]);
     }
 }
 )";
 
 const std::string Model::kFsSource = R"(
-#version 420 core
+#version 460 core
+
+#extension GL_ARB_bindless_texture : require
 
 const float zero = 1e-6;
 
@@ -449,31 +340,31 @@ uniform mat4 uViewMatrix;
 in vec3 vPosition;
 in vec2 vTexCoord;
 in mat3 vTBN;
+flat in int vInstanceID;
 )" + LightSources::FsSource() + ShadowSources::FsSource() +
                                      R"(
 uniform bool uDefaultShading;
+uniform bool uForcePBR;
 
 struct Material {
-    bool ambientTextureEnabled;
-    sampler2D ambientTexture;
-    bool diffuseTextureEnabled;
-    sampler2D diffuseTexture;
-    bool specularTextureEnabled;
-    sampler2D specularTexture;
-    bool normalsTextureEnabled;
-    sampler2D normalsTexture;
-    bool metalnessTextureEnabled;
-    sampler2D metalnessTexture;
-    bool diffuseRoughnessTextureEnabled;
-    sampler2D diffuseRoughnessTexture;
-    bool ambientOcclusionTextureEnabled;
-    sampler2D ambientOcclusionTexture;
-    vec3 ka, kd, ks;
+    int ambientTexture;
+    int diffuseTexture;
+    int specularTexture;
+    int normalsTexture;
+    int metalnessTexture;
+    int diffuseRoughnessTexture;
+    int ambientOcclusionTexture;
+    vec4 ka, kd, ks;
     float shininess;
     bool bindMetalnessAndDiffuseRoughness;
 };
 
-uniform Material uMaterial;
+layout (std430, binding = 6) buffer materialsBuffer {
+    Material materials[]; // per instance
+};
+layout (std430, binding = 7) buffer texturesBuffer {
+    sampler2D textures[];
+};
 
 vec3 ConvertDerivativeMapToNormalMap(vec3 normal) {
     if (normal.z > -1 + zero) return normal;
@@ -486,41 +377,43 @@ void SampleForGBuffer(
     out vec3 normal, out vec3 position, out float alpha, out int flag // shared variable
 ) {
     if (uDefaultShading) {
-        albedo = pow(vec3(0.944, 0.776, 0.373), vec3(2.2));
-        metallic = 0.95;
-        roughness = 0.05;
-        ao = 1;
+        ka = vec3(0.2);
+        kd = vec3(0, 0, 0.9);
+        ks = vec3(0.2);
+        shininess = 20;
         normal = vTBN[2];
         position = vPosition;
         alpha = 1;
-        flag = 2;
+        flag = 1;
         return;
     }
 
-    if (!uMaterial.metalnessTextureEnabled) {
+    Material material = materials[vInstanceID];
+
+    if (material.metalnessTexture < 0 && !uForcePBR) {
         // for Phong
         alpha = 1.0f;
 
-        ka = vec3(uMaterial.ka);
-        kd = vec3(uMaterial.kd);
-        ks = vec3(uMaterial.ks);
+        ka = vec3(material.ka);
+        kd = vec3(material.kd);
+        ks = vec3(material.ks);
 
-        if (uMaterial.diffuseTextureEnabled) {
-            vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
+        if (material.diffuseTexture >= 0) {
+            vec4 sampled = texture(textures[material.diffuseTexture], vTexCoord);
             kd = sampled.rgb;
             alpha = sampled.a;
         }
 
         if (alpha <= zero) discard;
 
-        if (uMaterial.ambientTextureEnabled) {
-            ka = texture(uMaterial.ambientTexture, vTexCoord).rgb;
+        if (material.ambientTexture >= 0) {
+            ka = texture(textures[material.ambientTexture], vTexCoord).rgb;
         }
-        if (uMaterial.specularTextureEnabled) {
-            ks = texture(uMaterial.specularTexture, vTexCoord).rgb;
+        if (material.specularTexture >= 0) {
+            ks = texture(textures[material.specularTexture], vTexCoord).rgb;
         }
 
-        shininess = uMaterial.shininess;
+        shininess = material.shininess;
         flag = 1;
     } else {
         // for PBR
@@ -528,11 +421,11 @@ void SampleForGBuffer(
 
         albedo = vec3(0.0f);
         metallic = 0.0f;
-        roughness = 0.0f;
+        roughness = 0.25f; // default metallic and roughness
         ao = 1.0f;
 
-        if (uMaterial.diffuseTextureEnabled) {
-            vec4 sampled = texture(uMaterial.diffuseTexture, vTexCoord);
+        if (material.diffuseTexture >= 0) {
+            vec4 sampled = texture(textures[material.diffuseTexture], vTexCoord);
             // convert from sRGB to linear space
             albedo = pow(sampled.rgb, vec3(2.2));
             alpha = sampled.a;
@@ -540,29 +433,29 @@ void SampleForGBuffer(
 
         if (alpha <= zero) discard;
 
-        if (uMaterial.bindMetalnessAndDiffuseRoughness) {
-            vec2 sampled = texture(uMaterial.metalnessTexture, vTexCoord).gb;
+        if (material.bindMetalnessAndDiffuseRoughness) {
+            vec2 sampled = texture(textures[material.metalnessTexture], vTexCoord).gb;
             // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
             metallic = sampled[1]; // blue
             roughness = sampled[0]; // green
         } else {
-            if (uMaterial.metalnessTextureEnabled) {
-                metallic = texture(uMaterial.metalnessTexture, vTexCoord).r;
+            if (material.metalnessTexture >= 0) {
+                metallic = texture(textures[material.metalnessTexture], vTexCoord).r;
             }
-            if (uMaterial.diffuseRoughnessTextureEnabled) {
-                roughness = texture(uMaterial.diffuseRoughnessTexture, vTexCoord).r;
+            if (material.diffuseRoughnessTexture >= 0) {
+                roughness = texture(textures[material.diffuseRoughnessTexture], vTexCoord).r;
             }
         }
 
-        if (uMaterial.ambientOcclusionTextureEnabled) {
-            ao = texture(uMaterial.ambientOcclusionTexture, vTexCoord).r;
+        if (material.ambientOcclusionTexture >= 0) {
+            ao = texture(textures[material.ambientOcclusionTexture], vTexCoord).r;
         }
         flag = 2;
     }
 
     normal = vTBN[2];
-    if (uMaterial.normalsTextureEnabled) {
-        normal = texture(uMaterial.normalsTexture, vTexCoord).xyz * 2 - 1;
+    if (material.normalsTexture >= 0) {
+        normal = texture(textures[material.normalsTexture], vTexCoord).xyz * 2 - 1;
         normal = ConvertDerivativeMapToNormalMap(normal);
         normal = normalize(vTBN * normal);
     }

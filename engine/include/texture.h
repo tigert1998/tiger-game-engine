@@ -1,6 +1,7 @@
 #ifndef TEXTURE_H_
 #define TEXTURE_H_
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -8,6 +9,7 @@ class Texture {
  private:
   bool has_ownership_ = false;
   uint32_t target_ = 0, id_ = 0;
+  mutable std::optional<uint64_t> handle_ = std::nullopt;
 
   void Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                              uint32_t min_filter, uint32_t mag_filter,
@@ -49,13 +51,13 @@ class Texture {
                             bool flip_y);
 
   // create 2D texture
-  explicit Texture(uint32_t width, uint32_t height, uint32_t internal_format,
-                   uint32_t format, uint32_t type, uint32_t wrap,
-                   uint32_t min_filter, uint32_t mag_filter,
+  explicit Texture(void *data, uint32_t width, uint32_t height,
+                   uint32_t internal_format, uint32_t format, uint32_t type,
+                   uint32_t wrap, uint32_t min_filter, uint32_t mag_filter,
                    const std::vector<float> &border_color, bool mipmap);
 
   // create 2D_ARRAY/3D texture
-  explicit Texture(uint32_t target, uint32_t width, uint32_t height,
+  explicit Texture(void *data, uint32_t target, uint32_t width, uint32_t height,
                    uint32_t depth, uint32_t internal_format, uint32_t format,
                    uint32_t type, uint32_t wrap, uint32_t min_filter,
                    uint32_t mag_filter, const std::vector<float> &border_color,
@@ -63,6 +65,9 @@ class Texture {
 
   inline uint32_t target() const { return target_; }
   inline uint32_t id() const { return id_; }
+  uint64_t handle() const;
+  void MakeResident() const;
+  void MakeNonResident() const;
 
   void Clear();
 

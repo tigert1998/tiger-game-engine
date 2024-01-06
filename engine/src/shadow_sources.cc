@@ -1,3 +1,5 @@
+#define NOMINMAX
+
 // clang-format off
 #include <glad/glad.h>
 // clang-format on
@@ -8,15 +10,17 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+#include "utils.h"
+
 DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
                                      uint32_t fbo_height, const Camera *camera)
     : direction_(direction),
       fbo_width_(fbo_width),
       fbo_height_(fbo_height),
       camera_(camera) {
-  Texture depth_texture(GL_TEXTURE_2D_ARRAY, fbo_width, fbo_height,
+  Texture depth_texture(nullptr, GL_TEXTURE_2D_ARRAY, fbo_width, fbo_height,
                         NUM_CASCADES, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
-                        GL_FLOAT, GL_CLAMP_TO_BORDER, GL_NEAREST, GL_NEAREST,
+                        GL_FLOAT, GL_CLAMP_TO_BORDER, GL_LINEAR, GL_LINEAR,
                         {1, 1, 1, 1}, false);
   fbo_.reset(new FrameBufferObject(std::vector<Texture>{}, depth_texture));
 }

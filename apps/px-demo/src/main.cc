@@ -15,6 +15,7 @@
 #include "controller/sightseeing_controller.h"
 #include "model.h"
 #include "mouse.h"
+#include "multi_draw_indirect.h"
 #include "physics/character_controller.h"
 #include "physics/collision_model.h"
 #include "skybox.h"
@@ -76,6 +77,7 @@ class Controller : public SightseeingController {
 };
 
 // scene
+std::unique_ptr<MultiDrawIndirect> multi_draw_indirect;
 std::unique_ptr<OITRenderQuad> oit_render_quad_ptr;
 std::unique_ptr<Model> scene_model_ptr;
 std::unique_ptr<Camera> camera_ptr;
@@ -206,8 +208,10 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.1), vec3(10)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
+  multi_draw_indirect.reset(new MultiDrawIndirect());
   scene_model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
-                                       oit_render_quad_ptr.get(), false, false);
+                                       multi_draw_indirect.get(), false);
+  multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
       -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
@@ -260,7 +264,8 @@ int main(int argc, char *argv[]) {
 
     // draw depth map first
     shadow_sources_ptr->DrawDepthForShadow([](Shadow *shadow) {
-      scene_model_ptr->DrawDepthForShadow(shadow, mat4(1));
+      multi_draw_indirect->DrawDepthForShadow(
+          shadow, {{scene_model_ptr.get(), -1, 0, glm::mat4(1), glm::vec4(0)}});
     });
 
     oit_render_quad_ptr->TwoPasses(
@@ -270,8 +275,11 @@ int main(int argc, char *argv[]) {
           skybox_ptr->Draw(camera_ptr.get());
         },
         []() {
-          scene_model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
-                                shadow_sources_ptr.get(), mat4(1), {});
+          multi_draw_indirect->Draw(
+              camera_ptr.get(), light_sources_ptr.get(),
+              shadow_sources_ptr.get(), oit_render_quad_ptr.get(), false, false,
+              true,
+              {{scene_model_ptr.get(), -1, 0, glm::mat4(1), glm::vec4(0)}});
         },
         nullptr);
 

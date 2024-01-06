@@ -47,7 +47,6 @@ std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<OITRenderQuad> oit_render_quad_ptr;
 std::unique_ptr<Controller> controller;
-std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Clouds> clouds_ptr;
 std::unique_ptr<ShadowSources> shadow_sources_ptr;
 
@@ -95,8 +94,6 @@ void Init(uint32_t width, uint32_t height) {
       -0.5 * glm::pi<float>(), 0, glm::radians(60.f), 0.1, 5000);
 
   oit_render_quad_ptr.reset(new OITRenderQuad(width, height));
-  model_ptr.reset(new Model("resources/sphere/sphere.obj",
-                            oit_render_quad_ptr.get(), false, false));
   clouds_ptr.reset(new Clouds(width, height));
 
   controller.reset(new Controller(camera_ptr.get(), oit_render_quad_ptr.get(),
@@ -139,11 +136,7 @@ int main(int argc, char *argv[]) {
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         },
-        []() {
-          model_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
-                          shadow_sources_ptr.get(), glm::mat4(1), {});
-        },
-        clouds_ptr->fbo());
+        []() {}, clouds_ptr->fbo());
 
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
