@@ -218,7 +218,6 @@ const std::string DeferredShadingRenderQuad::kFsSource =
 
 uniform mat4 uViewMatrix;
 uniform vec3 uCameraPosition;
-uniform bool uEnableSSAO;
 
 )" + LightSources::FsSource() +
     ShadowSources::FsSource() +
@@ -237,6 +236,7 @@ uniform sampler2D depth;
 uniform sampler2D uSSAO;
 
 uniform vec2 uScreenSize;
+uniform bool uEnableSSAO;
 
 void main() {
     vec2 coord = gl_FragCoord.xy / uScreenSize;

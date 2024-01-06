@@ -57,6 +57,7 @@ std::unique_ptr<Controller> controller_ptr;
 double animation_time = 0;
 int animation_id = -1;
 int default_shading_choice = 0;
+int enable_ssao = 0;
 
 GLFWwindow *window;
 
@@ -77,7 +78,7 @@ void ImGuiWindow() {
   // model
   char buf[1 << 10] = {0};
   static int prev_animation_id = animation_id;
-  const char *default_shading_choices[] = {"off", "on"};
+  const char *choices[] = {"off", "on"};
 
   ImGui::Begin("Panel");
   if (ImGui::InputText("model path", buf, sizeof(buf),
@@ -88,9 +89,9 @@ void ImGuiWindow() {
     animation_time = 0;
   }
   ImGui::InputInt("animation id", &animation_id, 1, 1);
-  ImGui::ListBox("default shading", &default_shading_choice,
-                 default_shading_choices,
-                 IM_ARRAYSIZE(default_shading_choices));
+  ImGui::ListBox("default shading", &default_shading_choice, choices,
+                 IM_ARRAYSIZE(choices));
+  ImGui::ListBox("enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::End();
 
   // model
@@ -193,7 +194,7 @@ int main(int argc, char *argv[]) {
 
     deferred_shading_render_quad_ptr->TwoPasses(
         camera_ptr.get(), light_sources_ptr.get(), shadow_sources_ptr.get(),
-        true,
+        enable_ssao,
         []() {
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
