@@ -18,13 +18,19 @@ class SMAA {
 
   std::string smaa_edge_detection_vs_source() const;
   std::string smaa_edge_detection_fs_source() const;
+  std::string smaa_blending_weight_calc_vs_source() const;
+  std::string smaa_blending_weight_calc_fs_source() const;
 
   std::unique_ptr<Shader> edge_detection_shader_;
+  std::unique_ptr<Shader> blending_weight_calc_shader_;
 
   uint32_t width_, height_;
   uint32_t vao_, vbo_, ebo_;
 
+  Texture area_, search_;
+
   void PrepareVertexData();
+  void PrepareAreaAndSearchTexture(const std::string &smaa_repo_path);
 
  public:
   SMAA(const std::string &smaa_repo_path, uint32_t width, uint32_t height);

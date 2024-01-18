@@ -50,7 +50,7 @@ class Texture {
                             const std::vector<float> &border_color, bool mipmap,
                             bool flip_y);
 
-  static Texture Empty();
+  static Texture Empty(uint32_t target);
 
   // create 2D texture
   explicit Texture(void *data, uint32_t width, uint32_t height,

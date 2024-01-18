@@ -37,7 +37,8 @@ void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
     gli::gl::format format =
         gl.translate(gli_texture.format(), gli_texture.swizzles());
     auto target = gl.translate(gli_texture.target());
-    CHECK(gli::is_compressed(gli_texture.format()) && target == GL_TEXTURE_2D);
+    bool compressed = gli::is_compressed(gli_texture.format());
+    CHECK(target == GL_TEXTURE_2D);
 
     glGenTextures(1, &id_);
     glBindTexture(GL_TEXTURE_2D, id_);
@@ -51,10 +52,16 @@ void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                    gli_texture.extent(0).y);
     for (auto level = 0; level < gli_texture.levels(); ++level) {
       auto extent = gli_texture.extent(level);
-      glCompressedTexSubImage2D(GL_TEXTURE_2D, static_cast<int32_t>(level), 0,
-                                0, extent.x, extent.y, format.Internal,
-                                static_cast<int32_t>(gli_texture.size(level)),
-                                gli_texture.data(0, 0, level));
+      if (compressed) {
+        glCompressedTexSubImage2D(GL_TEXTURE_2D, static_cast<int32_t>(level), 0,
+                                  0, extent.x, extent.y, format.Internal,
+                                  static_cast<int32_t>(gli_texture.size(level)),
+                                  gli_texture.data(0, 0, level));
+      } else {
+        glTexSubImage2D(GL_TEXTURE_2D, static_cast<int32_t>(level), 0, 0,
+                        extent.x, extent.y, format.External, format.Type,
+                        gli_texture.data(0, 0, level));
+      }
     }
   } else {
     stbi_set_flip_vertically_on_load(flip_y);
@@ -283,8 +290,8 @@ void Texture::MakeNonResident() const {
   glMakeTextureHandleNonResidentARB(handle());
 }
 
-Texture Texture::Empty() {
+Texture Texture::Empty(uint32_t target) {
   Texture empty;
-  empty.target_ = GL_TEXTURE_2D;
+  empty.target_ = target;
   return empty;
 }

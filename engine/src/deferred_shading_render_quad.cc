@@ -201,7 +201,7 @@ void DeferredShadingRenderQuad::TwoPasses(
   if (enable_ssao) {
     kShader->SetUniformSampler("uSSAO", ssao_blur_fbo_->color_texture(0), 9);
   } else {
-    kShader->SetUniformSampler("uSSAO", Texture::Empty(), 9);
+    kShader->SetUniformSampler("uSSAO", Texture::Empty(GL_TEXTURE_2D), 9);
   }
 
   int num_samplers = 10;
