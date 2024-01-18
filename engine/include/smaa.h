@@ -20,9 +20,12 @@ class SMAA {
   std::string smaa_edge_detection_fs_source() const;
   std::string smaa_blending_weight_calc_vs_source() const;
   std::string smaa_blending_weight_calc_fs_source() const;
+  std::string smaa_neighborhood_blending_vs_source() const;
+  std::string smaa_neighborhood_blending_fs_source() const;
 
   std::unique_ptr<Shader> edge_detection_shader_;
   std::unique_ptr<Shader> blending_weight_calc_shader_;
+  std::unique_ptr<Shader> neighborhood_blending_shader_;
 
   uint32_t width_, height_;
   uint32_t vao_, vbo_, ebo_;

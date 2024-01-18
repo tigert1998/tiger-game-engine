@@ -63,6 +63,7 @@ double animation_time = 0;
 int animation_id = -1;
 int default_shading_choice = 0;
 int enable_ssao = 0;
+int enable_smaa = 0;
 
 GLFWwindow *window;
 
@@ -97,6 +98,7 @@ void ImGuiWindow() {
   ImGui::ListBox("default shading", &default_shading_choice, choices,
                  IM_ARRAYSIZE(choices));
   ImGui::ListBox("enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
+  ImGui::ListBox("enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
   ImGui::End();
 
   // model
@@ -214,9 +216,11 @@ int main(int argc, char *argv[]) {
               {{model_ptr.get(), animation_id, animation_time, glm::mat4(1),
                 glm::vec4(0)}});
         },
-        smaa_ptr->fbo());
+        enable_smaa ? smaa_ptr->fbo() : nullptr);
 
-    smaa_ptr->Draw();
+    if (enable_smaa) {
+      smaa_ptr->Draw();
+    }
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

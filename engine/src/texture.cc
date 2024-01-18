@@ -29,10 +29,10 @@ void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
   target_ = GL_TEXTURE_2D;
 
   if (ToLower(path.substr(path.size() - 4)) == ".dds") {
-    CHECK(!flip_y) << "We do not flip DDS image since it's not supported!";
     gli::texture gli_texture = gli::load_dds(path);
     if (gli_texture.empty()) throw LoadPictureError(path, "");
 
+    if (flip_y) gli_texture = gli::flip(gli_texture);
     gli::gl gl(gli::gl::PROFILE_GL33);
     gli::gl::format format =
         gl.translate(gli_texture.format(), gli_texture.swizzles());

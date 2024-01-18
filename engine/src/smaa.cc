@@ -90,6 +90,10 @@ SMAA::SMAA(const std::string &smaa_repo_path, uint32_t width, uint32_t height) {
   blending_weight_calc_shader_.reset(
       new Shader(smaa_blending_weight_calc_vs_source(),
                  smaa_blending_weight_calc_fs_source(), {}));
+
+  neighborhood_blending_shader_.reset(
+      new Shader(smaa_neighborhood_blending_vs_source(),
+                 smaa_neighborhood_blending_fs_source(), {}));
 }
 
 void SMAA::Draw() {
@@ -125,10 +129,21 @@ void SMAA::Draw() {
   glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
   blend_fbo_->Unbind();
 
-  glEnable(GL_BLEND);
-
+  // run neighborhood blending
+  glViewport(0, 0, width_, height_);
+  glBindVertexArray(vao_);
+  neighborhood_blending_shader_->Use();
+  neighborhood_blending_shader_->SetUniform<glm::vec4>("SMAA_RT_METRICS",
+                                                       rt_metrics);
+  neighborhood_blending_shader_->SetUniformSampler(
+      "uColor", input_fbo_->color_texture(0), 0);
+  neighborhood_blending_shader_->SetUniformSampler(
+      "uBlend", blend_fbo_->color_texture(0), 1);
   glClearColor(0, 0, 0, 1);
-  glClear(GL_COLOR_BUFFER_BIT);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+
+  glEnable(GL_BLEND);
 }
 
 const std::string SMAA::kCommonDefines = R"(
@@ -223,6 +238,50 @@ out vec4 fragColor;
 
 void main() {
     fragColor = SMAABlendingWeightCalculationPS(vTexCoord, vPixCoord, vOffset, uEdges, uArea, uSearch, vec4(0));
+}
+)";
+}
+
+std::string SMAA::smaa_neighborhood_blending_vs_source() const {
+  return std::string(R"(
+#version 460 core
+
+#define SMAA_INCLUDE_VS 1
+#define SMAA_INCLUDE_PS 0
+)") + kCommonDefines +
+         smaa_lib_ + R"(
+layout (location = 0) in vec3 aPosition;
+layout (location = 1) in vec2 aTexCoord;
+
+out vec4 vOffset;
+out vec2 vTexCoord;
+
+void main() {
+    gl_Position = vec4(aPosition, 1);
+    vTexCoord = aTexCoord;
+    SMAANeighborhoodBlendingVS(vTexCoord, vOffset);
+}
+)";
+}
+
+std::string SMAA::smaa_neighborhood_blending_fs_source() const {
+  return std::string(R"(
+#version 460 core
+
+#define SMAA_INCLUDE_VS 0
+#define SMAA_INCLUDE_PS 1
+)") + kCommonDefines +
+         smaa_lib_ + R"(
+in vec4 vOffset;
+in vec2 vTexCoord;
+
+uniform sampler2D uColor;
+uniform sampler2D uBlend;
+
+out vec4 fragColor;
+
+void main() {
+    fragColor = SMAANeighborhoodBlendingPS(vTexCoord, vOffset, uColor, uBlend);
 }
 )";
 }
