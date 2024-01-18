@@ -17,6 +17,7 @@
 #include "mouse.h"
 #include "multi_draw_indirect.h"
 #include "skybox.h"
+#include "smaa.h"
 #include "utils.h"
 
 using namespace glm;
@@ -25,18 +26,21 @@ using namespace std;
 class Controller : public SightseeingController {
  private:
   DeferredShadingRenderQuad *deferred_shading_render_quad_;
+  SMAA *smaa_;
 
   void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
     SightseeingController::FramebufferSizeCallback(window, width, height);
     deferred_shading_render_quad_->Resize(width, height);
+    smaa_->Resize(width, height);
   }
 
  public:
   Controller(Camera *camera,
              DeferredShadingRenderQuad *deferred_shading_render_quad,
-             uint32_t width, uint32_t height, GLFWwindow *window)
+             SMAA *smaa, uint32_t width, uint32_t height, GLFWwindow *window)
       : SightseeingController(camera, width, height, window),
-        deferred_shading_render_quad_(deferred_shading_render_quad) {
+        deferred_shading_render_quad_(deferred_shading_render_quad),
+        smaa_(smaa) {
     glfwSetFramebufferSizeCallback(
         window, [](GLFWwindow *window, int width, int height) {
           Controller *self = (Controller *)glfwGetWindowUserPointer(window);
@@ -47,6 +51,7 @@ class Controller : public SightseeingController {
 
 std::unique_ptr<MultiDrawIndirect> multi_draw_indirect;
 std::unique_ptr<DeferredShadingRenderQuad> deferred_shading_render_quad_ptr;
+std::unique_ptr<SMAA> smaa_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
@@ -129,12 +134,14 @@ void Init(uint32_t width, uint32_t height) {
   deferred_shading_render_quad_ptr.reset(
       new DeferredShadingRenderQuad(width, height));
 
+  smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
+
   light_sources_ptr = make_unique<LightSources>();
   light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.5), vec3(10)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model("resources/Bistro_v5_2/BistroExterior.fbx",
+  model_ptr.reset(new Model("resources/sponza/sponza.glTF",
                             multi_draw_indirect.get(), true));
   multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(
@@ -149,8 +156,8 @@ void Init(uint32_t width, uint32_t height) {
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
 
   controller_ptr = make_unique<Controller>(
-      camera_ptr.get(), deferred_shading_render_quad_ptr.get(), width, height,
-      window);
+      camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
+      width, height, window);
 
   ImGuiInit();
 }
@@ -206,7 +213,10 @@ int main(int argc, char *argv[]) {
               default_shading_choice, true,
               {{model_ptr.get(), animation_id, animation_time, glm::mat4(1),
                 glm::vec4(0)}});
-        });
+        },
+        smaa_ptr->fbo());
+
+    smaa_ptr->Draw();
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

@@ -282,3 +282,9 @@ void Texture::MakeResident() const { glMakeTextureHandleResidentARB(handle()); }
 void Texture::MakeNonResident() const {
   glMakeTextureHandleNonResidentARB(handle());
 }
+
+Texture Texture::Empty() {
+  Texture empty;
+  empty.target_ = GL_TEXTURE_2D;
+  return empty;
+}

@@ -4,6 +4,8 @@
 
 #include <random>
 
+#include "utils.h"
+
 void DeferredShadingRenderQuad::InitSSAO() {
   std::uniform_real_distribution<float> dis(0.0, 1.0);
   std::default_random_engine generator;
@@ -117,9 +119,16 @@ void DeferredShadingRenderQuad::TwoPasses(
     const Camera* camera, LightSources* light_sources,
     ShadowSources* shadow_sources, bool enable_ssao,
     const std::function<void()>& first_pass,
-    const std::function<void()>& second_pass) {
+    const std::function<void()>& second_pass,
+    const FrameBufferObject* dest_fbo) {
+  if (dest_fbo != nullptr) {
+    dest_fbo->Bind();
+  }
   glViewport(0, 0, width_, height_);
   first_pass();
+  if (dest_fbo != nullptr) {
+    dest_fbo->Unbind();
+  }
 
   glDisable(GL_BLEND);
   fbo_->Bind();
@@ -188,10 +197,11 @@ void DeferredShadingRenderQuad::TwoPasses(
   kShader->SetUniformSampler("positionAndAlpha", fbo_->color_texture(6), 6);
   kShader->SetUniformSampler("flag", fbo_->color_texture(7), 7);
   kShader->SetUniformSampler("depth", fbo_->depth_texture(), 8);
+
   if (enable_ssao) {
     kShader->SetUniformSampler("uSSAO", ssao_blur_fbo_->color_texture(0), 9);
   } else {
-    kShader->SetUniformSampler("uSSAO", Texture(), 9);
+    kShader->SetUniformSampler("uSSAO", Texture::Empty(), 9);
   }
 
   int num_samplers = 10;
@@ -199,7 +209,13 @@ void DeferredShadingRenderQuad::TwoPasses(
   light_sources->Set(kShader.get(), false);
   shadow_sources->Set(kShader.get(), &num_samplers);
 
+  if (dest_fbo != nullptr) {
+    dest_fbo->Bind();
+  }
   glDrawArrays(GL_POINTS, 0, 1);
+  if (dest_fbo != nullptr) {
+    dest_fbo->Unbind();
+  }
 
   glBindVertexArray(0);
   glBindTexture(GL_TEXTURE_2D, 0);

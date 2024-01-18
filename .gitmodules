@@ -19,3 +19,6 @@
 [submodule "third_party/gli"]
 	path = third_party/gli
 	url = https://github.com/g-truc/gli.git
+[submodule "third_party/smaa"]
+	path = third_party/smaa
+	url = https://github.com/iryoku/smaa.git
