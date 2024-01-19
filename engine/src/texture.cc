@@ -25,7 +25,7 @@ Texture Texture::Reference() const {
 void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                                     uint32_t min_filter, uint32_t mag_filter,
                                     const std::vector<float> &border_color,
-                                    bool mipmap, bool flip_y) {
+                                    bool mipmap, bool flip_y, bool srgb) {
   target_ = GL_TEXTURE_2D;
 
   if (ToLower(path.substr(path.size() - 4)) == ".dds") {
@@ -78,11 +78,13 @@ void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
       glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     } else if (comp == 3) {
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGB,
+      uint32_t internal_format = srgb ? GL_SRGB_ALPHA : GL_RGBA;
+      glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, GL_RGB,
                    GL_UNSIGNED_BYTE, image);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     } else if (comp == 4) {
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+      uint32_t internal_format = srgb ? GL_SRGB_ALPHA : GL_RGBA;
+      glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, GL_RGBA,
                    GL_UNSIGNED_BYTE, image);
     }
   }
@@ -108,7 +110,7 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
                                          uint32_t min_filter,
                                          uint32_t mag_filter,
                                          const std::vector<float> &border_color,
-                                         bool mipmap, bool flip_y) {
+                                         bool mipmap, bool flip_y, bool srgb) {
   CHECK(!flip_y) << "CubeMap does not support flipping";
 
   const static std::map<std::string, uint32_t> kTypes = {
@@ -139,13 +141,14 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
       uint8_t *image = SOIL_load_image(image_path.c_str(), &w, &h, &comp, 0);
       if (image == nullptr) throw LoadPictureError(image_path, "");
 
+      uint32_t internal_format = srgb ? GL_SRGB : GL_RGB;
       if (comp == 3) {
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexImage2D(kTypes.at(stem), 0, GL_RGB, w, h, 0, GL_RGB,
+        glTexImage2D(kTypes.at(stem), 0, internal_format, w, h, 0, GL_RGB,
                      GL_UNSIGNED_BYTE, image);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
       } else if (comp == 4) {
-        glTexImage2D(kTypes.at(stem), 0, GL_RGB, w, h, 0, GL_RGBA,
+        glTexImage2D(kTypes.at(stem), 0, internal_format, w, h, 0, GL_RGBA,
                      GL_UNSIGNED_BYTE, image);
       }
 
@@ -178,26 +181,26 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
 
 Texture::Texture(const std::string &path, uint32_t wrap, uint32_t min_filter,
                  uint32_t mag_filter, const std::vector<float> &border_color,
-                 bool mipmap, bool flip_y) {
+                 bool mipmap, bool flip_y, bool srgb) {
   has_ownership_ = true;
   if (fs::is_directory(fs::path(path))) {
     LoadCubeMapTextureFromPath(path, wrap, min_filter, mag_filter, border_color,
-                               mipmap, flip_y);
+                               mipmap, flip_y, srgb);
   } else {
     Load2DTextureFromPath(path, wrap, min_filter, mag_filter, border_color,
-                          mipmap, flip_y);
+                          mipmap, flip_y, srgb);
   }
 }
 
 Texture Texture::LoadFromFS(const std::string &path, uint32_t wrap,
                             uint32_t min_filter, uint32_t mag_filter,
                             const std::vector<float> &border_color, bool mipmap,
-                            bool flip_y) {
+                            bool flip_y, bool srgb) {
   static std::map<std::string, Texture> textures;
 
   if (textures.count(path)) return textures[path];
   Texture texture(path, wrap, min_filter, mag_filter, border_color, mipmap,
-                  flip_y);
+                  flip_y, srgb);
   textures[path] = texture.Reference();
   return texture;
 }

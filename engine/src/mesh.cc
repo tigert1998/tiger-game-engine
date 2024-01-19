@@ -72,7 +72,7 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
       material_.shininess = value;
     }
     aiString material_texture_path;
-#define INTERNAL_ADD_TEXTURE(i, name)                                      \
+#define INTERNAL_ADD_TEXTURE(i, name, srgb)                                \
   do {                                                                     \
     CHECK(textures_[i].type == #name);                                     \
     textures_[i].enabled = true;                                           \
@@ -80,30 +80,30 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     auto item = path + "/" + std::string(material_texture_path.C_Str());   \
     textures_[i].texture =                                                 \
         Texture::LoadFromFS(item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR,      \
-                            GL_LINEAR, {}, true, !flip_y);                 \
+                            GL_LINEAR, {}, true, !flip_y, srgb);           \
   } while (0)
-#define TRY_ADD_TEXTURE(i, name)                                  \
+#define TRY_ADD_TEXTURE(i, name, srgb)                            \
   if (material->GetTextureCount(aiTextureType_##name) >= 1) {     \
     CHECK_EQ(material->GetTextureCount(aiTextureType_##name), 1); \
-    INTERNAL_ADD_TEXTURE(i, name);                                \
+    INTERNAL_ADD_TEXTURE(i, name, srgb);                          \
   }
-#define TRY_ADD_TEXTURE_WITH_BASE_COLOR(i, name)                       \
+#define TRY_ADD_TEXTURE_WITH_BASE_COLOR(i, name, srgb)                 \
   if (material->GetTextureCount(aiTextureType_##name) >= 1) {          \
     CHECK_EQ(material->GetTextureCount(aiTextureType_##name), 1);      \
-    INTERNAL_ADD_TEXTURE(i, name);                                     \
+    INTERNAL_ADD_TEXTURE(i, name, srgb);                               \
     material->Get(AI_MATKEY_TEXBLEND_##name(0), textures_[i].blend);   \
     material->Get(AI_MATKEY_TEXOP_##name(0), textures_[i].op);         \
     aiColor3D color(0.f, 0.f, 0.f);                                    \
     material->Get(AI_MATKEY_COLOR_##name, color);                      \
     textures_[i].base_color = glm::vec3(color[0], color[1], color[2]); \
   }
-    TRY_ADD_TEXTURE_WITH_BASE_COLOR(0, AMBIENT);
-    TRY_ADD_TEXTURE_WITH_BASE_COLOR(1, DIFFUSE);
-    TRY_ADD_TEXTURE_WITH_BASE_COLOR(2, SPECULAR);
-    TRY_ADD_TEXTURE(3, NORMALS);
-    TRY_ADD_TEXTURE(4, METALNESS);
-    TRY_ADD_TEXTURE(5, DIFFUSE_ROUGHNESS);
-    TRY_ADD_TEXTURE(6, AMBIENT_OCCLUSION);
+    TRY_ADD_TEXTURE_WITH_BASE_COLOR(0, AMBIENT, false);
+    TRY_ADD_TEXTURE_WITH_BASE_COLOR(1, DIFFUSE, true);
+    TRY_ADD_TEXTURE_WITH_BASE_COLOR(2, SPECULAR, false);
+    TRY_ADD_TEXTURE(3, NORMALS, false);
+    TRY_ADD_TEXTURE(4, METALNESS, false);
+    TRY_ADD_TEXTURE(5, DIFFUSE_ROUGHNESS, false);
+    TRY_ADD_TEXTURE(6, AMBIENT_OCCLUSION, false);
 #undef INTERNAL_ADD_TEXTURE
 #undef TRY_ADD_TEXTURE
 #undef TRY_ADD_TEXTURE_WITH_BASE_COLOR

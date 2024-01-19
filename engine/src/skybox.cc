@@ -10,7 +10,7 @@ Skybox::Skybox(const std::string &path) {
       new Shader(Skybox::kVsSource, Skybox::kFsSource, {}));
 
   tex_ = Texture::LoadFromFS(path, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {},
-                             false, false);
+                             false, false, true);
 
   glGenVertexArrays(1, &vao_);
   glBindVertexArray(vao_);
@@ -67,6 +67,7 @@ uniform samplerCube uSkyboxTexture;
 
 void main() {
     fragColor = texture(uSkyboxTexture, vTexCoord);
+    fragColor.rgb = pow(fragColor.rgb, vec3(1.0 / 2.2));
 }
 )";
 
