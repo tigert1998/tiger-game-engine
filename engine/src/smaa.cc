@@ -238,6 +238,8 @@ out vec4 fragColor;
 
 void main() {
     fragColor = SMAABlendingWeightCalculationPS(vTexCoord, vPixCoord, vOffset, uEdges, uArea, uSearch, vec4(0));
+    // gamma correction
+    fragColor.rgb = pow(fragColor.rgb, vec3(1.0 / 2.2));
 }
 )";
 }
