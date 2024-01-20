@@ -25,19 +25,20 @@ Texture Texture::Reference() const {
 void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                                     uint32_t min_filter, uint32_t mag_filter,
                                     const std::vector<float> &border_color,
-                                    bool mipmap, bool flip_y) {
+                                    bool mipmap, bool flip_y, bool srgb) {
   target_ = GL_TEXTURE_2D;
 
   if (ToLower(path.substr(path.size() - 4)) == ".dds") {
-    CHECK(!flip_y) << "We do not flip DDS image since it's not supported!";
     gli::texture gli_texture = gli::load_dds(path);
     if (gli_texture.empty()) throw LoadPictureError(path, "");
 
+    if (flip_y) gli_texture = gli::flip(gli_texture);
     gli::gl gl(gli::gl::PROFILE_GL33);
     gli::gl::format format =
         gl.translate(gli_texture.format(), gli_texture.swizzles());
     auto target = gl.translate(gli_texture.target());
-    CHECK(gli::is_compressed(gli_texture.format()) && target == GL_TEXTURE_2D);
+    bool compressed = gli::is_compressed(gli_texture.format());
+    CHECK(target == GL_TEXTURE_2D);
 
     glGenTextures(1, &id_);
     glBindTexture(GL_TEXTURE_2D, id_);
@@ -51,10 +52,16 @@ void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
                    gli_texture.extent(0).y);
     for (auto level = 0; level < gli_texture.levels(); ++level) {
       auto extent = gli_texture.extent(level);
-      glCompressedTexSubImage2D(GL_TEXTURE_2D, static_cast<int32_t>(level), 0,
-                                0, extent.x, extent.y, format.Internal,
-                                static_cast<int32_t>(gli_texture.size(level)),
-                                gli_texture.data(0, 0, level));
+      if (compressed) {
+        glCompressedTexSubImage2D(GL_TEXTURE_2D, static_cast<int32_t>(level), 0,
+                                  0, extent.x, extent.y, format.Internal,
+                                  static_cast<int32_t>(gli_texture.size(level)),
+                                  gli_texture.data(0, 0, level));
+      } else {
+        glTexSubImage2D(GL_TEXTURE_2D, static_cast<int32_t>(level), 0, 0,
+                        extent.x, extent.y, format.External, format.Type,
+                        gli_texture.data(0, 0, level));
+      }
     }
   } else {
     stbi_set_flip_vertically_on_load(flip_y);
@@ -71,11 +78,13 @@ void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
       glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     } else if (comp == 3) {
       glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGB,
+      uint32_t internal_format = srgb ? GL_SRGB_ALPHA : GL_RGBA;
+      glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, GL_RGB,
                    GL_UNSIGNED_BYTE, image);
       glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     } else if (comp == 4) {
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+      uint32_t internal_format = srgb ? GL_SRGB_ALPHA : GL_RGBA;
+      glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, GL_RGBA,
                    GL_UNSIGNED_BYTE, image);
     }
   }
@@ -101,7 +110,7 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
                                          uint32_t min_filter,
                                          uint32_t mag_filter,
                                          const std::vector<float> &border_color,
-                                         bool mipmap, bool flip_y) {
+                                         bool mipmap, bool flip_y, bool srgb) {
   CHECK(!flip_y) << "CubeMap does not support flipping";
 
   const static std::map<std::string, uint32_t> kTypes = {
@@ -132,13 +141,14 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
       uint8_t *image = SOIL_load_image(image_path.c_str(), &w, &h, &comp, 0);
       if (image == nullptr) throw LoadPictureError(image_path, "");
 
+      uint32_t internal_format = srgb ? GL_SRGB : GL_RGB;
       if (comp == 3) {
         glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-        glTexImage2D(kTypes.at(stem), 0, GL_RGB, w, h, 0, GL_RGB,
+        glTexImage2D(kTypes.at(stem), 0, internal_format, w, h, 0, GL_RGB,
                      GL_UNSIGNED_BYTE, image);
         glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
       } else if (comp == 4) {
-        glTexImage2D(kTypes.at(stem), 0, GL_RGB, w, h, 0, GL_RGBA,
+        glTexImage2D(kTypes.at(stem), 0, internal_format, w, h, 0, GL_RGBA,
                      GL_UNSIGNED_BYTE, image);
       }
 
@@ -171,26 +181,26 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
 
 Texture::Texture(const std::string &path, uint32_t wrap, uint32_t min_filter,
                  uint32_t mag_filter, const std::vector<float> &border_color,
-                 bool mipmap, bool flip_y) {
+                 bool mipmap, bool flip_y, bool srgb) {
   has_ownership_ = true;
   if (fs::is_directory(fs::path(path))) {
     LoadCubeMapTextureFromPath(path, wrap, min_filter, mag_filter, border_color,
-                               mipmap, flip_y);
+                               mipmap, flip_y, srgb);
   } else {
     Load2DTextureFromPath(path, wrap, min_filter, mag_filter, border_color,
-                          mipmap, flip_y);
+                          mipmap, flip_y, srgb);
   }
 }
 
 Texture Texture::LoadFromFS(const std::string &path, uint32_t wrap,
                             uint32_t min_filter, uint32_t mag_filter,
                             const std::vector<float> &border_color, bool mipmap,
-                            bool flip_y) {
+                            bool flip_y, bool srgb) {
   static std::map<std::string, Texture> textures;
 
   if (textures.count(path)) return textures[path];
   Texture texture(path, wrap, min_filter, mag_filter, border_color, mipmap,
-                  flip_y);
+                  flip_y, srgb);
   textures[path] = texture.Reference();
   return texture;
 }
@@ -281,4 +291,10 @@ void Texture::MakeResident() const { glMakeTextureHandleResidentARB(handle()); }
 
 void Texture::MakeNonResident() const {
   glMakeTextureHandleNonResidentARB(handle());
+}
+
+Texture Texture::Empty(uint32_t target) {
+  Texture empty;
+  empty.target_ = target;
+  return empty;
 }

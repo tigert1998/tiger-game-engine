@@ -24,32 +24,32 @@ struct TextureVisualizer {
 
  public:
   TextureVisualizer() {
-    shader_ = ScreenSpaceShader(kFsSource);
+    shader_ = ScreenSpaceShader(kFsSource, {});
     glGenVertexArrays(1, &vao_);
   }
 
-  void Draw(uint32_t target, uint32_t texture_id, float depth, uint32_t axis,
-            uint32_t width, uint32_t height) {
+  void Draw(const Texture &texture, float depth, uint32_t axis, uint32_t width,
+            uint32_t height) {
     glBindVertexArray(vao_);
     shader_->Use();
 
-    glActiveTexture(GL_TEXTURE0);
-    if (target == GL_TEXTURE_2D) {
-      glBindTexture(GL_TEXTURE_2D, texture_id);
-      shader_->SetUniform<int32_t>("uSampler", 0);
+    if (texture.target() == GL_TEXTURE_2D) {
+      shader_->SetUniformSampler("uSampler", texture, 0);
+      shader_->SetUniformSampler("uSampler3D", Texture::Empty(GL_TEXTURE_3D),
+                                 1);
       shader_->SetUniform<int32_t>("uIs3D", 0);
-    } else if (target == GL_TEXTURE_3D) {
-      glBindTexture(GL_TEXTURE_3D, texture_id);
-      shader_->SetUniform<int32_t>("uSampler3D", 0);
+    } else if (texture.target() == GL_TEXTURE_3D) {
+      shader_->SetUniformSampler("uSampler", Texture::Empty(GL_TEXTURE_2D), 0);
+      shader_->SetUniformSampler("uSampler3D", texture, 1);
       shader_->SetUniform<int32_t>("uIs3D", 1);
     }
+
     shader_->SetUniform<float>("uDepth", depth);
     shader_->SetUniform<uint32_t>("uAxis", axis);
     shader_->SetUniform<glm::vec2>("uScreenSize", glm::vec2(width, height));
 
     glDrawArrays(GL_POINTS, 0, 1);
     glBindVertexArray(0);
-    glBindTexture(target, 0);
   }
 };
 
@@ -170,16 +170,13 @@ int main(int argc, char *argv[]) {
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     if (texture_item == 0) {
-      texture_visualizer->Draw(GL_TEXTURE_3D,
-                               texture_generator->perlin_worley_texture_id(),
+      texture_visualizer->Draw(texture_generator->perlin_worley_texture(),
                                depth, axis, width, height);
     } else if (texture_item == 1) {
-      texture_visualizer->Draw(GL_TEXTURE_3D,
-                               texture_generator->worley_texture_id(), depth,
-                               axis, width, height);
+      texture_visualizer->Draw(texture_generator->worley_texture(), depth, axis,
+                               width, height);
     } else if (texture_item == 2) {
-      texture_visualizer->Draw(GL_TEXTURE_2D,
-                               texture_generator->weather_texture_id(), depth,
+      texture_visualizer->Draw(texture_generator->weather_texture(), depth,
                                axis, width, height);
     }
 

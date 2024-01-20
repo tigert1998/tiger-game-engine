@@ -214,6 +214,12 @@ vec3 CalcPhongLighting(
         color += CalcSpecular(uPointLights.l[i].pos - position, normal, cameraPosition - position, shininess, ks) *
             pointLightColor * (1 - shadow);
     }
+
+    // tone mapping
+    color = color / (color + vec3(1.0));
+    // gamma correction
+    color = pow(color, vec3(1.0 / 2.2));
+
     return color;
 }
 
@@ -311,7 +317,9 @@ vec3 CalcPBRLighting(
         ) * (1 - shadow);
     }
 
+    // tone mapping
     color = color / (color + vec3(1.0));
+    // gamma correction
     color = pow(color, vec3(1.0 / 2.2));
 
     return color;

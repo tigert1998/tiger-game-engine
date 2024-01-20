@@ -106,7 +106,7 @@ Grassland::Grassland(const std::string& terrain_model_path,
     : blade_(std::make_unique<Blade>()) {
   distortion_texture_ =
       Texture(distortion_texture_path, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR,
-              GL_LINEAR, {}, true, false);
+              GL_LINEAR, {}, true, false, false);
 
   // load mesh and prepare data
 
