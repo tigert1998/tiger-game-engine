@@ -98,7 +98,7 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     textures_[i].base_color = glm::vec3(color[0], color[1], color[2]); \
   }
     TRY_ADD_TEXTURE_WITH_BASE_COLOR(0, AMBIENT, false);
-    TRY_ADD_TEXTURE_WITH_BASE_COLOR(1, DIFFUSE, true);
+    TRY_ADD_TEXTURE_WITH_BASE_COLOR(1, DIFFUSE, false);
     TRY_ADD_TEXTURE_WITH_BASE_COLOR(2, SPECULAR, false);
     TRY_ADD_TEXTURE(3, NORMALS, false);
     TRY_ADD_TEXTURE(4, METALNESS, false);
