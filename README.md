@@ -18,6 +18,9 @@ cmake \
     ..
 ```
 
+Besides, if you are using a NVIDIA GPU, don't forget to go to NVIDIA control panel
+and set "OpenGL GDI compatibility" to "Compatibility first".
+
 ## Supported Features
 
 - Clouds
@@ -32,3 +35,5 @@ cmake \
 - Order Independent Transparency
 - Cascaded shadow mapping
 - Skybox
+- SMAA
+
