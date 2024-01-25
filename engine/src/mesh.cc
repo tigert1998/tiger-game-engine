@@ -142,6 +142,16 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
       indices_[0].push_back(face.mIndices[j]);
   }
 
+  // generate AABB
+  // TODO(xiaohu): consider bone animation
+  aabb_.min = glm::vec3((std::numeric_limits<float>::max)());
+  aabb_.max = glm::vec3(std::numeric_limits<float>::lowest());
+  for (int i = 0; i < indices_[0].size(); i++) {
+    const auto &vertex = vertices_[indices_[0][i]];
+    aabb_.min = (glm::min)(vertex.position, aabb_.min);
+    aabb_.max = (glm::max)(vertex.position, aabb_.max);
+  }
+
   for (int i = 0; i < mesh->mNumBones; i++) {
     auto bone = mesh->mBones[i];
     auto id = bone_namer->Name(bone->mName.C_Str());

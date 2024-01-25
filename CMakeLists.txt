@@ -27,3 +27,6 @@ target_link_libraries(clouds-demo engine)
 
 add_executable(px-demo "apps/px-demo/src/main.cc")
 target_link_libraries(px-demo engine)
+
+add_executable(instancing-demo "apps/instancing-demo/src/main.cc")
+target_link_libraries(instancing-demo engine)

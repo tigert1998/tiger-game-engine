@@ -14,7 +14,7 @@
 namespace fs = std::filesystem;
 
 Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
-             bool flip_y)
+             uint32_t item_count, bool flip_y)
     : directory_path_(fs::path::path(path).parent_path().string()),
       flip_y_(flip_y),
       multi_draw_indirect_(multi_draw_indirect) {
@@ -23,7 +23,7 @@ Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
   LOG(INFO) << "loading model at: \"" << path << "\"";
 
   uint32_t flags = aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
-                   aiProcess_Triangulate | aiProcess_SplitLargeMeshes;
+                   aiProcess_Triangulate;  // aiProcess_SplitLargeMeshes
   if (flip_y_) flags |= aiProcess_FlipUVs;
   importer_.SetPropertyInteger(AI_CONFIG_PP_SLM_TRIANGLE_LIMIT, 8192);
   scene_ = importer_.ReadFile(path.c_str(), flags);
@@ -37,15 +37,22 @@ Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
 
   bone_matrices_.resize(bone_namer_.total());
 
-  multi_draw_indirect_->ModelBeginSubmission(this);
+  multi_draw_indirect_->ModelBeginSubmission(this, item_count,
+                                             bone_matrices_.size());
   for (int i = 0; i < meshes_.size(); i++) {
     if (meshes_[i] == nullptr) continue;
     meshes_[i]->SubmitToMultiDrawIndirect();
   }
-  multi_draw_indirect_->ModelEndSubmission(this, bone_matrices_.size());
+  multi_draw_indirect_->ModelEndSubmission();
 }
 
 Model::~Model() {}
+
+double Model::AnimationDurationInSeconds(int animation_id) const {
+  if (animation_id < 0 || animation_id >= NumAnimations()) return 0;
+  auto animation = scene_->mAnimations[animation_id];
+  return animation->mDuration / animation->mTicksPerSecond;
+}
 
 void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
   auto node_transform = Mat4FromAimatrix4x4(node->mTransformation);

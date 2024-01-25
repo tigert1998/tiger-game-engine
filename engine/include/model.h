@@ -2,6 +2,7 @@
 #define MODEL_H_
 
 #include <assimp/scene.h>
+#include <stdint.h>
 
 #include <assimp/Importer.hpp>
 #include <map>
@@ -22,8 +23,9 @@ class Model {
 
   Model() = delete;
   Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
-        bool flip_y);
+        uint32_t item_count, bool flip_y);
   int NumAnimations() const;
+  double AnimationDurationInSeconds(int animation_id) const;
   ~Model();
 
  private:

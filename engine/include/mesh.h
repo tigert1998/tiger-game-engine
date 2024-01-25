@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "aabb.h"
 #include "multi_draw_indirect.h"
 #include "texture.h"
 
@@ -34,6 +35,7 @@ class Mesh {
   void SubmitToMultiDrawIndirect();
 
  private:
+  AABB aabb_;
   std::vector<glm::mat4> transforms_;
   std::string name_;
   bool has_bone_ = false;
