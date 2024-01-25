@@ -23,7 +23,7 @@ Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
   LOG(INFO) << "loading model at: \"" << path << "\"";
 
   uint32_t flags = aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
-                   aiProcess_Triangulate;  // aiProcess_SplitLargeMeshes
+                   aiProcess_Triangulate;
   if (flip_y_) flags |= aiProcess_FlipUVs;
   importer_.SetPropertyInteger(AI_CONFIG_PP_SLM_TRIANGLE_LIMIT, 8192);
   scene_ = importer_.ReadFile(path.c_str(), flags);

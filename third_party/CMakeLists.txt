@@ -22,6 +22,7 @@ if(USE_SYSTEM_ASSIMP)
     target_include_directories(assimp INTERFACE "${ASSIMP_INCLUDE_DIRS}")
     target_link_libraries(assimp INTERFACE "${ASSIMP_LIBRARY_DIRS}/${ASSIMP_LIBRARIES}")
 else()
+    set(ASSIMP_BUILD_ZLIB ON)
     add_subdirectory(assimp)
     if(MSVC)
         target_compile_options(assimp PRIVATE /WX-) # disable WX

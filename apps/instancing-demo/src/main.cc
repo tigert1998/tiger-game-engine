@@ -132,15 +132,16 @@ void Init(uint32_t width, uint32_t height) {
   smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
 
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.5), vec3(10)));
+  light_sources_ptr->Add(make_unique<Directional>(vec3(0, 1, 0), vec3(1)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model("resources/dragon/dragon.fbx",
-                            multi_draw_indirect.get(), 9, true));
+  model_ptr.reset(new Model(
+      "resources/Silver Dragonkin (Mir4)/source/Mon_BlackDragon31_Skeleton.FBX",
+      multi_draw_indirect.get(), 9, true));
   multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(
-      vec3(7, 9, 0), static_cast<double>(width) / height,
+      vec3(0.247, 0.838, 3.178), static_cast<double>(width) / height,
       -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
   camera_ptr->set_front(-camera_ptr->position());
 
@@ -168,8 +169,9 @@ ConstructRenderTargetParameters() {
                               floor(item_animation_time / duration) * duration;
       }
       glm::mat4 transform =
-          glm::translate(glm::vec3((x - 1) * 5, (y - 1) * 5, 0)) *
-          glm::scale(glm::vec3(0.05, 0.05, 0.05));
+          glm::translate(glm::vec3((x - 1), (y - 1), 0)) *
+          glm::scale(glm::vec3(0.1f)) *
+          glm::rotate(glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0));
       param.items.push_back(
           {animation_id, item_animation_time, transform, glm::vec4(0)});
     }
