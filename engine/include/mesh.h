@@ -41,7 +41,7 @@ class Mesh {
 
   std::vector<TextureRecord> textures_;
   std::vector<VertexWithBones> vertices_;
-  std::vector<uint32_t> indices_;
+  std::vector<std::vector<uint32_t>> indices_;  // LODs
   PhongMaterial material_;
 };
 

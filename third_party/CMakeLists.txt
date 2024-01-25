@@ -68,3 +68,6 @@ target_link_libraries(
     PhysXCooking_64
     PhysXCharacterKinematic_static_64
 )
+
+# Mesh Optimizer
+add_subdirectory(meshoptimizer)

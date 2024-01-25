@@ -2,6 +2,10 @@
 
 #include <glad/glad.h>
 #include <glog/logging.h>
+#include <meshoptimizer.h>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include "utils.h"
 #include "vertex.h"
@@ -109,11 +113,6 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
 #undef TRY_ADD_TEXTURE_WITH_BASE_COLOR
   }
 
-  LOG(INFO) << "\"" << name_ << "\": #vertices: " << mesh->mNumVertices
-            << ", #faces: " << mesh->mNumFaces << ", has tex coords? "
-            << std::boolalpha << mesh->HasTextureCoords(0) << ", has normals? "
-            << mesh->HasNormals();
-
   vertices_.reserve(mesh->mNumVertices);
   indices_.reserve(mesh->mNumFaces * 3);
 
@@ -136,10 +135,11 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
     vertices_.push_back(vertex);
   }
 
+  indices_.resize(1);
   for (int i = 0; i < mesh->mNumFaces; i++) {
     auto face = mesh->mFaces[i];
     for (int j = 0; j < face.mNumIndices; j++)
-      indices_.push_back(face.mIndices[j]);
+      indices_[0].push_back(face.mIndices[j]);
   }
 
   for (int i = 0; i < mesh->mNumBones; i++) {
@@ -155,6 +155,39 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
       has_bone_ = true;
     }
   }
+
+  for (int i = 1; i <= 7; i++) {
+    if (indices_[i - 1].size() <= 1024 * 3) break;
+    indices_.push_back({});
+    indices_[i].resize(indices_[i - 1].size());
+    float threshold = 0.5f;
+    size_t target_index_count = size_t(indices_[i - 1].size() * threshold);
+    float target_error = 0.2;
+    uint32_t options = 0;
+    float lod_error;
+    indices_[i].resize(meshopt_simplifySloppy(
+        indices_[i].data(), indices_[i - 1].data(), indices_[i - 1].size(),
+        glm::value_ptr(vertices_[0].position), vertices_.size(),
+        sizeof(vertices_[0]), target_index_count, target_error, &lod_error));
+
+    if (indices_[i].size() == indices_[i - 1].size()) {
+      // meshopt stops early
+      indices_.resize(i);
+      break;
+    }
+  }
+
+  std::string lod_log_str = "LOD: [";
+  for (int i = 0; i < indices_.size(); i++) {
+    lod_log_str += std::to_string(indices_[i].size());
+    if (i < indices_.size() - 1) lod_log_str += ", ";
+  }
+  lod_log_str += "]";
+  LOG(INFO) << "\"" << name_ << "\": #vertices: " << mesh->mNumVertices
+            << ", #faces: " << mesh->mNumFaces << ", " << lod_log_str
+            << ", has tex coords? " << std::boolalpha
+            << mesh->HasTextureCoords(0) << ", has normals? "
+            << mesh->HasNormals();
 }
 
 void Mesh::AppendTransform(glm::mat4 transform) {
@@ -162,6 +195,6 @@ void Mesh::AppendTransform(glm::mat4 transform) {
 }
 
 void Mesh::SubmitToMultiDrawIndirect() {
-  multi_draw_indirect_->Receive(vertices_, indices_, textures_, material_,
+  multi_draw_indirect_->Receive(vertices_, indices_[0], textures_, material_,
                                 has_bone_, transforms_[0]);
 }

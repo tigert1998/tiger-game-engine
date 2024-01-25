@@ -1,6 +1,5 @@
 #include "model.h"
 
-#include <assimp/cimport.h>
 #include <assimp/postprocess.h>
 #include <glad/glad.h>
 #include <glog/logging.h>
@@ -24,9 +23,10 @@ Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
   LOG(INFO) << "loading model at: \"" << path << "\"";
 
   uint32_t flags = aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
-                   aiProcess_Triangulate;
+                   aiProcess_Triangulate | aiProcess_SplitLargeMeshes;
   if (flip_y_) flags |= aiProcess_FlipUVs;
-  scene_ = aiImportFile(path.c_str(), flags);
+  importer_.SetPropertyInteger(AI_CONFIG_PP_SLM_TRIANGLE_LIMIT, 8192);
+  scene_ = importer_.ReadFile(path.c_str(), flags);
 
   InitAnimationChannelMap();
 
@@ -45,7 +45,7 @@ Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
   multi_draw_indirect_->ModelEndSubmission(this, bone_matrices_.size());
 }
 
-Model::~Model() { aiReleaseImport(scene_); }
+Model::~Model() {}
 
 void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
   auto node_transform = Mat4FromAimatrix4x4(node->mTransformation);
@@ -61,9 +61,8 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
                                    &bone_offsets_, flip_y_,
                                    multi_draw_indirect_));
       } catch (std::exception &e) {
-        meshes_[id] = nullptr;
-        LOG(WARNING) << "not loading mesh \"" << mesh->mName.C_Str()
-                     << "\" because an exception is thrown: " << e.what();
+        LOG(FATAL) << "not loading mesh \"" << mesh->mName.C_Str()
+                   << "\" because an exception is thrown: " << e.what();
       }
     }
     if (meshes_[id] != nullptr) {

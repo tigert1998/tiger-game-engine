@@ -5,22 +5,11 @@
 
 #include <algorithm>
 #include <functional>
-#include <glm/glm.hpp>
 #include <memory>
 #include <string>
 #include <vector>
 
-#include "camera.h"
-
-struct AABB {
-  glm::vec3 min, max;
-
-  inline glm::vec3 center() const { return (max + min) * 0.5f; }
-  inline glm::vec3 extents() const { return max - center(); }
-
-  bool IsOnOrForwardPlane(const FrustumPlane& plane) const;
-  bool IsOnFrustum(const Frustum& frustum) const;
-};
+#include "aabb.h"
 
 struct BVHNode {
   AABB aabb;

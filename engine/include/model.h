@@ -3,6 +3,7 @@
 
 #include <assimp/scene.h>
 
+#include <assimp/Importer.hpp>
 #include <map>
 #include <memory>
 #include <string>
@@ -26,6 +27,7 @@ class Model {
   ~Model();
 
  private:
+  Assimp::Importer importer_;
   std::string directory_path_;
   bool flip_y_;
   const aiScene *scene_;

@@ -143,7 +143,7 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model("resources/sponza/sponza.glTF",
+  model_ptr.reset(new Model("resources/Bistro_v5_2/BistroExterior.fbx",
                             multi_draw_indirect.get(), true));
   multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(

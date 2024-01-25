@@ -1,4 +1,4 @@
-#include "bvh.h"
+#include "aabb.h"
 
 #include <iostream>
 
