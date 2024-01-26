@@ -60,6 +60,8 @@ std::unique_ptr<ShadowSources> shadow_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
 std::unique_ptr<Controller> controller_ptr;
 
+const int kNumModelItems = 36;
+
 double animation_time = 0;
 int animation_id = 0;
 int default_shading_choice = 0;
@@ -138,16 +140,16 @@ void Init(uint32_t width, uint32_t height) {
   multi_draw_indirect.reset(new MultiDrawIndirect());
   model_ptr.reset(new Model(
       "resources/Silver Dragonkin (Mir4)/source/Mon_BlackDragon31_Skeleton.FBX",
-      multi_draw_indirect.get(), 9, true));
+      multi_draw_indirect.get(), kNumModelItems, true));
   multi_draw_indirect->PrepareForDraw();
-  camera_ptr = make_unique<Camera>(
-      vec3(0.247, 0.838, 3.178), static_cast<double>(width) / height,
-      -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
+  camera_ptr = make_unique<Camera>(vec3(0.087, 8.209, 31.708),
+                                   static_cast<double>(width) / height, -1.687,
+                                   -0.281, glm::radians(60.f), 0.1, 500);
   camera_ptr->set_front(-camera_ptr->position());
 
   shadow_sources_ptr = make_unique<ShadowSources>(camera_ptr.get());
 
-  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
+  skybox_ptr = make_unique<Skybox>("resources/skyboxes/learnopengl");
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
@@ -160,21 +162,23 @@ std::vector<MultiDrawIndirect::RenderTargetParameter>
 ConstructRenderTargetParameters() {
   MultiDrawIndirect::RenderTargetParameter param;
   param.model = model_ptr.get();
-  for (int x = 0; x < 3; x++)
-    for (int y = 0; y < 3; y++) {
-      double item_animation_time = x * 3 + y + animation_time;
-      double duration = model_ptr->AnimationDurationInSeconds(animation_id);
-      if (duration > 0) {
-        item_animation_time = item_animation_time -
-                              floor(item_animation_time / duration) * duration;
-      }
-      glm::mat4 transform =
-          glm::translate(glm::vec3((x - 1), (y - 1), 0)) *
-          glm::scale(glm::vec3(0.1f)) *
-          glm::rotate(glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0));
-      param.items.push_back(
-          {animation_id, item_animation_time, transform, glm::vec4(0)});
+  float pi = glm::pi<float>();
+  for (int i = 0; i < kNumModelItems; i++) {
+    double t = 2 * pi / kNumModelItems * i;
+    double item_animation_time = t + animation_time;
+    double duration = model_ptr->AnimationDurationInSeconds(animation_id);
+    if (duration > 0) {
+      item_animation_time = item_animation_time -
+                            floor(item_animation_time / duration) * duration;
     }
+    float x = 16 * pow(sin(t), 3);
+    float y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t);
+    glm::mat4 transform =
+        glm::translate(glm::vec3(x, y, 0)) * glm::scale(glm::vec3(0.2f)) *
+        glm::rotate(glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0));
+    param.items.push_back(
+        {animation_id, item_animation_time, transform, glm::vec4(0)});
+  }
   return {param};
 }
 
