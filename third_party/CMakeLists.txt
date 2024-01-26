@@ -22,10 +22,9 @@ if(USE_SYSTEM_ASSIMP)
     target_include_directories(assimp INTERFACE "${ASSIMP_INCLUDE_DIRS}")
     target_link_libraries(assimp INTERFACE "${ASSIMP_LIBRARY_DIRS}/${ASSIMP_LIBRARIES}")
 else()
+    set(ASSIMP_BUILD_ZLIB ON)
     add_subdirectory(assimp)
-    if(MSVC)
-        target_compile_options(assimp PRIVATE /WX-) # disable WX
-    endif()
+    target_compile_options(assimp PRIVATE "$<$<C_COMPILER_ID:MSVC>:/WX->")
 endif()
 
 # gli
@@ -68,3 +67,6 @@ target_link_libraries(
     PhysXCooking_64
     PhysXCharacterKinematic_static_64
 )
+
+# Mesh Optimizer
+add_subdirectory(meshoptimizer)

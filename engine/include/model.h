@@ -2,7 +2,10 @@
 #define MODEL_H_
 
 #include <assimp/scene.h>
+#include <stdint.h>
 
+#include <assimp/Importer.hpp>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -20,13 +23,16 @@ class Model {
   using TextureConfig = std::map<std::string, bool>;
 
   Model() = delete;
-  Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
+  Model(const std::filesystem::path &path,
+        MultiDrawIndirect *multi_draw_indirect, uint32_t item_count,
         bool flip_y);
   int NumAnimations() const;
+  double AnimationDurationInSeconds(int animation_id) const;
   ~Model();
 
  private:
-  std::string directory_path_;
+  Assimp::Importer importer_;
+  std::filesystem::path directory_path_;
   bool flip_y_;
   const aiScene *scene_;
   std::map<std::pair<uint32_t, std::string>, uint32_t> animation_channel_map_;

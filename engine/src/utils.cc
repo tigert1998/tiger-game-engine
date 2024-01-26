@@ -31,15 +31,28 @@ std::string SnakeToPascal(const std::string &name) {
   return ans;
 }
 
-std::string ReadFile(const std::string &file_path) {
-  std::ifstream ifs(file_path);
-  std::string content((std::istreambuf_iterator<char>(ifs)),
-                      (std::istreambuf_iterator<char>()));
-  return content;
+std::string ReadFile(const std::filesystem::path &file_path, bool binary) {
+  if (binary) {
+    std::ifstream file(file_path, std::ios::binary | std::ios::ate);
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::string buffer;
+    buffer.resize(size);
+    file.read(buffer.data(), size);
+    return buffer;
+  } else {
+    std::ifstream ifs(file_path);
+    ifs.seekg(0, std::ios::end);
+    size_t size = ifs.tellg();
+    std::string content(size, ' ');
+    ifs.seekg(0);
+    ifs.read(content.data(), size);
+    return content;
+  }
 }
 
 std::string ToLower(const std::string &str) {
   std::string ans;
-  std::transform(str.begin(), str.end(), std::back_inserter(ans), std::tolower);
+  for (int i = 0; i < str.size(); i++) ans.push_back(std::tolower(str[i]));
   return ans;
 }

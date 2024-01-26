@@ -20,6 +20,10 @@ class SSBO {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index_, id_);
   }
 
+  inline void BindBufferBase(uint32_t index) {
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index, id_);
+  }
+
   inline uint32_t id() const { return id_; }
 
   inline ~SSBO() { glDeleteBuffers(1, &id_); }

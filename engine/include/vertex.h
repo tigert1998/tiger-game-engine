@@ -8,7 +8,7 @@
 #include "cg_exception.h"
 
 #define IMPLEMENT_METHODS                                         \
-  int bone_ids[MaxBonesPerVertex];                                \
+  int32_t bone_ids[MaxBonesPerVertex];                            \
   float bone_weights[MaxBonesPerVertex];                          \
   Vertex() {                                                      \
     std::fill(bone_ids, bone_ids + MaxBonesPerVertex, -1);        \

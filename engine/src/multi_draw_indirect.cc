@@ -11,42 +11,50 @@
 
 void MultiDrawIndirect::CheckRenderTargetParameter(
     const std::vector<RenderTargetParameter> &render_target_params) {
-  const std::string error_message =
+  const std::string all_models_must_present_error_message =
       "all models must be present in the parameters";
   for (const auto &param : render_target_params) {
-    CHECK(model_to_bone_matrices_offset_.count(param.model) >= 1)
-        << error_message;
+    CHECK(model_to_item_count_.count(param.model) >= 1)
+        << all_models_must_present_error_message;
+    CHECK(model_to_item_count_[param.model] == param.items.size())
+        << "model item count mismatch";
   }
-  CHECK(model_to_bone_matrices_offset_.size() == render_target_params.size())
-      << error_message;
+  CHECK(model_to_item_count_.size() == render_target_params.size())
+      << all_models_must_present_error_message;
 }
 
 void MultiDrawIndirect::UpdateBuffers(
     const std::vector<RenderTargetParameter> &render_target_params) {
   for (const auto &param : render_target_params) {
-    bool model_is_animated = 0 <= param.animation_id &&
-                             param.animation_id < param.model->NumAnimations();
+    for (int item_idx = 0; item_idx < param.items.size(); item_idx++) {
+      const auto &item = param.items[item_idx];
+      bool item_is_animated = 0 <= item.animation_id &&
+                              item.animation_id < param.model->NumAnimations();
 
-    if (model_is_animated) {
-      param.model->RecursivelyUpdateBoneMatrices(
-          param.animation_id, param.model->scene_->mRootNode, glm::mat4(1),
-          param.time * param.model->scene_->mAnimations[param.animation_id]
-                           ->mTicksPerSecond);
-      uint32_t offset = model_to_bone_matrices_offset_[param.model];
-      std::copy(param.model->bone_matrices_.begin(),
-                param.model->bone_matrices_.end(),
-                bone_matrices_.begin() + offset);
-    }
+      if (item_is_animated) {
+        param.model->RecursivelyUpdateBoneMatrices(
+            item.animation_id, param.model->scene_->mRootNode, glm::mat4(1),
+            item.time * param.model->scene_->mAnimations[item.animation_id]
+                            ->mTicksPerSecond);
+        uint32_t offset =
+            item_to_bone_matrices_offset_[{param.model, item_idx}];
+        std::copy(param.model->bone_matrices_.begin(),
+                  param.model->bone_matrices_.end(),
+                  bone_matrices_.begin() + offset);
+      }
 
-    uint32_t instance_offset = model_to_instance_count_[param.model];
-    for (int i = 0, j = 0; i < param.model->meshes_.size(); i++) {
-      if (param.model->meshes_[i] == nullptr) continue;
-      // animated
-      animated_[instance_offset + j] =
-          has_bone_[instance_offset + j] && model_is_animated;
-      model_matrices_[instance_offset + j] = param.model_matrix;
-      clip_planes_[instance_offset + j] = param.clip_plane;
-      j++;
+      uint32_t instance_offset =
+          item_to_instance_offset_[{param.model, item_idx}];
+      uint32_t item_count = param.items.size();
+      for (int i = 0, j = 0; i < param.model->meshes_.size(); i++) {
+        if (param.model->meshes_[i] == nullptr) continue;
+        // animated
+        animated_[instance_offset + j * item_count] =
+            has_bone_[instance_offset + j * item_count] && item_is_animated;
+        model_matrices_[instance_offset + j * item_count] = item.model_matrix;
+        clip_planes_[instance_offset + j * item_count] = item.clip_plane;
+        j++;
+      }
     }
   }
 
@@ -227,11 +235,9 @@ void MultiDrawIndirect::Receive(
     const std::vector<uint32_t> &indices,
     const std::vector<TextureRecord> &texture_records,
     const PhongMaterial &phong_material, bool has_bone, glm::mat4 transform) {
-  uint32_t instance_count = 1;
-
   DrawElementsIndirectCommand cmd;
   cmd.count = indices.size();
-  cmd.instance_count = instance_count;
+  cmd.instance_count = submission_cache_.item_count;
   cmd.first_index = indices_.size();
   cmd.base_vertex = vertices_.size();
   cmd.base_instance = num_instances_;
@@ -254,18 +260,19 @@ void MultiDrawIndirect::Receive(
   material.shininess = phong_material.shininess;
   CHECK(texture_records[4].type == "METALNESS" &&
         texture_records[5].type == "DIFFUSE_ROUGHNESS");
-  material.bindMetalnessAndDiffuseRoughness =
+  material.bind_metalness_and_diffuse_roughness =
       texture_records[4].enabled && texture_records[5].enabled &&
       texture_records[4].texture.id() == texture_records[5].texture.id();
 
-  for (int i = 0; i < instance_count; i++) {
+  for (int i = 0; i < submission_cache_.item_count; i++) {
     materials_.push_back(material);
-    bone_matrices_offset_.push_back(num_bone_matrices_);
+    bone_matrices_offset_.push_back(num_bone_matrices_ +
+                                    submission_cache_.num_bone_matrices * i);
     has_bone_.push_back(has_bone);
     transforms_.push_back(transform);
   }
 
-  num_instances_ += instance_count;
+  num_instances_ += submission_cache_.item_count;
 
   commands_.push_back(cmd);
 }

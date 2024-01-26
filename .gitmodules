@@ -22,3 +22,6 @@
 [submodule "third_party/smaa"]
 	path = third_party/smaa
 	url = https://github.com/iryoku/smaa.git
+[submodule "third_party/meshoptimizer"]
+	path = third_party/meshoptimizer
+	url = https://github.com/zeux/meshoptimizer.git

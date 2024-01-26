@@ -80,7 +80,7 @@ SMAA::~SMAA() {
 }
 
 SMAA::SMAA(const std::string &smaa_repo_path, uint32_t width, uint32_t height) {
-  smaa_lib_ = ReadFile(smaa_repo_path + "/SMAA.hlsl");
+  smaa_lib_ = ReadFile(smaa_repo_path + "/SMAA.hlsl", false);
 
   Resize(width, height);
   PrepareVertexData();

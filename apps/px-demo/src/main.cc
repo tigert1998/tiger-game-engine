@@ -210,7 +210,7 @@ void Init(uint32_t width, uint32_t height) {
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
   scene_model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
-                                       multi_draw_indirect.get(), false);
+                                       multi_draw_indirect.get(), 1, false);
   multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
@@ -265,7 +265,8 @@ int main(int argc, char *argv[]) {
     // draw depth map first
     shadow_sources_ptr->DrawDepthForShadow([](Shadow *shadow) {
       multi_draw_indirect->DrawDepthForShadow(
-          shadow, {{scene_model_ptr.get(), -1, 0, glm::mat4(1), glm::vec4(0)}});
+          shadow,
+          {{scene_model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
     });
 
     oit_render_quad_ptr->TwoPasses(
@@ -279,7 +280,7 @@ int main(int argc, char *argv[]) {
               camera_ptr.get(), light_sources_ptr.get(),
               shadow_sources_ptr.get(), oit_render_quad_ptr.get(), false, false,
               true,
-              {{scene_model_ptr.get(), -1, 0, glm::mat4(1), glm::vec4(0)}});
+              {{scene_model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
         },
         nullptr);
 

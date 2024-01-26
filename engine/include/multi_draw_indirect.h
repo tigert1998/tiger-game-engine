@@ -40,7 +40,8 @@ struct TextureRecord {
         blend(blend),
         base_color(base_color) {}
 
-  inline TextureRecord(TextureRecord &record)
+  template <typename T>
+  inline TextureRecord(T &&record)
       : type(record.type),
         enabled(record.enabled),
         texture(record.texture),
@@ -68,10 +69,13 @@ class MultiDrawIndirect {
  public:
   struct RenderTargetParameter {
     Model *model;
-    int32_t animation_id;
-    double time;
-    glm::mat4 model_matrix;
-    glm::vec4 clip_plane;
+    struct ItemParameter {
+      int32_t animation_id;
+      double time;
+      glm::mat4 model_matrix;
+      glm::vec4 clip_plane;
+    };
+    std::vector<ItemParameter> items;
   };
 
   void Receive(const std::vector<VertexWithBones> &vertices,
@@ -80,13 +84,30 @@ class MultiDrawIndirect {
                const PhongMaterial &phong_material, bool has_bone,
                glm::mat4 transform);
 
-  inline void ModelBeginSubmission(Model *model) {
-    model_to_instance_count_[model] = num_instances_;
+  inline void ModelBeginSubmission(Model *model, uint32_t item_count,
+                                   uint32_t num_bone_matrices) {
+    submission_cache_.model = model;
+    submission_cache_.item_count = item_count;
+    submission_cache_.num_bone_matrices = num_bone_matrices;
+
+    for (int i = 0; i < submission_cache_.item_count; i++) {
+      item_to_instance_offset_[{submission_cache_.model, i}] =
+          num_instances_ + i;
+    }
+    model_to_item_count_[submission_cache_.model] =
+        submission_cache_.item_count;
   }
 
-  inline void ModelEndSubmission(Model *model, uint32_t num_bone_matrices) {
-    model_to_bone_matrices_offset_[model] = num_bone_matrices_;
-    num_bone_matrices_ += num_bone_matrices;
+  inline void ModelEndSubmission() {
+    for (int i = 0; i < submission_cache_.item_count; i++) {
+      item_to_bone_matrices_offset_[{submission_cache_.model, i}] =
+          num_bone_matrices_;
+      num_bone_matrices_ += submission_cache_.num_bone_matrices;
+    }
+
+    submission_cache_.model = nullptr;
+    submission_cache_.item_count = 0;
+    submission_cache_.num_bone_matrices = 0;
   }
 
   void PrepareForDraw();
@@ -112,7 +133,7 @@ class MultiDrawIndirect {
     alignas(16) glm::vec3 kd;
     alignas(16) glm::vec3 ks;
     alignas(16) float shininess;
-    bool bindMetalnessAndDiffuseRoughness;
+    bool bind_metalness_and_diffuse_roughness;
   };
 
   // counters
@@ -141,9 +162,16 @@ class MultiDrawIndirect {
       bone_matrices_offset_ssbo_, animated_ssbo_, transforms_ssbo_,
       clip_planes_ssbo_, materials_ssbo_, textures_ssbo_;
 
+  struct SubmissionCache {
+    Model *model;
+    uint32_t item_count;
+    uint32_t num_bone_matrices;
+  } submission_cache_;
+
   // for model to locate array offset
-  std::map<Model *, uint32_t> model_to_bone_matrices_offset_,
-      model_to_instance_count_;
+  std::map<std::pair<Model *, uint32_t>, uint32_t> item_to_instance_offset_,
+      item_to_bone_matrices_offset_;
+  std::map<Model *, uint32_t> model_to_item_count_;
 };
 
 #endif

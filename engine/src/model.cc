@@ -1,32 +1,40 @@
 #include "model.h"
 
-#include <assimp/cimport.h>
 #include <assimp/postprocess.h>
 #include <glad/glad.h>
 #include <glog/logging.h>
 
-#include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
 #include <string>
 
 #include "utils.h"
 
 namespace fs = std::filesystem;
 
-Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
-             bool flip_y)
-    : directory_path_(fs::path::path(path).parent_path().string()),
+Model::Model(const fs::path &path, MultiDrawIndirect *multi_draw_indirect,
+             uint32_t item_count, bool flip_y)
+    : directory_path_(path.parent_path()),
       flip_y_(flip_y),
       multi_draw_indirect_(multi_draw_indirect) {
   CompileShaders();
 
-  LOG(INFO) << "loading model at: \"" << path << "\"";
+  LOG(INFO) << "loading model at: " << path;
 
   uint32_t flags = aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
                    aiProcess_Triangulate;
   if (flip_y_) flags |= aiProcess_FlipUVs;
-  scene_ = aiImportFile(path.c_str(), flags);
+
+  if (auto ext = ToLower(path.extension().string()); ext == ".pmx") {
+    // genshin impact models contain chinese characters
+    std::string content = ReadFile(path, true);
+    scene_ =
+        importer_.ReadFileFromMemory(content.data(), content.size(), flags);
+  } else {
+    scene_ = importer_.ReadFile(path.string().c_str(), flags);
+  }
+  CHECK(scene_ != nullptr);
 
   InitAnimationChannelMap();
 
@@ -37,21 +45,29 @@ Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
 
   bone_matrices_.resize(bone_namer_.total());
 
-  multi_draw_indirect_->ModelBeginSubmission(this);
+  multi_draw_indirect_->ModelBeginSubmission(this, item_count,
+                                             bone_matrices_.size());
   for (int i = 0; i < meshes_.size(); i++) {
     if (meshes_[i] == nullptr) continue;
     meshes_[i]->SubmitToMultiDrawIndirect();
   }
-  multi_draw_indirect_->ModelEndSubmission(this, bone_matrices_.size());
+  multi_draw_indirect_->ModelEndSubmission();
 }
 
-Model::~Model() { aiReleaseImport(scene_); }
+Model::~Model() {}
+
+double Model::AnimationDurationInSeconds(int animation_id) const {
+  if (animation_id < 0 || animation_id >= NumAnimations()) return 0;
+  auto animation = scene_->mAnimations[animation_id];
+  return animation->mDuration / animation->mTicksPerSecond;
+}
 
 void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
   auto node_transform = Mat4FromAimatrix4x4(node->mTransformation);
   auto transform = parent_transform * node_transform;
 
-  LOG(INFO) << "initializing node \"" << node->mName.C_Str() << "\"";
+  auto node_name_cstr = node->mName.C_Str();
+  LOG(INFO) << "initializing node \"" << node_name_cstr << "\"";
   for (int i = 0; i < node->mNumMeshes; i++) {
     int id = node->mMeshes[i];
     if (meshes_[id] == nullptr) {
@@ -61,9 +77,8 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
                                    &bone_offsets_, flip_y_,
                                    multi_draw_indirect_));
       } catch (std::exception &e) {
-        meshes_[id] = nullptr;
-        LOG(WARNING) << "not loading mesh \"" << mesh->mName.C_Str()
-                     << "\" because an exception is thrown: " << e.what();
+        LOG(FATAL) << "not loading mesh \"" << mesh->mName.C_Str()
+                   << "\" because an exception is thrown: " << e.what();
       }
     }
     if (meshes_[id] != nullptr) {
