@@ -4,29 +4,37 @@
 #include <glad/glad.h>
 #include <glog/logging.h>
 
-#include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
 #include <string>
 
 #include "utils.h"
 
 namespace fs = std::filesystem;
 
-Model::Model(const std::string &path, MultiDrawIndirect *multi_draw_indirect,
+Model::Model(const fs::path &path, MultiDrawIndirect *multi_draw_indirect,
              uint32_t item_count, bool flip_y)
-    : directory_path_(fs::path::path(path).parent_path().string()),
+    : directory_path_(path.parent_path()),
       flip_y_(flip_y),
       multi_draw_indirect_(multi_draw_indirect) {
   CompileShaders();
 
-  LOG(INFO) << "loading model at: \"" << path << "\"";
+  LOG(INFO) << "loading model at: " << path;
 
   uint32_t flags = aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
                    aiProcess_Triangulate;
   if (flip_y_) flags |= aiProcess_FlipUVs;
-  importer_.SetPropertyInteger(AI_CONFIG_PP_SLM_TRIANGLE_LIMIT, 8192);
-  scene_ = importer_.ReadFile(path.c_str(), flags);
+
+  if (auto ext = ToLower(path.extension().string()); ext == ".pmx") {
+    // genshin impact models contain chinese characters
+    std::string content = ReadFile(path, true);
+    scene_ =
+        importer_.ReadFileFromMemory(content.data(), content.size(), flags);
+  } else {
+    scene_ = importer_.ReadFile(path.string().c_str(), flags);
+  }
+  CHECK(scene_ != nullptr);
 
   InitAnimationChannelMap();
 
@@ -58,7 +66,8 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
   auto node_transform = Mat4FromAimatrix4x4(node->mTransformation);
   auto transform = parent_transform * node_transform;
 
-  LOG(INFO) << "initializing node \"" << node->mName.C_Str() << "\"";
+  auto node_name_cstr = node->mName.C_Str();
+  LOG(INFO) << "initializing node \"" << node_name_cstr << "\"";
   for (int i = 0; i < node->mNumMeshes; i++) {
     int id = node->mMeshes[i];
     if (meshes_[id] == nullptr) {

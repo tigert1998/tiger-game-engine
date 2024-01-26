@@ -1,5 +1,6 @@
 #include "cg_exception.h"
 
+namespace fs = std::filesystem;
 using std::string;
 
 ShaderCompileError::ShaderCompileError(const string &title, const string &log) {
@@ -18,10 +19,10 @@ const char *ShaderLinkError::what() const noexcept {
   return error_message.c_str();
 }
 
-LoadPictureError::LoadPictureError(const std::string &path,
+LoadPictureError::LoadPictureError(const fs::path &path,
                                    const std::string &format) {
   error_message = "[picture format error] fail to load picture at \"" +
-                  string(path.c_str()) + "\"";
+                  path.string() + "\"";
   if (format != "") {
     error_message += " (format: " + format + ")";
   }

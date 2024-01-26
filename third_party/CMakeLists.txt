@@ -24,9 +24,7 @@ if(USE_SYSTEM_ASSIMP)
 else()
     set(ASSIMP_BUILD_ZLIB ON)
     add_subdirectory(assimp)
-    if(MSVC)
-        target_compile_options(assimp PRIVATE /WX-) # disable WX
-    endif()
+    target_compile_options(assimp PRIVATE "$<$<C_COMPILER_ID:MSVC>:/WX->")
 endif()
 
 # gli

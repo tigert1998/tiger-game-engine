@@ -40,7 +40,8 @@ struct TextureRecord {
         blend(blend),
         base_color(base_color) {}
 
-  inline TextureRecord(TextureRecord &record)
+  template <typename T>
+  inline TextureRecord(T &&record)
       : type(record.type),
         enabled(record.enabled),
         texture(record.texture),

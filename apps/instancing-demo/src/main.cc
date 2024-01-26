@@ -11,6 +11,7 @@
 #include <glm/gtx/transform.hpp>
 #include <iostream>
 #include <memory>
+#include <string>
 
 #include "controller/sightseeing_controller.h"
 #include "deferred_shading_render_quad.h"
@@ -134,13 +135,12 @@ void Init(uint32_t width, uint32_t height) {
   smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
 
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->Add(make_unique<Directional>(vec3(0, 1, 0), vec3(1)));
+  light_sources_ptr->Add(make_unique<Directional>(vec3(0, 0, -1), vec3(2)));
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model(
-      "resources/Silver Dragonkin (Mir4)/source/Mon_BlackDragon31_Skeleton.FBX",
-      multi_draw_indirect.get(), kNumModelItems, true));
+  model_ptr.reset(new Model(u8"resources/芙宁娜/【芙宁娜】.pmx",
+                            multi_draw_indirect.get(), kNumModelItems, true));
   multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(vec3(0.087, 8.209, 31.708),
                                    static_cast<double>(width) / height, -1.687,
@@ -174,8 +174,7 @@ ConstructRenderTargetParameters() {
     float x = 16 * pow(sin(t), 3);
     float y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t);
     glm::mat4 transform =
-        glm::translate(glm::vec3(x, y, 0)) * glm::scale(glm::vec3(0.2f)) *
-        glm::rotate(glm::radians(90.0f), glm::vec3(1.0, 0.0, 0.0));
+        glm::translate(glm::vec3(x, y, 0)) * glm::scale(glm::vec3(0.2f));
     param.items.push_back(
         {animation_id, item_animation_time, transform, glm::vec4(0)});
   }

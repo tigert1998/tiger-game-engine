@@ -22,14 +22,14 @@ Texture Texture::Reference() const {
   return texture;
 }
 
-void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
+void Texture::Load2DTextureFromPath(const fs::path &path, uint32_t wrap,
                                     uint32_t min_filter, uint32_t mag_filter,
                                     const std::vector<float> &border_color,
                                     bool mipmap, bool flip_y, bool srgb) {
   target_ = GL_TEXTURE_2D;
 
-  if (ToLower(path.substr(path.size() - 4)) == ".dds") {
-    gli::texture gli_texture = gli::load_dds(path);
+  if (ToLower(path.extension().string()) == ".dds") {
+    gli::texture gli_texture = gli::load_dds(path.string());
     if (gli_texture.empty()) throw LoadPictureError(path, "");
 
     if (flip_y) gli_texture = gli::flip(gli_texture);
@@ -66,7 +66,8 @@ void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
   } else {
     stbi_set_flip_vertically_on_load(flip_y);
     int32_t width, height, comp;
-    uint8_t *image = stbi_load(path.c_str(), &width, &height, &comp, 0);
+    uint8_t *image =
+        stbi_load(path.string().c_str(), &width, &height, &comp, 0);
     if (image == nullptr) throw LoadPictureError(path, "");
 
     glGenTextures(1, &id_);
@@ -106,7 +107,7 @@ void Texture::Load2DTextureFromPath(const std::string &path, uint32_t wrap,
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
+void Texture::LoadCubeMapTextureFromPath(const fs::path &path, uint32_t wrap,
                                          uint32_t min_filter,
                                          uint32_t mag_filter,
                                          const std::vector<float> &border_color,
@@ -179,7 +180,7 @@ void Texture::LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
   }
 }
 
-Texture::Texture(const std::string &path, uint32_t wrap, uint32_t min_filter,
+Texture::Texture(const fs::path &path, uint32_t wrap, uint32_t min_filter,
                  uint32_t mag_filter, const std::vector<float> &border_color,
                  bool mipmap, bool flip_y, bool srgb) {
   has_ownership_ = true;
@@ -192,11 +193,11 @@ Texture::Texture(const std::string &path, uint32_t wrap, uint32_t min_filter,
   }
 }
 
-Texture Texture::LoadFromFS(const std::string &path, uint32_t wrap,
+Texture Texture::LoadFromFS(const fs::path &path, uint32_t wrap,
                             uint32_t min_filter, uint32_t mag_filter,
                             const std::vector<float> &border_color, bool mipmap,
                             bool flip_y, bool srgb) {
-  static std::map<std::string, Texture> textures;
+  static std::map<fs::path, Texture> textures;
 
   if (textures.count(path)) return textures[path];
   Texture texture(path, wrap, min_filter, mag_filter, border_color, mipmap,

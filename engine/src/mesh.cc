@@ -10,6 +10,8 @@
 #include "utils.h"
 #include "vertex.h"
 
+namespace fs = std::filesystem;
+
 Namer::Namer() { Clear(); }
 
 void Namer::Clear() {
@@ -26,9 +28,8 @@ uint32_t Namer::total() const { return total_; }
 
 std::map<std::string, uint32_t> &Namer::map() { return map_; }
 
-Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
-           const aiScene *scene, Namer *bone_namer,
-           std::vector<glm::mat4> *bone_offsets, bool flip_y,
+Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
+           Namer *bone_namer, std::vector<glm::mat4> *bone_offsets, bool flip_y,
            MultiDrawIndirect *multi_draw_indirect)
     : multi_draw_indirect_(multi_draw_indirect) {
 #define REGISTER(name) \
@@ -76,15 +77,17 @@ Mesh::Mesh(const std::string &directory_path, aiMesh *mesh,
       material_.shininess = value;
     }
     aiString material_texture_path;
-#define INTERNAL_ADD_TEXTURE(i, name, srgb)                                \
-  do {                                                                     \
-    CHECK(textures_[i].type == #name);                                     \
-    textures_[i].enabled = true;                                           \
-    material->GetTexture(aiTextureType_##name, 0, &material_texture_path); \
-    auto item = path + "/" + std::string(material_texture_path.C_Str());   \
-    textures_[i].texture =                                                 \
-        Texture::LoadFromFS(item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR,      \
-                            GL_LINEAR, {}, true, !flip_y, srgb);           \
+#define INTERNAL_ADD_TEXTURE(i, name, srgb)                                  \
+  do {                                                                       \
+    CHECK(textures_[i].type == #name);                                       \
+    textures_[i].enabled = true;                                             \
+    material->GetTexture(aiTextureType_##name, 0, &material_texture_path);   \
+    const char *c_str = material_texture_path.C_Str();                       \
+    std::u8string texture_path(c_str, c_str + material_texture_path.length); \
+    fs::path item = path / texture_path;                                     \
+    textures_[i].texture =                                                   \
+        Texture::LoadFromFS(item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR,        \
+                            GL_LINEAR, {}, true, !flip_y, srgb);             \
   } while (0)
 #define TRY_ADD_TEXTURE(i, name, srgb)                            \
   if (material->GetTextureCount(aiTextureType_##name) >= 1) {     \

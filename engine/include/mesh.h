@@ -3,6 +3,7 @@
 
 #include <assimp/scene.h>
 
+#include <filesystem>
 #include <glm/glm.hpp>
 #include <map>
 #include <string>
@@ -27,7 +28,7 @@ class Namer {
 
 class Mesh {
  public:
-  explicit Mesh(const std::string &directory_path, aiMesh *mesh,
+  explicit Mesh(const std::filesystem::path &directory_path, aiMesh *mesh,
                 const aiScene *scene, Namer *bone_namer,
                 std::vector<glm::mat4> *bone_offsets, bool flip_y,
                 MultiDrawIndirect *multi_draw_indirect);

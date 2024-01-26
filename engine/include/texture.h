@@ -1,6 +1,7 @@
 #ifndef TEXTURE_H_
 #define TEXTURE_H_
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <vector>
@@ -11,13 +12,14 @@ class Texture {
   uint32_t target_ = 0, id_ = 0;
   mutable std::optional<uint64_t> handle_ = std::nullopt;
 
-  void Load2DTextureFromPath(const std::string &path, uint32_t wrap,
+  void Load2DTextureFromPath(const std::filesystem::path &path, uint32_t wrap,
                              uint32_t min_filter, uint32_t mag_filter,
                              const std::vector<float> &border_color,
                              bool mipmap, bool flip_y, bool srgb);
 
-  void LoadCubeMapTextureFromPath(const std::string &path, uint32_t wrap,
-                                  uint32_t min_filter, uint32_t mag_filter,
+  void LoadCubeMapTextureFromPath(const std::filesystem::path &path,
+                                  uint32_t wrap, uint32_t min_filter,
+                                  uint32_t mag_filter,
                                   const std::vector<float> &border_color,
                                   bool mipmap, bool flip_y, bool srgb);
 
@@ -30,8 +32,12 @@ class Texture {
 
  public:
   inline Texture() = default;
-  inline Texture(Texture &texture) { MoveOwnership(std::move(texture)); }
-  Texture &operator=(Texture &texture) {
+  template <typename T>
+  inline Texture(T &&texture) {
+    MoveOwnership(std::move(texture));
+  }
+  template <typename T>
+  Texture &operator=(T &&texture) {
     Clear();
     MoveOwnership(std::move(texture));
     return *this;
@@ -40,12 +46,13 @@ class Texture {
   Texture Reference() const;
 
   // load from image/images
-  explicit Texture(const std::string &path, uint32_t wrap, uint32_t min_filter,
-                   uint32_t mag_filter, const std::vector<float> &border_color,
-                   bool mipmap, bool flip_y, bool srgb);
+  explicit Texture(const std::filesystem::path &path, uint32_t wrap,
+                   uint32_t min_filter, uint32_t mag_filter,
+                   const std::vector<float> &border_color, bool mipmap,
+                   bool flip_y, bool srgb);
 
   // Load from image/images with deduplication
-  static Texture LoadFromFS(const std::string &path, uint32_t wrap,
+  static Texture LoadFromFS(const std::filesystem::path &path, uint32_t wrap,
                             uint32_t min_filter, uint32_t mag_filter,
                             const std::vector<float> &border_color, bool mipmap,
                             bool flip_y, bool srgb);

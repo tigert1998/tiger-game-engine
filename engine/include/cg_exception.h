@@ -1,6 +1,7 @@
 #ifndef CG_EXCEPTION_H_
 #define CG_EXCEPTION_H_
 
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -27,7 +28,8 @@ class ShaderLinkError : public std::exception {
 class LoadPictureError : public std::exception {
  public:
   LoadPictureError() = delete;
-  LoadPictureError(const std::string &path, const std::string &format);
+  LoadPictureError(const std::filesystem::path &path,
+                   const std::string &format);
   const char *what() const noexcept;
 
  private:

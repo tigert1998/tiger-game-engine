@@ -5,6 +5,7 @@
 #include <glog/logging.h>
 
 #include <chrono>
+#include <filesystem>
 #include <glm/glm.hpp>
 #include <iomanip>
 #include <ostream>
@@ -91,7 +92,7 @@ std::string SnakeToPascal(const std::string &name);
     }                                                   \
   } while (0)
 
-std::string ReadFile(const std::string &file_path);
+std::string ReadFile(const std::filesystem::path &file_path, bool binary);
 
 std::string ToLower(const std::string &str);
 
