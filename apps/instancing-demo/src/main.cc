@@ -5,7 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
-#include <glog/logging.h>
+#include <fmt/core.h>
 #include <imgui.h>
 
 #include <glm/gtx/transform.hpp>
@@ -101,9 +101,9 @@ void ImGuiWindow() {
   // model
   if (prev_animation_id != animation_id) {
     if (0 <= animation_id && animation_id < model_ptr->NumAnimations()) {
-      LOG(INFO) << "switching to animation #" << animation_id;
+      fmt::print(stderr, "[info] switching to animation #{}\n", animation_id);
     } else {
-      LOG(INFO) << "deactivate animation";
+      fmt::print(stderr, "[info] deactivate animation\n");
     }
     prev_animation_id = animation_id;
     animation_time = 0;
@@ -139,8 +139,9 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model(u8"resources/芙宁娜/【芙宁娜】.pmx",
-                            multi_draw_indirect.get(), kNumModelItems, true));
+  model_ptr.reset(new Model(
+      "resources/Silver Dragonkin (Mir4)/source/Mon_BlackDragon31_Skeleton.FBX",
+      multi_draw_indirect.get(), kNumModelItems, true, false));
   multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(vec3(0.087, 8.209, 31.708),
                                    static_cast<double>(width) / height, -1.687,
@@ -173,8 +174,9 @@ ConstructRenderTargetParameters() {
     }
     float x = 16 * pow(sin(t), 3);
     float y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t);
-    glm::mat4 transform =
-        glm::translate(glm::vec3(x, y, 0)) * glm::scale(glm::vec3(0.2f));
+    glm::mat4 transform = glm::translate(glm::vec3(x, y, 0)) *
+                          glm::scale(glm::vec3(0.2f)) *
+                          glm::rotate(glm::radians(90.f), glm::vec3(1, 0, 0));
     param.items.push_back(
         {animation_id, item_animation_time, transform, glm::vec4(0)});
   }
@@ -182,9 +184,6 @@ ConstructRenderTargetParameters() {
 }
 
 int main(int argc, char *argv[]) {
-  ::google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1;
-
   Init(1920, 1080);
 
   while (!glfwWindowShouldClose(window)) {

@@ -5,7 +5,6 @@
 #include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
-#include <glog/logging.h>
 #include <imgui.h>
 
 #include <iostream>
@@ -72,9 +71,6 @@ void Init(uint32_t width, uint32_t height) {
 }
 
 int main(int argc, char *argv[]) {
-  ::google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1;
-
   Init(1920, 1080);
 
   while (!glfwWindowShouldClose(window)) {

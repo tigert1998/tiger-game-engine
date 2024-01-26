@@ -1,8 +1,8 @@
 #include "model.h"
 
 #include <assimp/postprocess.h>
+#include <fmt/core.h>
 #include <glad/glad.h>
-#include <glog/logging.h>
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -14,17 +14,23 @@
 namespace fs = std::filesystem;
 
 Model::Model(const fs::path &path, MultiDrawIndirect *multi_draw_indirect,
-             uint32_t item_count, bool flip_y)
+             uint32_t item_count, bool flip_y, bool split_large_meshes)
     : directory_path_(path.parent_path()),
       flip_y_(flip_y),
       multi_draw_indirect_(multi_draw_indirect) {
   CompileShaders();
 
-  LOG(INFO) << "loading model at: " << path;
+  // fmt library does not allow pass u8 string
+  fprintf(stderr, "[info] loading model at: \"%s\"\n", path.string().c_str());
+  fflush(stderr);
 
   uint32_t flags = aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
                    aiProcess_Triangulate;
   if (flip_y_) flags |= aiProcess_FlipUVs;
+  if (split_large_meshes) {
+    flags |= aiProcess_SplitLargeMeshes;
+    importer_.SetPropertyInteger(AI_CONFIG_PP_SLM_TRIANGLE_LIMIT, 8192);
+  }
 
   if (auto ext = ToLower(path.extension().string()); ext == ".pmx") {
     // genshin impact models contain chinese characters
@@ -34,13 +40,16 @@ Model::Model(const fs::path &path, MultiDrawIndirect *multi_draw_indirect,
   } else {
     scene_ = importer_.ReadFile(path.string().c_str(), flags);
   }
-  CHECK(scene_ != nullptr);
+  if (scene_ == nullptr) {
+    fmt::print(stderr, "[error] scene_ == nullptr\n");
+    exit(1);
+  }
 
   InitAnimationChannelMap();
 
   meshes_.resize(scene_->mNumMeshes);
-  LOG(INFO) << "#meshes: " << meshes_.size();
-  LOG(INFO) << "#animations: " << scene_->mNumAnimations;
+  fmt::print(stderr, "[info] #meshes: {}\n", meshes_.size());
+  fmt::print(stderr, "[info] #animations: {}\n", scene_->mNumAnimations);
   RecursivelyInitNodes(scene_->mRootNode, glm::mat4(1));
 
   bone_matrices_.resize(bone_namer_.total());
@@ -66,8 +75,7 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
   auto node_transform = Mat4FromAimatrix4x4(node->mTransformation);
   auto transform = parent_transform * node_transform;
 
-  auto node_name_cstr = node->mName.C_Str();
-  LOG(INFO) << "initializing node \"" << node_name_cstr << "\"";
+  fmt::print(stderr, "[info] initializing node \"{}\"\n", node->mName.C_Str());
   for (int i = 0; i < node->mNumMeshes; i++) {
     int id = node->mMeshes[i];
     if (meshes_[id] == nullptr) {
@@ -77,8 +85,12 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
                                    &bone_offsets_, flip_y_,
                                    multi_draw_indirect_));
       } catch (std::exception &e) {
-        LOG(FATAL) << "not loading mesh \"" << mesh->mName.C_Str()
-                   << "\" because an exception is thrown: " << e.what();
+        fmt::print(
+            stderr,
+            "[error] not loading mesh \"{}\" because an exception is thrown: "
+            "{}\n",
+            mesh->mName.C_Str(), e.what());
+        exit(1);
       }
     }
     if (meshes_[id] != nullptr) {

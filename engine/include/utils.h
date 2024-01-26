@@ -2,7 +2,8 @@
 #define UTILS_H_
 
 #include <assimp/matrix4x4.h>
-#include <glog/logging.h>
+#include <assimp/types.h>
+#include <fmt/core.h>
 
 #include <chrono>
 #include <filesystem>
@@ -26,7 +27,7 @@ class Timer {
         std::chrono::duration_cast<std::chrono::microseconds>(now - start_)
             .count() /
         1e3;
-    LOG(INFO) << task_name_ << " consumes " << ms << "ms";
+    fmt::print(stderr, "[info] {} consumes {} ms\n", task_name_, ms);
   }
 };
 
@@ -88,12 +89,15 @@ std::string SnakeToPascal(const std::string &name);
         default:                                        \
           err_str = std::to_string(err);                \
       }                                                 \
-      LOG(FATAL) << err_str;                            \
+      fmt::print(stderr, "[error] {}\n", err_str);              \
+      exit(1);                                          \
     }                                                   \
   } while (0)
 
 std::string ReadFile(const std::filesystem::path &file_path, bool binary);
 
 std::string ToLower(const std::string &str);
+
+std::u8string ToU8string(const aiString &str);
 
 #endif

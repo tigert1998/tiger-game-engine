@@ -1,7 +1,7 @@
 #include "mesh.h"
 
+#include <fmt/core.h>
 #include <glad/glad.h>
-#include <glog/logging.h>
 #include <meshoptimizer.h>
 
 #include <glm/glm.hpp>
@@ -51,7 +51,8 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
     auto material = scene->mMaterials[mesh->mMaterialIndex];
     aiShadingMode shading_mode;
     if (material->Get(AI_MATKEY_SHADING_MODEL, shading_mode) == AI_SUCCESS) {
-      LOG(INFO) << "\"" << name_ << "\" shading mode: " << shading_mode;
+      fmt::print(stderr, "[info] \"{}\" shading mode: {}\n", name_,
+                 static_cast<int32_t>(shading_mode));
     }
     {
       aiColor3D color;
@@ -77,32 +78,43 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
       material_.shininess = value;
     }
     aiString material_texture_path;
-#define INTERNAL_ADD_TEXTURE(i, name, srgb)                                  \
-  do {                                                                       \
-    CHECK(textures_[i].type == #name);                                       \
-    textures_[i].enabled = true;                                             \
-    material->GetTexture(aiTextureType_##name, 0, &material_texture_path);   \
-    const char *c_str = material_texture_path.C_Str();                       \
-    std::u8string texture_path(c_str, c_str + material_texture_path.length); \
-    fs::path item = path / texture_path;                                     \
-    textures_[i].texture =                                                   \
-        Texture::LoadFromFS(item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR,        \
-                            GL_LINEAR, {}, true, !flip_y, srgb);             \
+#define INTERNAL_ADD_TEXTURE(i, name, srgb)                                \
+  do {                                                                     \
+    if (textures_[i].type != #name) {                                      \
+      fmt::print(stderr, "[error] textures_[{}].type != " #name "\n", i);  \
+      exit(1);                                                             \
+    }                                                                      \
+    textures_[i].enabled = true;                                           \
+    material->GetTexture(aiTextureType_##name, 0, &material_texture_path); \
+    fs::path item = path / ToU8string(material_texture_path);              \
+    textures_[i].texture =                                                 \
+        Texture::LoadFromFS(item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR,      \
+                            GL_LINEAR, {}, true, !flip_y, srgb);           \
   } while (0)
-#define TRY_ADD_TEXTURE(i, name, srgb)                            \
-  if (material->GetTextureCount(aiTextureType_##name) >= 1) {     \
-    CHECK_EQ(material->GetTextureCount(aiTextureType_##name), 1); \
-    INTERNAL_ADD_TEXTURE(i, name, srgb);                          \
+#define TRY_ADD_TEXTURE(i, name, srgb)                                    \
+  if (material->GetTextureCount(aiTextureType_##name) >= 1) {             \
+    if (material->GetTextureCount(aiTextureType_##name) != 1) {           \
+      fmt::print(stderr,                                                  \
+                 "[error] material->GetTextureCount(aiTextureType_" #name \
+                 ") != 1\n");                                             \
+      exit(1);                                                            \
+    }                                                                     \
+    INTERNAL_ADD_TEXTURE(i, name, srgb);                                  \
   }
-#define TRY_ADD_TEXTURE_WITH_BASE_COLOR(i, name, srgb)                 \
-  if (material->GetTextureCount(aiTextureType_##name) >= 1) {          \
-    CHECK_EQ(material->GetTextureCount(aiTextureType_##name), 1);      \
-    INTERNAL_ADD_TEXTURE(i, name, srgb);                               \
-    material->Get(AI_MATKEY_TEXBLEND_##name(0), textures_[i].blend);   \
-    material->Get(AI_MATKEY_TEXOP_##name(0), textures_[i].op);         \
-    aiColor3D color(0.f, 0.f, 0.f);                                    \
-    material->Get(AI_MATKEY_COLOR_##name, color);                      \
-    textures_[i].base_color = glm::vec3(color[0], color[1], color[2]); \
+#define TRY_ADD_TEXTURE_WITH_BASE_COLOR(i, name, srgb)                    \
+  if (material->GetTextureCount(aiTextureType_##name) >= 1) {             \
+    if (material->GetTextureCount(aiTextureType_##name) != 1) {           \
+      fmt::print(stderr,                                                  \
+                 "[error] material->GetTextureCount(aiTextureType_" #name \
+                 ") != 1\n");                                             \
+      exit(1);                                                            \
+    }                                                                     \
+    INTERNAL_ADD_TEXTURE(i, name, srgb);                                  \
+    material->Get(AI_MATKEY_TEXBLEND_##name(0), textures_[i].blend);      \
+    material->Get(AI_MATKEY_TEXOP_##name(0), textures_[i].op);            \
+    aiColor3D color(0.f, 0.f, 0.f);                                       \
+    material->Get(AI_MATKEY_COLOR_##name, color);                         \
+    textures_[i].base_color = glm::vec3(color[0], color[1], color[2]);    \
   }
     TRY_ADD_TEXTURE_WITH_BASE_COLOR(0, AMBIENT, false);
     TRY_ADD_TEXTURE_WITH_BASE_COLOR(1, DIFFUSE, false);
@@ -196,11 +208,12 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
     if (i < indices_.size() - 1) lod_log_str += ", ";
   }
   lod_log_str += "]";
-  LOG(INFO) << "\"" << name_ << "\": #vertices: " << mesh->mNumVertices
-            << ", #faces: " << mesh->mNumFaces << ", " << lod_log_str
-            << ", has tex coords? " << std::boolalpha
-            << mesh->HasTextureCoords(0) << ", has normals? "
-            << mesh->HasNormals();
+  fmt::print(
+      stderr,
+      "[info] \"{}\": #vertices: {}, #faces: {}, {}, has tex coords? {}, has "
+      "normals? {}\n",
+      name_, mesh->mNumVertices, mesh->mNumFaces, lod_log_str,
+      mesh->HasTextureCoords(0), mesh->HasNormals());
 }
 
 void Mesh::AppendTransform(glm::mat4 transform) {

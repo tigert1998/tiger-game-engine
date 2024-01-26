@@ -2,14 +2,14 @@
 
 #include <assimp/cimport.h>
 #include <assimp/postprocess.h>
-#include <glog/logging.h>
+#include <fmt/core.h>
 
 #include <assimp/Importer.hpp>
 
 #include "utils.h"
 
 CollisionModel::CollisionModel(const std::string &path) {
-  LOG(INFO) << "loading collision model at: \"" << path << "\"";
+  fmt::print(stderr, "[info] loading collision model at: \"{}\"\n", path);
   auto scene = aiImportFile(path.c_str(), aiProcess_GlobalScale |
                                               aiProcess_CalcTangentSpace |
                                               aiProcess_Triangulate);
@@ -49,7 +49,7 @@ void CollisionModel::RecursivelyInitNodes(const aiScene *scene,
   auto node_transform = Mat4FromAimatrix4x4(node->mTransformation);
   auto transform = parent_transform * node_transform;
 
-  LOG(INFO) << "initializing node \"" << node->mName.C_Str() << "\"";
+  fmt::print(stderr, "[info] initializing node \"{}\"\n", node->mName.C_Str());
   for (int i = 0; i < node->mNumMeshes; i++) {
     int id = node->mMeshes[i];
     auto mesh = scene->mMeshes[id];

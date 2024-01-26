@@ -25,7 +25,7 @@ class Model {
   Model() = delete;
   Model(const std::filesystem::path &path,
         MultiDrawIndirect *multi_draw_indirect, uint32_t item_count,
-        bool flip_y);
+        bool flip_y, bool split_large_meshes);
   int NumAnimations() const;
   double AnimationDurationInSeconds(int animation_id) const;
   ~Model();

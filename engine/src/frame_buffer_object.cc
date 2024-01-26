@@ -1,5 +1,6 @@
 #include "frame_buffer_object.h"
 
+#include <fmt/core.h>
 #include <glad/glad.h>
 
 #include "utils.h"
@@ -41,7 +42,12 @@ FrameBufferObject::FrameBufferObject(std::vector<Texture> &color_textures,
   depth_texture_ = depth_texture;
   AttachTexture(GL_DEPTH_ATTACHMENT, depth_texture_.value());
 
-  CHECK_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    fmt::print(stderr,
+               "[error] glCheckFramebufferStatus(GL_FRAMEBUFFER) != "
+               "GL_FRAMEBUFFER_COMPLETE\n");
+    exit(1);
+  }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
@@ -52,7 +58,12 @@ FrameBufferObject::FrameBufferObject(std::vector<Texture> &color_textures) {
   glReadBuffer(GL_NONE);
   AttachColorTextures(color_textures);
 
-  CHECK_EQ(glCheckFramebufferStatus(GL_FRAMEBUFFER), GL_FRAMEBUFFER_COMPLETE);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    fmt::print(stderr,
+               "[error] glCheckFramebufferStatus(GL_FRAMEBUFFER) != "
+               "GL_FRAMEBUFFER_COMPLETE\n");
+    exit(1);
+  }
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

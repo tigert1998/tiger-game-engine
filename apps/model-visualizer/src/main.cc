@@ -5,7 +5,6 @@
 #include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
-#include <glog/logging.h>
 #include <imgui.h>
 
 #include <iostream>
@@ -59,8 +58,6 @@ std::unique_ptr<ShadowSources> shadow_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
 std::unique_ptr<Controller> controller_ptr;
 
-double animation_time = 0;
-int animation_id = -1;
 int default_shading_choice = 0;
 int enable_ssao = 0;
 int enable_smaa = 0;
@@ -83,34 +80,20 @@ void ImGuiInit() {
 void ImGuiWindow() {
   // model
   char buf[1 << 10] = {0};
-  static int prev_animation_id = animation_id;
   const char *choices[] = {"off", "on"};
 
   ImGui::Begin("Panel");
   if (ImGui::InputText("model path", buf, sizeof(buf),
                        ImGuiInputTextFlags_EnterReturnsTrue)) {
     multi_draw_indirect.reset(new MultiDrawIndirect());
-    model_ptr.reset(new Model(buf, multi_draw_indirect.get(), 1, true));
+    model_ptr.reset(new Model(buf, multi_draw_indirect.get(), 1, true, true));
     multi_draw_indirect->PrepareForDraw();
-    animation_time = 0;
   }
-  ImGui::InputInt("animation id", &animation_id, 1, 1);
   ImGui::ListBox("default shading", &default_shading_choice, choices,
                  IM_ARRAYSIZE(choices));
   ImGui::ListBox("enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
   ImGui::End();
-
-  // model
-  if (prev_animation_id != animation_id) {
-    if (0 <= animation_id && animation_id < model_ptr->NumAnimations()) {
-      LOG(INFO) << "switching to animation #" << animation_id;
-    } else {
-      LOG(INFO) << "deactivate animation";
-    }
-    prev_animation_id = animation_id;
-    animation_time = 0;
-  }
 
   camera_ptr->ImGuiWindow();
   light_sources_ptr->ImGuiWindow();
@@ -144,7 +127,7 @@ void Init(uint32_t width, uint32_t height) {
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
   model_ptr.reset(new Model("resources/Bistro_v5_2/BistroExterior.fbx",
-                            multi_draw_indirect.get(), 1, true));
+                            multi_draw_indirect.get(), 1, true, true));
   multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
@@ -165,9 +148,6 @@ void Init(uint32_t width, uint32_t height) {
 }
 
 int main(int argc, char *argv[]) {
-  ::google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1;
-
   Init(1920, 1080);
 
   while (!glfwWindowShouldClose(window)) {
@@ -177,7 +157,6 @@ int main(int argc, char *argv[]) {
     double current_time = glfwGetTime();
     double delta_time = current_time - last_time;
     last_time = current_time;
-    animation_time += delta_time;
 
     Keyboard::shared.Elapse(delta_time);
 
@@ -197,9 +176,7 @@ int main(int argc, char *argv[]) {
     // draw depth map first
     shadow_sources_ptr->DrawDepthForShadow([](Shadow *shadow) {
       multi_draw_indirect->DrawDepthForShadow(
-          shadow,
-          {{model_ptr.get(),
-            {{animation_id, animation_time, glm::mat4(1), glm::vec4(0)}}}});
+          shadow, {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
     });
 
     deferred_shading_render_quad_ptr->TwoPasses(
@@ -214,8 +191,7 @@ int main(int argc, char *argv[]) {
           multi_draw_indirect->Draw(
               camera_ptr.get(), nullptr, nullptr, nullptr, true,
               default_shading_choice, true,
-              {{model_ptr.get(),
-                {{animation_id, animation_time, glm::mat4(1), glm::vec4(0)}}}});
+              {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
         },
         enable_smaa ? smaa_ptr->fbo() : nullptr);
 

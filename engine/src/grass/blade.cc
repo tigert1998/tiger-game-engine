@@ -3,8 +3,8 @@
 #include <assimp/cimport.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <fmt/core.h>
 #include <glad/glad.h>
-#include <glog/logging.h>
 
 #include <assimp/Importer.hpp>
 
@@ -122,7 +122,10 @@ Blade::Blade() {
       aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
           aiProcess_Triangulate | aiProcess_GenNormals,
       "");
-  CHECK_EQ(scene->mNumMeshes, 1);
+  if (scene->mNumMeshes != 1) {
+    fmt::print(stderr, "[error] scene->mNumMeshes != 1\n");
+    exit(1);
+  }
   auto mesh = scene->mMeshes[0];
 
   using VertexType = Vertex<0, true>;

@@ -1,6 +1,6 @@
 #include "random/perlin_noise.h"
 
-#include <glog/logging.h>
+#include <fmt/core.h>
 
 #include <functional>
 #include <iostream>
@@ -44,7 +44,10 @@ PerlinNoise::WeightsType PerlinNoise::CalcWeights(double x, double y,
 }
 
 PerlinNoise::PerlinNoise(int perm_size, int seed) : PERM_SIZE(perm_size) {
-  CHECK(perm_size == (perm_size & -perm_size));
+  if (perm_size != (perm_size & -perm_size)) {
+    fmt::print(stderr, "[error] perm_size != (perm_size & -perm_size)\n");
+    exit(1);
+  }
   static std::default_random_engine engine(seed);
   std::uniform_int_distribution<int> dis(0, perm_size - 1);
   auto dice = std::bind(dis, engine);

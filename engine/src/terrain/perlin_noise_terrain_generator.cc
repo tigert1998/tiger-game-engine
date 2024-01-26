@@ -1,7 +1,7 @@
 #include "terrain/perlin_noise_terrain_generator.h"
 
+#include <fmt/core.h>
 #include <glad/glad.h>
-#include <glog/logging.h>
 
 #include <vector>
 
@@ -15,7 +15,10 @@ PerlinNoiseTerrainGenerator::PerlinNoiseTerrainGenerator(int size,
       subdiv_size_(subdiv_size),
       ratio_(ratio),
       transform_(transform) {
-  CHECK(size_ % subdiv_size_ == 0);
+  if (size_ % subdiv_size_ != 0) {
+    fmt::print(stderr, "[info] size_ %% subdiv_size_ != 0\n");
+    exit(1);
+  }
 
   // size * size squares
   perlin_noise_.reset(new PerlinNoise(1024, 10086));

@@ -1,7 +1,7 @@
 #include "multi_draw_indirect.h"
 
+#include <fmt/core.h>
 #include <glad/glad.h>
-#include <glog/logging.h>
 
 #include <iterator>
 #include <set>
@@ -14,13 +14,19 @@ void MultiDrawIndirect::CheckRenderTargetParameter(
   const std::string all_models_must_present_error_message =
       "all models must be present in the parameters";
   for (const auto &param : render_target_params) {
-    CHECK(model_to_item_count_.count(param.model) >= 1)
-        << all_models_must_present_error_message;
-    CHECK(model_to_item_count_[param.model] == param.items.size())
-        << "model item count mismatch";
+    if (model_to_item_count_.count(param.model) == 0) {
+      fmt::print(stderr, "[error] {}\n", all_models_must_present_error_message);
+      exit(1);
+    }
+    if (model_to_item_count_[param.model] != param.items.size()) {
+      fmt::print(stderr, "[error] model item count mismatch\n");
+      exit(1);
+    }
   }
-  CHECK(model_to_item_count_.size() == render_target_params.size())
-      << all_models_must_present_error_message;
+  if (model_to_item_count_.size() != render_target_params.size()) {
+    fmt::print(stderr, "[error] {}\n", all_models_must_present_error_message);
+    exit(1);
+  }
 }
 
 void MultiDrawIndirect::UpdateBuffers(
@@ -258,8 +264,13 @@ void MultiDrawIndirect::Receive(
   material.kd = phong_material.kd;
   material.ks = phong_material.ks;
   material.shininess = phong_material.shininess;
-  CHECK(texture_records[4].type == "METALNESS" &&
-        texture_records[5].type == "DIFFUSE_ROUGHNESS");
+  if (texture_records[4].type != "METALNESS" ||
+      texture_records[5].type != "DIFFUSE_ROUGHNESS") {
+    fmt::print(
+        stderr,
+        "[error] wrong metalness and diffuse roughness texture location\n");
+    exit(1);
+  }
   material.bind_metalness_and_diffuse_roughness =
       texture_records[4].enabled && texture_records[5].enabled &&
       texture_records[4].texture.id() == texture_records[5].texture.id();

@@ -49,9 +49,6 @@ add_library(imgui STATIC "${imgui_srcs}")
 target_link_libraries(imgui glfw)
 target_include_directories(imgui PUBLIC "${imgui_dir}")
 
-# glog
-add_subdirectory(glog)
-
 # PhysX 5
 add_library(physx5 INTERFACE)
 target_include_directories(physx5 INTERFACE "${PHYSX5}/physx/include")
@@ -70,3 +67,6 @@ target_link_libraries(
 
 # Mesh Optimizer
 add_subdirectory(meshoptimizer)
+
+# fmt
+add_subdirectory(fmt)

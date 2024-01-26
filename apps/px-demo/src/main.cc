@@ -6,7 +6,6 @@
 #include <PxPhysicsAPI.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
-#include <glog/logging.h>
 #include <imgui.h>
 
 #include <iostream>
@@ -209,8 +208,9 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  scene_model_ptr = make_unique<Model>("resources/sponza/Sponza.gltf",
-                                       multi_draw_indirect.get(), 1, false);
+  scene_model_ptr =
+      make_unique<Model>("resources/sponza/Sponza.gltf",
+                         multi_draw_indirect.get(), 1, false, true);
   multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
@@ -231,9 +231,6 @@ void Init(uint32_t width, uint32_t height) {
 }
 
 int main(int argc, char *argv[]) {
-  ::google::InitGoogleLogging(argv[0]);
-  FLAGS_logtostderr = 1;
-
   Init(1920, 1080);
 
   while (!glfwWindowShouldClose(window)) {

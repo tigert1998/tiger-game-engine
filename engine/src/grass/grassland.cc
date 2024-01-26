@@ -5,7 +5,7 @@
 #include <assimp/cimport.h>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
-#include <glog/logging.h>
+#include <fmt/core.h>
 
 #include <algorithm>
 #include <assimp/Importer.hpp>
@@ -110,12 +110,15 @@ Grassland::Grassland(const std::string& terrain_model_path,
 
   // load mesh and prepare data
 
-  LOG(INFO) << "loading terrain at: \"" << terrain_model_path << "\"";
+  fmt::print(stderr, "[info] loading terrain at: \"{}\"\n", terrain_model_path);
   const aiScene* scene =
       aiImportFile(terrain_model_path.c_str(),
                    aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
                        aiProcess_Triangulate | aiProcess_GenNormals);
-  CHECK_EQ(scene->mNumMeshes, 1);
+  if (scene->mNumMeshes != 1) {
+    fmt::print(stderr, "[error] scene->mNumMeshes != 1\n");
+    exit(1);
+  }
   auto mesh = scene->mMeshes[0];
 
   std::vector<glm::vec4> vertices;

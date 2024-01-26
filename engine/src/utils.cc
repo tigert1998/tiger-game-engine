@@ -1,10 +1,10 @@
 #include "utils.h"
 
 #include <glad/glad.h>
-#include <glog/logging.h>
 
 #include <algorithm>
 #include <cctype>
+#include <cuchar>
 #include <fstream>
 #include <vector>
 
@@ -55,4 +55,8 @@ std::string ToLower(const std::string &str) {
   std::string ans;
   for (int i = 0; i < str.size(); i++) ans.push_back(std::tolower(str[i]));
   return ans;
+}
+
+std::u8string ToU8string(const aiString &str) {
+  return std::u8string(str.C_Str(), str.C_Str() + str.length);
 }

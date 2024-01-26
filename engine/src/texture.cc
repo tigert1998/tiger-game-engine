@@ -2,7 +2,6 @@
 
 #include <SOIL2.h>
 #include <glad/glad.h>
-#include <glog/logging.h>
 #include <stb_image.h>
 
 #include <filesystem>
@@ -38,7 +37,10 @@ void Texture::Load2DTextureFromPath(const fs::path &path, uint32_t wrap,
         gl.translate(gli_texture.format(), gli_texture.swizzles());
     auto target = gl.translate(gli_texture.target());
     bool compressed = gli::is_compressed(gli_texture.format());
-    CHECK(target == GL_TEXTURE_2D);
+    if (target != GL_TEXTURE_2D) {
+      fmt::print(stderr, "[error] target != GL_TEXTURE_2D\n");
+      exit(1);
+    }
 
     glGenTextures(1, &id_);
     glBindTexture(GL_TEXTURE_2D, id_);
@@ -112,7 +114,10 @@ void Texture::LoadCubeMapTextureFromPath(const fs::path &path, uint32_t wrap,
                                          uint32_t mag_filter,
                                          const std::vector<float> &border_color,
                                          bool mipmap, bool flip_y, bool srgb) {
-  CHECK(!flip_y) << "CubeMap does not support flipping";
+  if (flip_y) {
+    fmt::print(stderr, "[error] CubeMap does not support flipping\n");
+    exit(1);
+  }
 
   const static std::map<std::string, uint32_t> kTypes = {
       {"posx", GL_TEXTURE_CUBE_MAP_POSITIVE_X},
@@ -242,7 +247,12 @@ Texture::Texture(void *data, uint32_t target, uint32_t width, uint32_t height,
                  uint32_t mag_filter, const std::vector<float> &border_color,
                  bool mipmap) {
   has_ownership_ = true;
-  CHECK(target == GL_TEXTURE_3D || target == GL_TEXTURE_2D_ARRAY);
+  if (target != GL_TEXTURE_3D && target != GL_TEXTURE_2D_ARRAY) {
+    fmt::print(
+        stderr,
+        "[error] target != GL_TEXTURE_3D && target != GL_TEXTURE_2D_ARRAY\n");
+    exit(1);
+  }
   target_ = target;
 
   glGenTextures(1, &id_);
