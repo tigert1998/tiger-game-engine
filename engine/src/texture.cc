@@ -138,14 +138,13 @@ void Texture::LoadCubeMapTextureFromPath(const fs::path &path, uint32_t wrap,
   for (const auto &entry : fs::directory_iterator(path)) {
     std::string stem = entry.path().stem().string();
     if (exists.count(stem) && exists[stem] == 0) {
-      std::string image_path = entry.path().string();
-
       int w, h, comp;
       // Cubemap follows RenderMan's convention:
       // https://stackoverflow.com/questions/11685608/convention-of-faces-in-opengl-cubemapping/
       stbi_set_flip_vertically_on_load(false);
-      uint8_t *image = SOIL_load_image(image_path.c_str(), &w, &h, &comp, 0);
-      if (image == nullptr) throw LoadPictureError(image_path, "");
+      uint8_t *image =
+          SOIL_load_image(entry.path().string().c_str(), &w, &h, &comp, 0);
+      if (image == nullptr) throw LoadPictureError(entry.path(), "");
 
       uint32_t internal_format = srgb ? GL_SRGB : GL_RGB;
       if (comp == 3) {

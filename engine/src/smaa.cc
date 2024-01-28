@@ -4,6 +4,8 @@
 
 #include "utils.h"
 
+namespace fs = std::filesystem;
+
 void SMAA::Resize(uint32_t width, uint32_t height) {
   width_ = width;
   height_ = height;
@@ -32,12 +34,12 @@ void SMAA::Resize(uint32_t width, uint32_t height) {
   blend_fbo_.reset(new FrameBufferObject(blend_textures));
 }
 
-void SMAA::PrepareAreaAndSearchTexture(const std::string &smaa_repo_path) {
+void SMAA::PrepareAreaAndSearchTexture(const fs::path &smaa_repo_path) {
   // sRGB can be any value since they are DDS images
-  area_ = Texture::LoadFromFS(smaa_repo_path + "/Textures/AreaTexDX10.dds",
+  area_ = Texture::LoadFromFS(smaa_repo_path / "Textures/AreaTexDX10.dds",
                               GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false,
                               false, false);
-  search_ = Texture::LoadFromFS(smaa_repo_path + "/Textures/SearchTex.dds",
+  search_ = Texture::LoadFromFS(smaa_repo_path / "Textures/SearchTex.dds",
                                 GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {},
                                 false, false, false);
 }
@@ -79,8 +81,8 @@ SMAA::~SMAA() {
   glDeleteBuffers(1, &vbo_);
 }
 
-SMAA::SMAA(const std::string &smaa_repo_path, uint32_t width, uint32_t height) {
-  smaa_lib_ = ReadFile(smaa_repo_path + "/SMAA.hlsl", false);
+SMAA::SMAA(const fs::path &smaa_repo_path, uint32_t width, uint32_t height) {
+  smaa_lib_ = ReadFile(smaa_repo_path / "SMAA.hlsl", false);
 
   Resize(width, height);
   PrepareVertexData();

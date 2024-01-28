@@ -20,9 +20,8 @@ Model::Model(const fs::path &path, MultiDrawIndirect *multi_draw_indirect,
       multi_draw_indirect_(multi_draw_indirect) {
   CompileShaders();
 
-  // fmt library does not allow pass u8 string
-  fprintf(stderr, "[info] loading model at: \"%s\"\n", path.string().c_str());
-  fflush(stderr);
+  fmt::print(stderr, "[info] loading model at: \"{}\"\n",
+             (const char *)path.u8string().data());
 
   uint32_t flags = aiProcess_GlobalScale | aiProcess_CalcTangentSpace |
                    aiProcess_Triangulate;
@@ -32,14 +31,7 @@ Model::Model(const fs::path &path, MultiDrawIndirect *multi_draw_indirect,
     importer_.SetPropertyInteger(AI_CONFIG_PP_SLM_TRIANGLE_LIMIT, 8192);
   }
 
-  if (auto ext = ToLower(path.extension().string()); ext == ".pmx") {
-    // genshin impact models contain chinese characters
-    std::string content = ReadFile(path, true);
-    scene_ =
-        importer_.ReadFileFromMemory(content.data(), content.size(), flags);
-  } else {
-    scene_ = importer_.ReadFile(path.string().c_str(), flags);
-  }
+  scene_ = importer_.ReadFile((const char *)path.u8string().data(), flags);
   if (scene_ == nullptr) {
     fmt::print(stderr, "[error] scene_ == nullptr\n");
     exit(1);
@@ -89,7 +81,7 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
             stderr,
             "[error] not loading mesh \"{}\" because an exception is thrown: "
             "{}\n",
-            mesh->mName.C_Str(), e.what());
+            (const char *)ToU8string(mesh->mName).data(), e.what());
         exit(1);
       }
     }

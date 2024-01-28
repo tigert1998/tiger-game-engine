@@ -1,6 +1,7 @@
 #ifndef SMAA_H_
 #define SMAA_H_
 
+#include <filesystem>
 #include <memory>
 #include <string>
 
@@ -33,10 +34,11 @@ class SMAA {
   Texture area_, search_;
 
   void PrepareVertexData();
-  void PrepareAreaAndSearchTexture(const std::string &smaa_repo_path);
+  void PrepareAreaAndSearchTexture(const std::filesystem::path &smaa_repo_path);
 
  public:
-  SMAA(const std::string &smaa_repo_path, uint32_t width, uint32_t height);
+  SMAA(const std::filesystem::path &smaa_repo_path, uint32_t width,
+       uint32_t height);
 
   void Resize(uint32_t width, uint32_t height);
 

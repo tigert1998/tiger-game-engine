@@ -89,7 +89,7 @@ std::string SnakeToPascal(const std::string &name);
         default:                                        \
           err_str = std::to_string(err);                \
       }                                                 \
-      fmt::print(stderr, "[error] {}\n", err_str);              \
+      fmt::print(stderr, "[error] {}\n", err_str);      \
       exit(1);                                          \
     }                                                   \
   } while (0)
@@ -99,5 +99,7 @@ std::string ReadFile(const std::filesystem::path &file_path, bool binary);
 std::string ToLower(const std::string &str);
 
 std::u8string ToU8string(const aiString &str);
+
+std::string StringToHex(const std::string &input);
 
 #endif

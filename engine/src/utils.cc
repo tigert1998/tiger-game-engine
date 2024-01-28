@@ -60,3 +60,16 @@ std::string ToLower(const std::string &str) {
 std::u8string ToU8string(const aiString &str) {
   return std::u8string(str.C_Str(), str.C_Str() + str.length);
 }
+
+std::string StringToHex(const std::string &input) {
+  static const char hex_digits[] = "0123456789ABCDEF";
+
+  std::string output;
+  output.reserve(input.length() * 4);
+  for (unsigned char c : input) {
+    output += "\\x";
+    output.push_back(hex_digits[c >> 4]);
+    output.push_back(hex_digits[c & 15]);
+  }
+  return output;
+}
