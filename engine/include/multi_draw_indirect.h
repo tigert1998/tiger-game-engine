@@ -63,6 +63,14 @@ struct DrawElementsIndirectCommand {
   uint32_t base_instance;
 };
 
+class GPUDrivenWorkloadGeneration {
+ public:
+ private:
+  const static std::string kCsFrustumCullingAndLodSelectionSource;
+  const static std::string kCsPrefixSumSource;
+  const static std::string kCsRemapSource;
+};
+
 class Model;
 
 class MultiDrawIndirect {

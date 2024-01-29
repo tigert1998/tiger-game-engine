@@ -9,6 +9,136 @@
 #include "model.h"
 #include "utils.h"
 
+const std::string
+    GPUDrivenWorkloadGeneration::kCsFrustumCullingAndLodSelectionSource =
+        std::string(R"(
+#version 460 core
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+)") + AABB::GLSLSource() +
+        R"(
+layout (std430, binding = 0) readonly buffer aabbsBuffer {
+    AABB aabbs[]; // per mesh
+};
+layout (std430, binding = 1) readonly buffer modelMatricesBuffer {
+    mat4 modelMatrices[]; // per instance
+};
+layout (std430, binding = 2) readonly buffer instanceToMeshBuffer {
+    uint instanceToMesh[]; // per instance
+};
+layout (std430, binding = 3) readonly buffer frustumBuffer {
+    Frustum cameraFrustum;
+};
+layout (std430, binding = 4) readonly buffer meshToCmdOffsetBuffer {
+    uint meshToCmdOffset[]; // per mesh
+};
+layout (std430, binding = 5) readonly buffer meshToNumCmdsBuffer {
+    uint meshToNumCmds[]; // per mesh
+};
+layout (std430, binding = 6) writeonly buffer cmdInstanceCountBuffer {
+    uint cmdInstanceCount[]; // per cmd
+};
+layout (std430, binding = 7) writeonly buffer instanceToCmdBuffer {
+    int instanceToCmd[]; // per instance
+};
+
+uniform uint uInstanceCount;
+
+void main() {
+    uint instanceID = gl_GlobalInvocationID.x; 
+    if (instanceID >= uInstanceCount) return;
+
+    uint meshID = instanceToMesh[instanceID];
+    AABB newAABB = TransformAABB(modelMatrices[instanceID], aabbs[meshID]);
+    bool doRender = AABBIsOnFrustum(newAABB, cameraFrustum);
+
+    // put lod selection here
+    uint cmdID = meshToCmdOffset[meshID];
+    atomicAdd(cmdInstanceCount[cmdID], uint(doRender));
+    instanceToCmd[instanceID] = doRender ? cmdID : -1;
+}
+)";
+
+const std::string GPUDrivenWorkloadGeneration::kCsPrefixSumSource = R"(
+#version 460 core
+
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+struct DrawElementsIndirectCommand {
+    uint count;
+    uint instanceCount;
+    uint firstIndex;
+    int baseVertex;
+    uint baseInstance;
+};
+
+layout (std430, binding = 0) readonly buffer cmdInstanceCountBuffer {
+    uint cmdInstanceCount[]; // per cmd
+};
+layout (std430, binding = 1) buffer commandsBuffer {
+    DrawElementsIndirectCommand commands[]; // per cmd
+};
+
+uniform uint uCmdCount;
+
+void main() {
+    uint cmdID = gl_GlobalInvocationID.x;
+    if (cmdID >= uCmdCount) return;
+
+    commands[cmdID].baseInstance = cmdInstanceCount[cmdID];
+    barrier();
+
+    uint step = 0;
+    while (uCmdCount > (1 << step)) {
+        if ((cmdID & (1 << step)) > 0) {
+            uint readCmdID = (cmdID | ((1 << step) - 1)) - (1 << step);
+            commands[cmdID].baseInstance += commands[readCmdID].baseInstance;
+        }
+        barrier();
+        step += 1;
+    }
+
+    commands[cmdID].baseInstance -= cmdInstanceCount[cmdID];
+    commands[cmdID].instanceCount = cmdInstanceCount[cmdID];
+}
+)";
+
+const std::string GPUDrivenWorkloadGeneration::kCsRemapSource = R"(
+#version 460 core
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+struct DrawElementsIndirectCommand {
+    uint count;
+    uint instanceCount;
+    uint firstIndex;
+    int baseVertex;
+    uint baseInstance;
+};
+
+layout (std430, binding = 0) readonly buffer instanceToCmdBuffer {
+    int instanceToCmd[]; // per instance
+};
+layout (std430, binding = 1) readonly buffer commandsBuffer {
+    DrawElementsIndirectCommand commands[]; // per cmd
+};
+layout (std430, binding = 2) buffer cmdInstanceCountBuffer {
+    uint cmdInstanceCount[] // per cmd
+};
+layout (std430, binding = 3) writeonly buffer newInstanceIDBuffer {
+    int newInstanceID[]; // per instance
+};
+
+uniform uint uInstanceCount;
+
+void main() {
+    uint instanceID = gl_GlobalInvocationID.x;
+    if (instanceID >= uInstanceCount || instanceToCmd[instanceID] < 0) return;
+    uint cmdID = uint(instanceToCmd[instanceID]);
+    newInstanceID[instanceID] = atomicAdd(cmdInstanceCount[cmdID], 1) + commands[cmdID].baseInstance;
+}
+)";
+
 void MultiDrawIndirect::CheckRenderTargetParameter(
     const std::vector<RenderTargetParameter> &render_target_params) {
   const std::string all_models_must_present_error_message =
