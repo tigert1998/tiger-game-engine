@@ -74,7 +74,7 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
       auto mesh = scene_->mMeshes[id];
       try {
         meshes_[id].reset(new Mesh(directory_path_, mesh, scene_, &bone_namer_,
-                                   &bone_offsets_, flip_y_,
+                                   &bone_offsets_, flip_y_, transform,
                                    multi_draw_indirect_));
       } catch (std::exception &e) {
         fmt::print(
@@ -84,9 +84,6 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
             (const char *)ToU8string(mesh->mName).data(), e.what());
         exit(1);
       }
-    }
-    if (meshes_[id] != nullptr) {
-      meshes_[id]->AppendTransform(transform);
     }
   }
 

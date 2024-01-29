@@ -30,8 +30,8 @@ std::map<std::string, uint32_t> &Namer::map() { return map_; }
 
 Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
            Namer *bone_namer, std::vector<glm::mat4> *bone_offsets, bool flip_y,
-           MultiDrawIndirect *multi_draw_indirect)
-    : multi_draw_indirect_(multi_draw_indirect) {
+           glm::mat4 transform, MultiDrawIndirect *multi_draw_indirect)
+    : transform_(transform), multi_draw_indirect_(multi_draw_indirect) {
 #define REGISTER(name) \
   textures_.push_back( \
       TextureRecord(#name, false, Texture(), -1, -1, glm::vec3(0)))
@@ -166,6 +166,7 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
     aabb_.min = (glm::min)(vertex.position, aabb_.min);
     aabb_.max = (glm::max)(vertex.position, aabb_.max);
   }
+  aabb_ = aabb_.Transform(transform_);
 
   for (int i = 0; i < mesh->mNumBones; i++) {
     auto bone = mesh->mBones[i];
@@ -216,11 +217,7 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
       mesh->HasTextureCoords(0), mesh->HasNormals());
 }
 
-void Mesh::AppendTransform(glm::mat4 transform) {
-  transforms_.push_back(transform);
-}
-
 void Mesh::SubmitToMultiDrawIndirect() {
-  multi_draw_indirect_->Receive(vertices_, indices_[0], textures_, material_,
-                                has_bone_, transforms_[0]);
+  multi_draw_indirect_->Receive(vertices_, indices_, textures_, material_,
+                                has_bone_, transform_, aabb_);
 }

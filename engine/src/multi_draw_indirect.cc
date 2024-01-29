@@ -9,6 +9,97 @@
 #include "model.h"
 #include "utils.h"
 
+GPUDrivenWorkloadGeneration::GPUDrivenWorkloadGeneration(
+    const FixedArrays &fixed_arrays, const DynamicBuffers &dynamic_buffers,
+    const Constants &constants)
+    : dynamic_buffers_(dynamic_buffers), constants_(constants) {
+  CompileShaders();
+  AllocateBuffers(fixed_arrays);
+}
+
+void GPUDrivenWorkloadGeneration::CompileShaders() {
+  if (frustum_culling_and_lod_selection_shader_ == nullptr &&
+      prefix_sum_shader_ == nullptr && remap_shader_ == nullptr) {
+    frustum_culling_and_lod_selection_shader_.reset(new Shader(
+        {{GL_COMPUTE_SHADER, kCsFrustumCullingAndLodSelectionSource}}, {}));
+    prefix_sum_shader_.reset(
+        new Shader({{GL_COMPUTE_SHADER, kCsPrefixSumSource}}, {}));
+    remap_shader_.reset(new Shader({{GL_COMPUTE_SHADER, kCsRemapSource}}, {}));
+  }
+}
+
+void GPUDrivenWorkloadGeneration::AllocateBuffers(
+    const FixedArrays &fixed_arrays) {
+  // constant buffers
+  aabbs_ssbo_.reset(new SSBO(*fixed_arrays.aabbs, GL_STATIC_DRAW, 0));
+  instance_to_mesh_ssbo_.reset(
+      new SSBO(*fixed_arrays.instance_to_mesh, GL_STATIC_DRAW, 1));
+  mesh_to_cmd_offset_ssbo_.reset(
+      new SSBO(*fixed_arrays.mesh_to_cmd_offset, GL_STATIC_DRAW, 2));
+  mesh_to_num_cmds_ssbo_.reset(
+      new SSBO(*fixed_arrays.mesh_to_num_cmds, GL_STATIC_DRAW, 3));
+
+  // intermediate buffers
+  cmd_instance_count_ssbo_.reset(new SSBO(
+      constants_.num_commands * sizeof(uint32_t), nullptr, GL_DYNAMIC_DRAW, 6));
+  instance_to_cmd_ssbo_.reset(new SSBO(
+      constants_.num_instances * sizeof(int32_t), nullptr, GL_DYNAMIC_DRAW, 7));
+}
+
+void GPUDrivenWorkloadGeneration::Compute() {
+  // compute frustum culling and lod selection
+  frustum_culling_and_lod_selection_shader_->Use();
+  aabbs_ssbo_->BindBufferBase(0);
+  dynamic_buffers_.input_model_matrices_ssbo->BindBufferBase(1);
+  instance_to_mesh_ssbo_->BindBufferBase(2);
+  dynamic_buffers_.frustum_ssbo->BindBufferBase(3);
+  mesh_to_cmd_offset_ssbo_->BindBufferBase(4);
+  mesh_to_num_cmds_ssbo_->BindBufferBase(5);
+  uint32_t zero = 0;
+  glClearNamedBufferData(cmd_instance_count_ssbo_->id(), GL_R32UI,
+                         GL_RED_INTEGER, GL_UNSIGNED_INT, &zero);
+  cmd_instance_count_ssbo_->BindBufferBase(6);
+  instance_to_cmd_ssbo_->BindBufferBase(7);
+  frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
+      "uInstanceCount", constants_.num_instances);
+  glDispatchCompute((constants_.num_instances + 255) / 256, 1, 1);
+  glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+  // compute prefix sum
+  prefix_sum_shader_->Use();
+  cmd_instance_count_ssbo_->BindBufferBase(0);
+  dynamic_buffers_.commands_ssbo->BindBufferBase(1);
+  prefix_sum_shader_->SetUniform<uint32_t>("uCmdCount",
+                                           constants_.num_commands);
+  glDispatchCompute((constants_.num_commands + 1023) / 1024, 1, 1);
+  glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+  // compute remap
+  remap_shader_->Use();
+  instance_to_cmd_ssbo_->BindBufferBase(0);
+  dynamic_buffers_.commands_ssbo->BindBufferBase(1);
+  uint32_t zero = 0;
+  glClearNamedBufferData(cmd_instance_count_ssbo_->id(), GL_R32UI,
+                         GL_RED_INTEGER, GL_UNSIGNED_INT, &zero);
+  cmd_instance_count_ssbo_->BindBufferBase(2);
+  dynamic_buffers_.input_model_matrices_ssbo->BindBufferBase(3);
+  dynamic_buffers_.input_bone_matrices_offset_ssbo->BindBufferBase(4);
+  dynamic_buffers_.input_animated_ssbo->BindBufferBase(5);
+  dynamic_buffers_.input_transforms_ssbo->BindBufferBase(6);
+  dynamic_buffers_.input_clip_planes_ssbo->BindBufferBase(7);
+  dynamic_buffers_.input_materials_ssbo->BindBufferBase(8);
+  dynamic_buffers_.model_matrices_ssbo->BindBufferBase(9);
+  dynamic_buffers_.bone_matrices_offset_ssbo->BindBufferBase(10);
+  dynamic_buffers_.animated_ssbo->BindBufferBase(11);
+  dynamic_buffers_.transforms_ssbo->BindBufferBase(12);
+  dynamic_buffers_.clip_planes_ssbo->BindBufferBase(13);
+  dynamic_buffers_.materials_ssbo->BindBufferBase(14);
+  remap_shader_->SetUniform<uint32_t>("uInstanceCount",
+                                      constants_.num_instances);
+  glDispatchCompute((constants_.num_instances + 255) / 256, 1, 1);
+  glMemoryBarrier(GL_ALL_BARRIER_BITS);
+}
+
 const std::string
     GPUDrivenWorkloadGeneration::kCsFrustumCullingAndLodSelectionSource =
         std::string(R"(
@@ -35,7 +126,7 @@ layout (std430, binding = 4) readonly buffer meshToCmdOffsetBuffer {
 layout (std430, binding = 5) readonly buffer meshToNumCmdsBuffer {
     uint meshToNumCmds[]; // per mesh
 };
-layout (std430, binding = 6) writeonly buffer cmdInstanceCountBuffer {
+layout (std430, binding = 6) buffer cmdInstanceCountBuffer {
     uint cmdInstanceCount[]; // per cmd
 };
 layout (std430, binding = 7) writeonly buffer instanceToCmdBuffer {
@@ -125,8 +216,45 @@ layout (std430, binding = 1) readonly buffer commandsBuffer {
 layout (std430, binding = 2) buffer cmdInstanceCountBuffer {
     uint cmdInstanceCount[] // per cmd
 };
-layout (std430, binding = 3) writeonly buffer newInstanceIDBuffer {
-    int newInstanceID[]; // per instance
+
+// input
+layout (std430, binding = 3) readonly buffer inputModelMatricesBuffer {
+    mat4 inputModelMatrices[]; // per instance
+};
+layout (std430, binding = 4) readonly buffer inputBoneMatricesOffsetBuffer {
+    int inputBoneMatricesOffset[]; // per instance
+};
+layout (std430, binding = 5) readonly buffer inputAnimatedBuffer {
+    uint inputAnimated[]; // per instance
+};
+layout (std430, binding = 6) readonly buffer inputTransformsBuffer {
+    mat4 inputTransforms[]; // per instance
+};
+layout (std430, binding = 7) readonly buffer inputClipPlanesBuffer {
+    vec4 inputClipPlanes[]; // per instance
+};
+layout (std430, binding = 8) readonly buffer inputMaterialsBuffer {
+    Material inputMaterials[]; // per instance
+};
+
+// output
+layout (std430, binding = 9) writeonly buffer modelMatricesBuffer {
+    mat4 modelMatrices[]; // per instance
+};
+layout (std430, binding = 10) writeonly buffer boneMatricesOffsetBuffer {
+    int boneMatricesOffset[]; // per instance
+};
+layout (std430, binding = 11) writeonly buffer animatedBuffer {
+    uint animated[]; // per instance
+};
+layout (std430, binding = 12) writeonly buffer transformsBuffer {
+    mat4 transforms[]; // per instance
+};
+layout (std430, binding = 13) writeonly buffer clipPlanesBuffer {
+    vec4 clipPlanes[]; // per instance
+};
+layout (std430, binding = 14) writeonly buffer materialsBuffer {
+    Material materials[]; // per instance
 };
 
 uniform uint uInstanceCount;
@@ -135,9 +263,23 @@ void main() {
     uint instanceID = gl_GlobalInvocationID.x;
     if (instanceID >= uInstanceCount || instanceToCmd[instanceID] < 0) return;
     uint cmdID = uint(instanceToCmd[instanceID]);
-    newInstanceID[instanceID] = atomicAdd(cmdInstanceCount[cmdID], 1) + commands[cmdID].baseInstance;
+    uint newInstanceID = atomicAdd(cmdInstanceCount[cmdID], 1) + commands[cmdID].baseInstance;
+
+    modelMatrices[newInstanceID] = inputModelMatrices[instanceID];
+    boneMatricesOffset[newInstanceID] = inputBoneMatricesOffset[instanceID];
+    animated[newInstanceID] = inputAnimated[instanceID];
+    transforms[newInstanceID] = inputTransforms[instanceID];
+    clipPlanes[newInstanceID] = inputClipPlanes[instanceID];
+    materials[newInstanceID] = inputMaterials[instanceID];
 }
 )";
+
+MultiDrawIndirect::~MultiDrawIndirect() {
+  glDeleteBuffers(1, &commands_buffer_);
+  glDeleteBuffers(1, &vao_);
+  glDeleteBuffers(1, &ebo_);
+  glDeleteBuffers(1, &vbo_);
+}
 
 void MultiDrawIndirect::CheckRenderTargetParameter(
     const std::vector<RenderTargetParameter> &render_target_params) {
@@ -197,13 +339,13 @@ void MultiDrawIndirect::UpdateBuffers(
   glNamedBufferSubData(bone_matrices_ssbo_->id(), 0,
                        bone_matrices_.size() * sizeof(bone_matrices_[0]),
                        bone_matrices_.data());
-  glNamedBufferSubData(animated_ssbo_->id(), 0,
+  glNamedBufferSubData(input_animated_ssbo_->id(), 0,
                        animated_.size() * sizeof(animated_[0]),
                        animated_.data());
-  glNamedBufferSubData(model_matrices_ssbo_->id(), 0,
+  glNamedBufferSubData(input_model_matrices_ssbo_->id(), 0,
                        model_matrices_.size() * sizeof(model_matrices_[0]),
                        model_matrices_.data());
-  glNamedBufferSubData(clip_planes_ssbo_->id(), 0,
+  glNamedBufferSubData(input_clip_planes_ssbo_->id(), 0,
                        clip_planes_.size() * sizeof(clip_planes_[0]),
                        clip_planes_.data());
 }
@@ -212,14 +354,14 @@ void MultiDrawIndirect::BindBuffers() {
   glBindVertexArray(vao_);
   glBindBuffer(GL_DRAW_INDIRECT_BUFFER, commands_buffer_);
 
-  model_matrices_ssbo_->BindBufferBase();
-  bone_matrices_ssbo_->BindBufferBase();
-  bone_matrices_offset_ssbo_->BindBufferBase();
-  animated_ssbo_->BindBufferBase();
-  transforms_ssbo_->BindBufferBase();
-  clip_planes_ssbo_->BindBufferBase();
-  materials_ssbo_->BindBufferBase();
-  textures_ssbo_->BindBufferBase();
+  model_matrices_ssbo_->BindBufferBase(0);
+  bone_matrices_ssbo_->BindBufferBase(1);
+  bone_matrices_offset_ssbo_->BindBufferBase(2);
+  animated_ssbo_->BindBufferBase(3);
+  transforms_ssbo_->BindBufferBase(4);
+  clip_planes_ssbo_->BindBufferBase(5);
+  materials_ssbo_->BindBufferBase(6);
+  textures_ssbo_->BindBufferBase(7);
 }
 
 void MultiDrawIndirect::DrawDepthForShadow(
@@ -245,6 +387,10 @@ void MultiDrawIndirect::Draw(
     const std::vector<RenderTargetParameter> &render_target_params) {
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
+
+  glNamedBufferSubData(frustum_ssbo_->id(), 0, sizeof(Frustum),
+                       &camera->frustum());
+  gpu_driven_->Compute();
 
   Shader *shader = nullptr;
   if (oit_render_quad != nullptr) {
@@ -333,24 +479,33 @@ void MultiDrawIndirect::PrepareForDraw() {
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
   // create SSBO
+  input_model_matrices_ssbo_.reset(new SSBO(num_instances_ * sizeof(glm::mat4),
+                                            nullptr, GL_DYNAMIC_DRAW, 0));
+  bone_matrices_ssbo_.reset(new SSBO(num_bone_matrices_ * sizeof(glm::mat4),
+                                     nullptr, GL_DYNAMIC_DRAW, 0));
+  input_bone_matrices_offset_ssbo_.reset(
+      new SSBO(bone_matrices_offset_, GL_STATIC_DRAW, 0));
+  input_animated_ssbo_.reset(new SSBO(has_bone_.size() * sizeof(has_bone_[0]),
+                                      nullptr, GL_DYNAMIC_DRAW, 0));
+  input_transforms_ssbo_.reset(new SSBO(transforms_, GL_STATIC_DRAW, 0));
+  input_clip_planes_ssbo_.reset(new SSBO(num_instances_ * sizeof(glm::vec4),
+                                         nullptr, GL_DYNAMIC_DRAW, 0));
+  input_materials_ssbo_.reset(new SSBO(materials_, GL_STATIC_DRAW, 0));
+  textures_ssbo_.reset(new SSBO(texture_handles_, GL_STATIC_DRAW, 0));
+
   model_matrices_ssbo_.reset(new SSBO(num_instances_ * sizeof(glm::mat4),
                                       nullptr, GL_DYNAMIC_DRAW, 0));
-  bone_matrices_ssbo_.reset(new SSBO(num_bone_matrices_ * sizeof(glm::mat4),
-                                     nullptr, GL_DYNAMIC_DRAW, 1));
   bone_matrices_offset_ssbo_.reset(
-      new SSBO(bone_matrices_offset_.size() * sizeof(bone_matrices_offset_[0]),
-               bone_matrices_offset_.data(), GL_STATIC_DRAW, 2));
+      new SSBO(bone_matrices_offset_, GL_DYNAMIC_DRAW, 0));
   animated_ssbo_.reset(new SSBO(has_bone_.size() * sizeof(has_bone_[0]),
-                                nullptr, GL_DYNAMIC_DRAW, 3));
-  transforms_ssbo_.reset(new SSBO(transforms_.size() * sizeof(transforms_[0]),
-                                  transforms_.data(), GL_STATIC_DRAW, 4));
+                                nullptr, GL_DYNAMIC_DRAW, 0));
+  transforms_ssbo_.reset(new SSBO(transforms_, GL_DYNAMIC_DRAW, 0));
   clip_planes_ssbo_.reset(new SSBO(num_instances_ * sizeof(glm::vec4), nullptr,
-                                   GL_DYNAMIC_DRAW, 5));
-  materials_ssbo_.reset(new SSBO(materials_.size() * sizeof(materials_[0]),
-                                 materials_.data(), GL_STATIC_DRAW, 6));
-  textures_ssbo_.reset(
-      new SSBO(texture_handles_.size() * sizeof(texture_handles_[0]),
-               texture_handles_.data(), GL_STATIC_DRAW, 7));
+                                   GL_DYNAMIC_DRAW, 0));
+  materials_ssbo_.reset(new SSBO(materials_, GL_DYNAMIC_DRAW, 0));
+
+  commands_ssbo_.reset(new SSBO(commands_buffer_, 0, false));
+  frustum_ssbo_.reset(new SSBO(sizeof(Frustum), nullptr, GL_DYNAMIC_DRAW, 0));
 
   bone_matrices_.resize(num_bone_matrices_);
   animated_.resize(num_instances_);
@@ -364,22 +519,65 @@ void MultiDrawIndirect::PrepareForDraw() {
     ids.insert(textures_[i].id());
   }
   CHECK_OPENGL_ERROR();
+
+  GPUDrivenWorkloadGeneration::FixedArrays fixed_arrays;
+  fixed_arrays.aabbs = &aabbs_;
+  fixed_arrays.instance_to_mesh = &instance_to_mesh_;
+  fixed_arrays.mesh_to_cmd_offset = &mesh_to_cmd_offset_;
+  fixed_arrays.mesh_to_num_cmds = &mesh_to_num_cmds_;
+
+  GPUDrivenWorkloadGeneration::DynamicBuffers dynamic_buffers;
+  dynamic_buffers.input_model_matrices_ssbo = input_model_matrices_ssbo_.get();
+  dynamic_buffers.frustum_ssbo = frustum_ssbo_.get();
+  dynamic_buffers.commands_ssbo = commands_ssbo_.get();
+  dynamic_buffers.input_bone_matrices_offset_ssbo =
+      input_bone_matrices_offset_ssbo_.get();
+  dynamic_buffers.input_animated_ssbo = input_animated_ssbo_.get();
+  dynamic_buffers.input_transforms_ssbo = input_transforms_ssbo_.get();
+  dynamic_buffers.input_clip_planes_ssbo = input_clip_planes_ssbo_.get();
+  dynamic_buffers.input_materials_ssbo = input_materials_ssbo_.get();
+  dynamic_buffers.model_matrices_ssbo = model_matrices_ssbo_.get();
+  dynamic_buffers.bone_matrices_offset_ssbo = bone_matrices_offset_ssbo_.get();
+  dynamic_buffers.animated_ssbo = animated_ssbo_.get();
+  dynamic_buffers.transforms_ssbo = transforms_ssbo_.get();
+  dynamic_buffers.clip_planes_ssbo = clip_planes_ssbo_.get();
+  dynamic_buffers.materials_ssbo = materials_ssbo_.get();
+
+  GPUDrivenWorkloadGeneration::Constants constants;
+  constants.num_commands = commands_.size();
+  constants.num_instances = num_instances_;
+  gpu_driven_.reset(new GPUDrivenWorkloadGeneration(
+      fixed_arrays, dynamic_buffers, constants));
 }
 
 void MultiDrawIndirect::Receive(
     const std::vector<VertexWithBones> &vertices,
-    const std::vector<uint32_t> &indices,
+    const std::vector<std::vector<uint32_t>> &indices,
     const std::vector<TextureRecord> &texture_records,
-    const PhongMaterial &phong_material, bool has_bone, glm::mat4 transform) {
-  DrawElementsIndirectCommand cmd;
-  cmd.count = indices.size();
-  cmd.instance_count = submission_cache_.item_count;
-  cmd.first_index = indices_.size();
-  cmd.base_vertex = vertices_.size();
-  cmd.base_instance = num_instances_;
+    const PhongMaterial &phong_material, bool has_bone, glm::mat4 transform,
+    AABB aabb) {
+  aabbs_.push_back(aabb);
+  for (int i = 0; i < submission_cache_.item_count; i++) {
+    instance_to_mesh_.push_back(num_meshes_);
+  }
+  mesh_to_cmd_offset_.push_back(commands_.size());
+  mesh_to_num_cmds_.push_back(indices.size());
+
+  for (int i = 0; i < indices.size(); i++) {
+    DrawElementsIndirectCommand cmd;
+    cmd.count = indices[i].size();
+    cmd.instance_count = 0;
+    cmd.first_index = indices_.size();
+    cmd.base_vertex = vertices_.size();
+    cmd.base_instance = 0;
+    commands_.push_back(cmd);
+
+    std::copy(indices[i].begin(), indices[i].end(),
+              std::back_inserter(indices_));
+  }
 
   std::copy(vertices.begin(), vertices.end(), std::back_inserter(vertices_));
-  std::copy(indices.begin(), indices.end(), std::back_inserter(indices_));
+
   Material material;
   for (int i = 0; i < texture_records.size(); i++) {
     if (!texture_records[i].enabled) {
@@ -414,6 +612,5 @@ void MultiDrawIndirect::Receive(
   }
 
   num_instances_ += submission_cache_.item_count;
-
-  commands_.push_back(cmd);
+  num_meshes_ += 1;
 }
