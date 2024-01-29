@@ -54,8 +54,8 @@ AABB TransformAABB(mat4 transform, AABB aabb) {
             for (int k = 0; k < 2; k++) {
                 float c = axis2[k];
                 vec3 tmp = vec3(transform * vec4(a, b, c, 1));
-                ret.min = min(ret.min, tmp);
-                ret.max = max(ret.max, tmp);
+                ret.coordsMin = min(ret.coordsMin, tmp);
+                ret.coordsMax = max(ret.coordsMax, tmp);
             }
         }
     }
@@ -71,12 +71,12 @@ bool AABBIsOnOrForwardPlane(AABB aabb, FrustumPlane plane) {
 }
 
 bool AABBIsOnFrustum(AABB aabb, Frustum frustum) {
-    return AABBIsOnOrForwardPlane(frustum.topPlane) &&
-        AABBIsOnOrForwardPlane(frustum.bottomPlane) &&
-        AABBIsOnOrForwardPlane(frustum.nearPlane) &&
-        AABBIsOnOrForwardPlane(frustum.farPlane) &&
-        AABBIsOnOrForwardPlane(frustum.leftPlane) &&
-        AABBIsOnOrForwardPlane(frustum.rightPlane);
+    return AABBIsOnOrForwardPlane(aabb, frustum.topPlane) &&
+        AABBIsOnOrForwardPlane(aabb, frustum.bottomPlane) &&
+        AABBIsOnOrForwardPlane(aabb, frustum.nearPlane) &&
+        AABBIsOnOrForwardPlane(aabb, frustum.farPlane) &&
+        AABBIsOnOrForwardPlane(aabb, frustum.leftPlane) &&
+        AABBIsOnOrForwardPlane(aabb, frustum.rightPlane);
 }
 )";
 }

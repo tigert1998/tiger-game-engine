@@ -78,7 +78,6 @@ void GPUDrivenWorkloadGeneration::Compute() {
   remap_shader_->Use();
   instance_to_cmd_ssbo_->BindBufferBase(0);
   dynamic_buffers_.commands_ssbo->BindBufferBase(1);
-  uint32_t zero = 0;
   glClearNamedBufferData(cmd_instance_count_ssbo_->id(), GL_R32UI,
                          GL_RED_INTEGER, GL_UNSIGNED_INT, &zero);
   cmd_instance_count_ssbo_->BindBufferBase(2);
@@ -99,6 +98,13 @@ void GPUDrivenWorkloadGeneration::Compute() {
   glDispatchCompute((constants_.num_instances + 255) / 256, 1, 1);
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
 }
+
+std::unique_ptr<Shader>
+    GPUDrivenWorkloadGeneration::frustum_culling_and_lod_selection_shader_ =
+        nullptr;
+std::unique_ptr<Shader> GPUDrivenWorkloadGeneration::prefix_sum_shader_ =
+    nullptr;
+std::unique_ptr<Shader> GPUDrivenWorkloadGeneration::remap_shader_ = nullptr;
 
 const std::string
     GPUDrivenWorkloadGeneration::kCsFrustumCullingAndLodSelectionSource =
@@ -146,7 +152,7 @@ void main() {
     // put lod selection here
     uint cmdID = meshToCmdOffset[meshID];
     atomicAdd(cmdInstanceCount[cmdID], uint(doRender));
-    instanceToCmd[instanceID] = doRender ? cmdID : -1;
+    instanceToCmd[instanceID] = doRender ? int(cmdID) : -1;
 }
 )";
 
@@ -207,6 +213,19 @@ struct DrawElementsIndirectCommand {
     uint baseInstance;
 };
 
+struct Material {
+    int ambientTexture;
+    int diffuseTexture;
+    int specularTexture;
+    int normalsTexture;
+    int metalnessTexture;
+    int diffuseRoughnessTexture;
+    int ambientOcclusionTexture;
+    vec4 ka, kd, ks;
+    float shininess;
+    bool bindMetalnessAndDiffuseRoughness;
+};
+
 layout (std430, binding = 0) readonly buffer instanceToCmdBuffer {
     int instanceToCmd[]; // per instance
 };
@@ -214,7 +233,7 @@ layout (std430, binding = 1) readonly buffer commandsBuffer {
     DrawElementsIndirectCommand commands[]; // per cmd
 };
 layout (std430, binding = 2) buffer cmdInstanceCountBuffer {
-    uint cmdInstanceCount[] // per cmd
+    uint cmdInstanceCount[]; // per cmd
 };
 
 // input
@@ -388,8 +407,8 @@ void MultiDrawIndirect::Draw(
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
-  glNamedBufferSubData(frustum_ssbo_->id(), 0, sizeof(Frustum),
-                       &camera->frustum());
+  Frustum frustum = camera->frustum();
+  glNamedBufferSubData(frustum_ssbo_->id(), 0, sizeof(Frustum), &frustum);
   gpu_driven_->Compute();
 
   Shader *shader = nullptr;

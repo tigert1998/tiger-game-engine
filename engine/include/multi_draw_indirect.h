@@ -7,6 +7,7 @@
 #include <map>
 #include <vector>
 
+#include "aabb.h"
 #include "camera.h"
 #include "light_sources.h"
 #include "oit_render_quad.h"
