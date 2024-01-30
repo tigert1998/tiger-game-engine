@@ -7,6 +7,7 @@
 #include <set>
 
 #include "model.h"
+#include "obb.h"
 #include "utils.h"
 
 const std::string DrawElementsIndirectCommand::GLSLSource() {
@@ -89,7 +90,7 @@ void GPUDrivenWorkloadGeneration::AllocateBuffers(
       new SSBO(1024 * sizeof(uint32_t), nullptr, GL_DYNAMIC_DRAW, 1));
 }
 
-void GPUDrivenWorkloadGeneration::Compute() {
+void GPUDrivenWorkloadGeneration::Compute(bool is_shadow_pass) {
   // compute frustum culling and lod selection
   frustum_culling_and_lod_selection_shader_->Use();
   aabbs_ssbo_->BindBufferBase(0);
@@ -103,6 +104,11 @@ void GPUDrivenWorkloadGeneration::Compute() {
                          GL_RED_INTEGER, GL_UNSIGNED_INT, &zero);
   cmd_instance_count_ssbo_->BindBufferBase(6);
   instance_to_cmd_ssbo_->BindBufferBase(7);
+  dynamic_buffers_.shadow_obbs_ssbo->BindBufferBase(8);
+  frustum_culling_and_lod_selection_shader_->SetUniform<int32_t>(
+      "uIsShadowPass", is_shadow_pass);
+  frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
+      "uNumCascades", DirectionalShadow::NUM_CASCADES);
   frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
       "uInstanceCount", constants_.num_instances);
   glDispatchCompute((constants_.num_instances + 255) / 256, 1, 1);
@@ -180,6 +186,7 @@ const std::string
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 )") + AABB::GLSLSource() +
+        OBB::GLSLSource() +
         R"(
 layout (std430, binding = 0) readonly buffer aabbsBuffer {
     AABB aabbs[]; // per mesh
@@ -205,7 +212,12 @@ layout (std430, binding = 6) buffer cmdInstanceCountBuffer {
 layout (std430, binding = 7) writeonly buffer instanceToCmdBuffer {
     int instanceToCmd[]; // per instance
 };
+layout (std430, binding = 8) readonly buffer shadowObbsBuffer {
+    OBB shadowObbs[];
+};
 
+uniform bool uIsShadowPass;
+uniform uint uNumCascades;
 uniform uint uInstanceCount;
 
 void main() {
@@ -214,7 +226,20 @@ void main() {
 
     uint meshID = instanceToMesh[instanceID];
     AABB newAABB = TransformAABB(modelMatrices[instanceID], aabbs[meshID]);
-    bool doRender = AABBIsOnFrustum(newAABB, cameraFrustum);
+
+    bool doRender;
+    if (uIsShadowPass) {
+        doRender = false;
+        for (int i = 0; i < uNumCascades; i++) {            
+            doRender = IntersectsOBB(
+                OBB(newAABB.coordsMin, newAABB.coordsMax, mat3(1)),
+                shadowObbs[i], 1e-4
+            );
+            if (doRender) break;
+        }
+    } else {
+        doRender = AABBIsOnFrustum(newAABB, cameraFrustum);
+    }
 
     // put lod selection here
     uint cmdID = meshToCmdOffset[meshID];
@@ -509,6 +534,11 @@ void MultiDrawIndirect::DrawDepthForShadow(
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
+  auto obbs = ((DirectionalShadow *)shadow)->cascade_obbs();
+  glNamedBufferSubData(shadow_obbs_ssbo_->id(), 0,
+                       obbs.size() * sizeof(obbs[0]), obbs.data());
+  gpu_driven_->Compute(true);
+
   BindBuffers();
   Model::kShadowShader->Use();
   shadow->SetForDepthPass(Model::kShadowShader.get());
@@ -529,7 +559,7 @@ void MultiDrawIndirect::Draw(
 
   Frustum frustum = camera->frustum();
   glNamedBufferSubData(frustum_ssbo_->id(), 0, sizeof(Frustum), &frustum);
-  gpu_driven_->Compute();
+  gpu_driven_->Compute(false);
 
   Shader *shader = nullptr;
   if (oit_render_quad != nullptr) {
@@ -645,6 +675,9 @@ void MultiDrawIndirect::PrepareForDraw() {
 
   commands_ssbo_.reset(new SSBO(commands_buffer_, 0, false));
   frustum_ssbo_.reset(new SSBO(sizeof(Frustum), nullptr, GL_DYNAMIC_DRAW, 0));
+  shadow_obbs_ssbo_.reset(
+      new SSBO(sizeof(OBB) * DirectionalShadow::NUM_CASCADES, nullptr,
+               GL_DYNAMIC_DRAW, 8));
 
   bone_matrices_.resize(num_bone_matrices_);
   animated_.resize(num_instances_);
@@ -668,6 +701,7 @@ void MultiDrawIndirect::PrepareForDraw() {
   GPUDrivenWorkloadGeneration::DynamicBuffers dynamic_buffers;
   dynamic_buffers.input_model_matrices_ssbo = input_model_matrices_ssbo_.get();
   dynamic_buffers.frustum_ssbo = frustum_ssbo_.get();
+  dynamic_buffers.shadow_obbs_ssbo = shadow_obbs_ssbo_.get();
   dynamic_buffers.commands_ssbo = commands_ssbo_.get();
   dynamic_buffers.input_bone_matrices_offset_ssbo =
       input_bone_matrices_offset_ssbo_.get();

@@ -80,6 +80,7 @@ class GPUDrivenWorkloadGeneration {
   struct DynamicBuffers {
     const SSBO *input_model_matrices_ssbo;
     const SSBO *frustum_ssbo;
+    const SSBO *shadow_obbs_ssbo;
     const SSBO *commands_ssbo;
     const SSBO *input_bone_matrices_offset_ssbo;
     const SSBO *input_animated_ssbo;
@@ -103,7 +104,7 @@ class GPUDrivenWorkloadGeneration {
                                        const DynamicBuffers &dynamic_buffers,
                                        const Constants &constants);
 
-  void Compute();
+  void Compute(bool is_shadow_pass);
 
  private:
   void CompileShaders();
@@ -234,7 +235,7 @@ class MultiDrawIndirect {
       textures_ssbo_;
   std::unique_ptr<SSBO> model_matrices_ssbo_, bone_matrices_offset_ssbo_,
       animated_ssbo_, transforms_ssbo_, clip_planes_ssbo_, materials_ssbo_;
-  std::unique_ptr<SSBO> commands_ssbo_, frustum_ssbo_;
+  std::unique_ptr<SSBO> commands_ssbo_, frustum_ssbo_, shadow_obbs_ssbo_;
 
   // for gpu driven workload generation
   std::vector<AABB> aabbs_;

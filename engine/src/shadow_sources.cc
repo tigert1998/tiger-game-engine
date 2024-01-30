@@ -26,9 +26,8 @@ DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
   fbo_.reset(new FrameBufferObject(empty, depth_texture));
 }
 
-std::vector<glm::mat4> DirectionalShadow::view_projection_matrices() const {
-  std::vector<glm::mat4> matrices;
-  matrices.reserve(NUM_CASCADES);
+void DirectionalShadow::CalcFrustumCorners(
+    const std::function<void(const std::vector<glm::vec3> &)> &callback) const {
   auto distances = cascade_plane_distances();
 
   for (int i = 0; i < NUM_CASCADES; i++) {
@@ -45,8 +44,27 @@ std::vector<glm::mat4> DirectionalShadow::view_projection_matrices() const {
     }
     auto corners = camera_->frustum_corners(z_near, z_far);
 
-    matrices.push_back(projection_matrix(corners) * view_matrix(corners));
+    callback(corners);
   }
+}
+
+std::vector<OBB> DirectionalShadow::cascade_obbs() const {
+  std::vector<OBB> obbs;
+  obbs.reserve(NUM_CASCADES);
+
+  CalcFrustumCorners(
+      [&](const auto &corners) { obbs.push_back(cascade_obb(corners)); });
+
+  return obbs;
+}
+
+std::vector<glm::mat4> DirectionalShadow::view_projection_matrices() const {
+  std::vector<glm::mat4> matrices;
+  matrices.reserve(NUM_CASCADES);
+
+  CalcFrustumCorners([&](const auto &corners) {
+    matrices.push_back(projection_matrix(corners) * view_matrix(corners));
+  });
 
   return matrices;
 }
@@ -85,7 +103,7 @@ glm::mat4 DirectionalShadow::view_matrix(
   return glm::lookAt(center - direction_, center, up);
 }
 
-glm::mat4 DirectionalShadow::projection_matrix(
+AABB DirectionalShadow::projection_matrix_ortho_param(
     const std::vector<glm::vec3> &frustum_corners) const {
   float min_x = std::numeric_limits<float>::max();
   float max_x = std::numeric_limits<float>::lowest();
@@ -94,9 +112,10 @@ glm::mat4 DirectionalShadow::projection_matrix(
   float min_z = std::numeric_limits<float>::max();
   float max_z = std::numeric_limits<float>::lowest();
 
+  glm::mat4 v = view_matrix(frustum_corners);
+
   for (auto corner : frustum_corners) {
-    auto corner_view_space =
-        view_matrix(frustum_corners) * glm::vec4(corner, 1);
+    auto corner_view_space = v * glm::vec4(corner, 1);
     min_x = std::min(min_x, corner_view_space.x);
     max_x = std::max(max_x, corner_view_space.x);
     min_y = std::min(min_y, corner_view_space.y);
@@ -118,7 +137,46 @@ glm::mat4 DirectionalShadow::projection_matrix(
     max_z *= MULT;
   }
 
-  return glm::ortho(min_x, max_x, min_y, max_y, min_z, max_z);
+  AABB aabb;
+  aabb.min = glm::vec3(min_x, min_y, min_z);
+  aabb.max = glm::vec3(max_x, max_y, max_z);
+  return aabb;
+}
+
+OBB DirectionalShadow::cascade_obb(
+    const std::vector<glm::vec3> &frustum_corners) const {
+  glm::mat4 v = view_matrix(frustum_corners);
+  AABB aabb = projection_matrix_ortho_param(frustum_corners);
+
+  glm::mat4 translation = glm::mat4(1);
+  translation[3].x = v[3].x;
+  translation[3].y = v[3].y;
+  translation[3].z = v[3].z;
+
+  glm::mat4 scaling =
+      glm::scale(glm::mat4(1), glm::vec3(glm::length(glm::vec3(v[0])),
+                                         glm::length(glm::vec3(v[1])),
+                                         glm::length(glm::vec3(v[2]))));
+
+  glm::mat4 rotation = glm::mat4(1);
+  for (int i = 0; i < 3; i++)
+    for (int j = 0; j < 3; j++) {
+      rotation[i][j] = v[i][j] / scaling[i][i];
+    }
+
+  OBB obb;
+  glm::mat4 transform = glm::inverse(translation * scaling);
+  obb.min = transform * glm::vec4(aabb.min, 1);
+  obb.max = transform * glm::vec4(aabb.max, 1);
+  obb.set_rotation(glm::inverse(rotation));
+  return obb;
+}
+
+glm::mat4 DirectionalShadow::projection_matrix(
+    const std::vector<glm::vec3> &frustum_corners) const {
+  AABB aabb = projection_matrix_ortho_param(frustum_corners);
+  return glm::ortho(aabb.min.x, aabb.max.x, aabb.min.y, aabb.max.y, aabb.min.z,
+                    aabb.max.z);
 }
 
 void DirectionalShadow::SetForDepthPass(Shader *shader) {
