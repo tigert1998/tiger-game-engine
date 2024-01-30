@@ -9,21 +9,62 @@
 #include "model.h"
 #include "utils.h"
 
+const std::string DrawElementsIndirectCommand::GLSLSource() {
+  return R"(
+struct DrawElementsIndirectCommand {
+    uint count;
+    uint instanceCount;
+    uint firstIndex;
+    int baseVertex;
+    uint baseInstance;
+};
+)";
+}
+
+const std::string PhongMaterial::GLSLSource() {
+  return R"(
+struct Material {
+    int ambientTexture;
+    int diffuseTexture;
+    int specularTexture;
+    int normalsTexture;
+    int metalnessTexture;
+    int diffuseRoughnessTexture;
+    int ambientOcclusionTexture;
+    vec4 ka, kd, ks;
+    float shininess;
+    bool bindMetalnessAndDiffuseRoughness;
+};
+)";
+}
+
 GPUDrivenWorkloadGeneration::GPUDrivenWorkloadGeneration(
     const FixedArrays &fixed_arrays, const DynamicBuffers &dynamic_buffers,
     const Constants &constants)
     : dynamic_buffers_(dynamic_buffers), constants_(constants) {
+  if (constants.num_commands > 1024 * 1024) {
+    fmt::print(
+        "[error] the engine does not support this number of commands "
+        "currently");
+    exit(1);
+  }
+
   CompileShaders();
   AllocateBuffers(fixed_arrays);
 }
 
 void GPUDrivenWorkloadGeneration::CompileShaders() {
   if (frustum_culling_and_lod_selection_shader_ == nullptr &&
-      prefix_sum_shader_ == nullptr && remap_shader_ == nullptr) {
+      prefix_sum_0_shader_ == nullptr && prefix_sum_1_shader_ == nullptr &&
+      prefix_sum_2_shader_ == nullptr && remap_shader_ == nullptr) {
     frustum_culling_and_lod_selection_shader_.reset(new Shader(
         {{GL_COMPUTE_SHADER, kCsFrustumCullingAndLodSelectionSource}}, {}));
-    prefix_sum_shader_.reset(
-        new Shader({{GL_COMPUTE_SHADER, kCsPrefixSumSource}}, {}));
+    prefix_sum_0_shader_.reset(
+        new Shader({{GL_COMPUTE_SHADER, kCsPrefixSum0Source}}, {}));
+    prefix_sum_1_shader_.reset(
+        new Shader({{GL_COMPUTE_SHADER, kCsPrefixSum1Source}}, {}));
+    prefix_sum_2_shader_.reset(
+        new Shader({{GL_COMPUTE_SHADER, kCsPrefixSum2Source}}, {}));
     remap_shader_.reset(new Shader({{GL_COMPUTE_SHADER, kCsRemapSource}}, {}));
   }
 }
@@ -44,6 +85,8 @@ void GPUDrivenWorkloadGeneration::AllocateBuffers(
       constants_.num_commands * sizeof(uint32_t), nullptr, GL_DYNAMIC_DRAW, 6));
   instance_to_cmd_ssbo_.reset(new SSBO(
       constants_.num_instances * sizeof(int32_t), nullptr, GL_DYNAMIC_DRAW, 7));
+  work_group_prefix_sum_ssbo_.reset(
+      new SSBO(1024 * sizeof(uint32_t), nullptr, GL_DYNAMIC_DRAW, 1));
 }
 
 void GPUDrivenWorkloadGeneration::Compute() {
@@ -66,13 +109,33 @@ void GPUDrivenWorkloadGeneration::Compute() {
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
   // compute prefix sum
-  prefix_sum_shader_->Use();
+  prefix_sum_0_shader_->Use();
   cmd_instance_count_ssbo_->BindBufferBase(0);
   dynamic_buffers_.commands_ssbo->BindBufferBase(1);
-  prefix_sum_shader_->SetUniform<uint32_t>("uCmdCount",
-                                           constants_.num_commands);
-  glDispatchCompute((constants_.num_commands + 1023) / 1024, 1, 1);
+  prefix_sum_0_shader_->SetUniform<uint32_t>("uCmdCount",
+                                             constants_.num_commands);
+  uint32_t last_stage_num_work_groups = (constants_.num_commands + 1023) / 1024;
+  glDispatchCompute(last_stage_num_work_groups, 1, 1);
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
+  if (constants_.num_commands > 1024) {
+    prefix_sum_1_shader_->Use();
+    dynamic_buffers_.commands_ssbo->BindBufferBase(0);
+    work_group_prefix_sum_ssbo_->BindBufferBase(1);
+    prefix_sum_1_shader_->SetUniform<uint32_t>("uLastStageWorkGroupSize", 1024);
+    prefix_sum_1_shader_->SetUniform<uint32_t>("uCmdCount",
+                                               constants_.num_commands);
+    glDispatchCompute((last_stage_num_work_groups + 1023) / 1024, 1, 1);
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+    prefix_sum_2_shader_->Use();
+    dynamic_buffers_.commands_ssbo->BindBufferBase(0);
+    work_group_prefix_sum_ssbo_->BindBufferBase(1);
+    cmd_instance_count_ssbo_->BindBufferBase(2);
+    prefix_sum_2_shader_->SetUniform<uint32_t>("uCmdCount",
+                                               constants_.num_commands);
+    glDispatchCompute(last_stage_num_work_groups, 1, 1);
+    glMemoryBarrier(GL_ALL_BARRIER_BITS);
+  }
 
   // compute remap
   remap_shader_->Use();
@@ -102,7 +165,11 @@ void GPUDrivenWorkloadGeneration::Compute() {
 std::unique_ptr<Shader>
     GPUDrivenWorkloadGeneration::frustum_culling_and_lod_selection_shader_ =
         nullptr;
-std::unique_ptr<Shader> GPUDrivenWorkloadGeneration::prefix_sum_shader_ =
+std::unique_ptr<Shader> GPUDrivenWorkloadGeneration::prefix_sum_0_shader_ =
+    nullptr;
+std::unique_ptr<Shader> GPUDrivenWorkloadGeneration::prefix_sum_1_shader_ =
+    nullptr;
+std::unique_ptr<Shader> GPUDrivenWorkloadGeneration::prefix_sum_2_shader_ =
     nullptr;
 std::unique_ptr<Shader> GPUDrivenWorkloadGeneration::remap_shader_ = nullptr;
 
@@ -156,19 +223,14 @@ void main() {
 }
 )";
 
-const std::string GPUDrivenWorkloadGeneration::kCsPrefixSumSource = R"(
+const std::string GPUDrivenWorkloadGeneration::kCsPrefixSum0Source =
+    std::string(R"(
 #version 460 core
 
 layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
-
-struct DrawElementsIndirectCommand {
-    uint count;
-    uint instanceCount;
-    uint firstIndex;
-    int baseVertex;
-    uint baseInstance;
-};
-
+)") +
+    DrawElementsIndirectCommand::GLSLSource() +
+    R"(
 layout (std430, binding = 0) readonly buffer cmdInstanceCountBuffer {
     uint cmdInstanceCount[]; // per cmd
 };
@@ -186,7 +248,7 @@ void main() {
     barrier();
 
     uint step = 0;
-    while (uCmdCount > (1 << step)) {
+    while (min(uCmdCount, gl_WorkGroupSize.x) > (1 << step)) {
         if ((cmdID & (1 << step)) > 0) {
             uint readCmdID = (cmdID | ((1 << step) - 1)) - (1 << step);
             commands[cmdID].baseInstance += commands[readCmdID].baseInstance;
@@ -195,37 +257,95 @@ void main() {
         step += 1;
     }
 
-    commands[cmdID].baseInstance -= cmdInstanceCount[cmdID];
     commands[cmdID].instanceCount = cmdInstanceCount[cmdID];
+    if (uCmdCount <= gl_WorkGroupSize.x) {
+        commands[cmdID].baseInstance -= cmdInstanceCount[cmdID];
+    }
 }
 )";
 
-const std::string GPUDrivenWorkloadGeneration::kCsRemapSource = R"(
+const std::string GPUDrivenWorkloadGeneration::kCsPrefixSum1Source =
+    std::string(R"(
+#version 460 core
+
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+)") +
+    DrawElementsIndirectCommand::GLSLSource() +
+    R"(
+layout (std430, binding = 0) readonly buffer commandsBuffer {
+    DrawElementsIndirectCommand commands[]; // per cmd
+};
+
+layout (std430, binding = 1) buffer workGroupPrefixSumBuffer {
+    uint workGroupPrefixSum[];
+};
+
+uniform uint uLastStageWorkGroupSize;
+uniform uint uCmdCount;
+
+void main() {
+    // [gl_GlobalInvocationID.x * uLastStageWorkGroupSize,
+    //  (gl_GlobalInvocationID.x + 1) * uLastStageWorkGroupSize)
+    uint lastStageNumWorkGroups = (uCmdCount + uLastStageWorkGroupSize - 1) / uLastStageWorkGroupSize;
+    if (gl_GlobalInvocationID.x >= lastStageNumWorkGroups) return;
+    uint index = gl_GlobalInvocationID.x;
+
+    uint cmdID = (index + 1) * uLastStageWorkGroupSize - 1;
+    cmdID = min(cmdID, uCmdCount - 1);
+
+    workGroupPrefixSum[index] = commands[cmdID].baseInstance;
+    barrier();
+
+    uint step = 0;
+    while (lastStageNumWorkGroups > (1 << step)) {
+        if ((index & (1 << step)) > 0) {
+            uint readIndex = (index | ((1 << step) - 1)) - (1 << step);
+            workGroupPrefixSum[index] += workGroupPrefixSum[readIndex];
+        }
+        barrier();
+        step += 1;
+    }
+}
+)";
+
+const std::string GPUDrivenWorkloadGeneration::kCsPrefixSum2Source =
+    std::string(R"(
+#version 460 core
+
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+)") +
+    DrawElementsIndirectCommand::GLSLSource() +
+    R"(
+layout (std430, binding = 0) buffer commandsBuffer {
+    DrawElementsIndirectCommand commands[]; // per cmd
+};
+layout (std430, binding = 1) readonly buffer workGroupPrefixSumBuffer {
+    uint workGroupPrefixSum[];
+};
+layout (std430, binding = 2) readonly buffer cmdInstanceCountBuffer {
+    uint cmdInstanceCount[];
+};
+
+uniform uint uCmdCount;
+
+void main() {
+    uint cmdID = gl_GlobalInvocationID.x;
+    if (cmdID >= uCmdCount) return;
+    uint lastCmdInWorkGroupID = min((gl_WorkGroupID.x + 1) * gl_WorkGroupSize.x - 1, uCmdCount - 1);
+
+    commands[cmdID].baseInstance += 
+        workGroupPrefixSum[gl_WorkGroupID.x]
+        - commands[lastCmdInWorkGroupID].baseInstance
+        - cmdInstanceCount[cmdID];
+}
+)";
+
+const std::string GPUDrivenWorkloadGeneration::kCsRemapSource = std::string(R"(
 #version 460 core
 
 layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
-
-struct DrawElementsIndirectCommand {
-    uint count;
-    uint instanceCount;
-    uint firstIndex;
-    int baseVertex;
-    uint baseInstance;
-};
-
-struct Material {
-    int ambientTexture;
-    int diffuseTexture;
-    int specularTexture;
-    int normalsTexture;
-    int metalnessTexture;
-    int diffuseRoughnessTexture;
-    int ambientOcclusionTexture;
-    vec4 ka, kd, ks;
-    float shininess;
-    bool bindMetalnessAndDiffuseRoughness;
-};
-
+)") + DrawElementsIndirectCommand::GLSLSource() + PhongMaterial::GLSLSource() +
+                                                                R"(
 layout (std430, binding = 0) readonly buffer instanceToCmdBuffer {
     int instanceToCmd[]; // per instance
 };

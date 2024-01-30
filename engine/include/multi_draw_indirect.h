@@ -54,6 +54,8 @@ struct TextureRecord {
 struct PhongMaterial {
   glm::vec3 ka, kd, ks;
   float shininess;
+
+  static const std::string GLSLSource();
 };
 
 struct DrawElementsIndirectCommand {
@@ -62,6 +64,8 @@ struct DrawElementsIndirectCommand {
   uint32_t first_index;
   int32_t base_vertex;
   uint32_t base_instance;
+
+  static const std::string GLSLSource();
 };
 
 class GPUDrivenWorkloadGeneration {
@@ -114,13 +118,16 @@ class GPUDrivenWorkloadGeneration {
   std::unique_ptr<SSBO> mesh_to_num_cmds_ssbo_;
   std::unique_ptr<SSBO> cmd_instance_count_ssbo_;
   std::unique_ptr<SSBO> instance_to_cmd_ssbo_;
+  std::unique_ptr<SSBO> work_group_prefix_sum_ssbo_;
 
   static std::unique_ptr<Shader> frustum_culling_and_lod_selection_shader_;
-  static std::unique_ptr<Shader> prefix_sum_shader_;
+  static std::unique_ptr<Shader> prefix_sum_0_shader_, prefix_sum_1_shader_,
+      prefix_sum_2_shader_;
   static std::unique_ptr<Shader> remap_shader_;
 
   static const std::string kCsFrustumCullingAndLodSelectionSource;
-  static const std::string kCsPrefixSumSource;
+  static const std::string kCsPrefixSum0Source, kCsPrefixSum1Source,
+      kCsPrefixSum2Source;
   static const std::string kCsRemapSource;
 };
 

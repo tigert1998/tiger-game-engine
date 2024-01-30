@@ -358,22 +358,10 @@ in vec2 vTexCoord;
 in mat3 vTBN;
 flat in int vInstanceID;
 )" + LightSources::FsSource() + ShadowSources::FsSource() +
+                                     PhongMaterial::GLSLSource() +
                                      R"(
 uniform bool uDefaultShading;
 uniform bool uForcePBR;
-
-struct Material {
-    int ambientTexture;
-    int diffuseTexture;
-    int specularTexture;
-    int normalsTexture;
-    int metalnessTexture;
-    int diffuseRoughnessTexture;
-    int ambientOcclusionTexture;
-    vec4 ka, kd, ks;
-    float shininess;
-    bool bindMetalnessAndDiffuseRoughness;
-};
 
 layout (std430, binding = 6) buffer materialsBuffer {
     Material materials[]; // per instance
