@@ -65,7 +65,7 @@ AABB TransformAABB(mat4 transform, AABB aabb) {
 bool AABBIsOnOrForwardPlane(AABB aabb, FrustumPlane plane) {
     vec3 planeNormal = vec3(plane.normal[0], plane.normal[1], plane.normal[2]);
     vec3 extent = (aabb.coordsMax - aabb.coordsMin) * 0.5;
-    float r = dot(extent, planeNormal);
+    float r = dot(extent, abs(planeNormal));
     vec3 center = (aabb.coordsMax + aabb.coordsMin) * 0.5;
     return dot(planeNormal, center) - plane.distance >= -r;
 }

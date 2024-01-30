@@ -163,10 +163,10 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
   aabb_.max = glm::vec3(std::numeric_limits<float>::lowest());
   for (int i = 0; i < indices_[0].size(); i++) {
     const auto &vertex = vertices_[indices_[0][i]];
-    aabb_.min = (glm::min)(vertex.position, aabb_.min);
-    aabb_.max = (glm::max)(vertex.position, aabb_.max);
+    glm::vec3 position = glm::vec3(transform_ * glm::vec4(vertex.position, 1));
+    aabb_.min = (glm::min)(position, aabb_.min);
+    aabb_.max = (glm::max)(position, aabb_.max);
   }
-  aabb_ = aabb_.Transform(transform_);
 
   for (int i = 0; i < mesh->mNumBones; i++) {
     auto bone = mesh->mBones[i];
