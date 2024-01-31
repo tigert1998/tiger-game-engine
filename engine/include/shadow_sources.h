@@ -81,6 +81,7 @@ class ShadowSources {
 
  public:
   void Add(std::unique_ptr<Shadow> shadow);
+  inline uint32_t Size() const { return shadows_.size(); }
   Shadow *Get(int32_t index);
   void Set(Shader *shader, int32_t *num_samplers);
   static std::string FsSource();

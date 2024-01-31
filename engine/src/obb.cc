@@ -1,6 +1,10 @@
 #include "obb.h"
 
-bool OBB::IntersectsOBB(const OBB& obb, float epsilon) const {
+#include <glad/glad.h>
+
+#include "utils.h"
+
+bool OBB::IntersectsOBB(const OBB &obb, float epsilon) const {
   // https://github.com/mrdoob/three.js/blob/dev/examples/jsm/math/OBB.js#L150
 
   glm::vec3 a_c = center();
@@ -141,9 +145,9 @@ bool IntersectsOBB(OBB x, OBB y, float epsilon) {
 
     mat3 R;
     for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        R[i][j] = dot(a_u[i], b_u[j]);
-      }
+        for (int j = 0; j < 3; j++) {
+            R[i][j] = dot(a_u[i], b_u[j]);
+        }
     }
 
     // compute translation vector
@@ -163,9 +167,9 @@ bool IntersectsOBB(OBB x, OBB y, float epsilon) {
 
     mat3 AbsR;
     for (int i = 0; i < 3; i++) {
-      for (int j = 0; j < 3; j++) {
-        AbsR[i][j] = abs(R[i][j]) + epsilon;
-      }
+        for (int j = 0; j < 3; j++) {
+            AbsR[i][j] = abs(R[i][j]) + epsilon;
+        }
     }
 
     float ra, rb;
@@ -173,17 +177,17 @@ bool IntersectsOBB(OBB x, OBB y, float epsilon) {
     // test axes L = A0, L = A1, L = A2
 
     for (int i = 0; i < 3; i++) {
-      ra = a_e[i];
-      rb = b_e[0] * AbsR[i][0] + b_e[1] * AbsR[i][1] + b_e[2] * AbsR[i][2];
-      if (abs(t[i]) > ra + rb) return false;
+        ra = a_e[i];
+        rb = b_e[0] * AbsR[i][0] + b_e[1] * AbsR[i][1] + b_e[2] * AbsR[i][2];
+        if (abs(t[i]) > ra + rb) return false;
     }
 
     // test axes L = B0, L = B1, L = B2
 
     for (int i = 0; i < 3; i++) {
-      ra = a_e[0] * AbsR[0][i] + a_e[1] * AbsR[1][i] + a_e[2] * AbsR[2][i];
-      rb = b_e[i];
-      if (abs(t[0] * R[0][i] + t[1] * R[1][i] + t[2] * R[2][i]) > ra + rb) return false;
+        ra = a_e[0] * AbsR[0][i] + a_e[1] * AbsR[1][i] + a_e[2] * AbsR[2][i];
+        rb = b_e[i];
+        if (abs(t[0] * R[0][i] + t[1] * R[1][i] + t[2] * R[2][i]) > ra + rb) return false;
     }
 
     // test axis L = A0 x B0
@@ -246,3 +250,122 @@ bool IntersectsOBB(OBB x, OBB y, float epsilon) {
 }
 )";
 }
+
+OBBDrawer::OBBDrawer() {
+  CompileShaders();
+
+  glGenVertexArrays(1, &vao_);
+  glGenBuffers(1, &vbo_);
+
+  glBindVertexArray(vao_);
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, false, sizeof(Vertex),
+                        (void *)offsetof(Vertex, position));
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 3, GL_FLOAT, false, sizeof(Vertex),
+                        (void *)offsetof(Vertex, color));
+
+  for (int i = 0; i < 3; i++) {
+    uint32_t location = 2 + i;
+    glEnableVertexAttribArray(location);
+    glVertexAttribPointer(
+        location, 3, GL_FLOAT, false, sizeof(Vertex),
+        (void *)(offsetof(Vertex, rotation) + i * sizeof(glm::vec3)));
+  }
+  glBindVertexArray(0);
+
+  CHECK_OPENGL_ERROR();
+}
+
+OBBDrawer::~OBBDrawer() {
+  glDeleteVertexArrays(1, &vao_);
+  glDeleteBuffers(1, &vbo_);
+}
+
+void OBBDrawer::CompileShaders() {
+  if (kShader == nullptr) {
+    kShader.reset(new Shader(kVsSource, kFsSource, {}));
+  }
+}
+
+void OBBDrawer::Draw(Camera *camera, const std::vector<OBB> &obbs) {
+  const static std::vector<glm::vec3> colors = {
+      glm::vec3(1, 0, 0), glm::vec3(0, 1, 0), glm::vec3(0, 0, 1),
+      glm::vec3(1, 1, 0), glm::vec3(1, 0, 1),
+  };
+
+  std::vector<Vertex> vertices;
+  vertices.reserve(obbs.size() * 12);
+  for (int obb_idx = 0; obb_idx < obbs.size(); obb_idx++) {
+    const auto &obb = obbs[obb_idx];
+    const auto &color = colors[obb_idx % colors.size()];
+    for (float a : {obb.min.x, obb.max.x})
+      for (float b : {obb.min.y, obb.max.y})
+        for (float c : {obb.min.z, obb.max.z})
+          for (float x : {obb.min.x, obb.max.x})
+            for (float y : {obb.min.y, obb.max.y})
+              for (float z : {obb.min.z, obb.max.z})
+                if (x >= a && y >= b && z >= c &&
+                    (int(x > a) + int(y > b) + int(z > c) == 1)) {
+                  Vertex _0;
+                  _0.position = glm::vec3(a, b, c);
+                  _0.color = color;
+                  _0.rotation = obb.rotation();
+
+                  Vertex _1;
+                  _1.position = glm::vec3(x, y, z);
+                  _1.color = color;
+                  _1.rotation = obb.rotation();
+
+                  vertices.push_back(_0);
+                  vertices.push_back(_1);
+                }
+  }
+
+  glBindVertexArray(vao_);
+
+  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(),
+               vertices.data(), GL_DYNAMIC_DRAW);
+
+  kShader->Use();
+  kShader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
+  kShader->SetUniform<glm::mat4>("uProjectionMatrix",
+                                 camera->projection_matrix());
+  glDrawArrays(GL_LINES, 0, vertices.size());
+
+  glBindVertexArray(0);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+std::unique_ptr<Shader> OBBDrawer::kShader = nullptr;
+
+const std::string OBBDrawer::kVsSource = R"(
+#version 460 core
+
+layout (location = 0) in vec3 aPosition;
+layout (location = 1) in vec3 aColor;
+layout (location = 2) in mat3 aRotation;
+
+out vec3 vColor;
+
+uniform mat4 uViewMatrix;
+uniform mat4 uProjectionMatrix;
+
+void main() {
+    vColor = aColor;
+    gl_Position = uProjectionMatrix * uViewMatrix * mat4(aRotation) * vec4(aPosition, 1);
+}
+)";
+
+const std::string OBBDrawer::kFsSource = R"(
+#version 460 core
+
+in vec3 vColor;
+out vec4 fragColor;
+
+void main() {
+    fragColor = vec4(vColor, 1);
+}
+)";

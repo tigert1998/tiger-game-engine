@@ -57,10 +57,12 @@ std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<ShadowSources> shadow_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
 std::unique_ptr<Controller> controller_ptr;
+std::unique_ptr<OBBDrawer> obb_drawer_ptr;
 
 int default_shading_choice = 0;
 int enable_ssao = 0;
 int enable_smaa = 0;
+std::vector<OBB> shadow_obbs;
 
 GLFWwindow *window;
 
@@ -93,6 +95,18 @@ void ImGuiWindow() {
                  IM_ARRAYSIZE(choices));
   ImGui::ListBox("enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
+  if (ImGui::Button("refresh shadow OBBs visualization")) {
+    if (shadow_sources_ptr->Size() >= 1) {
+      auto shadow =
+          dynamic_cast<DirectionalShadow *>(shadow_sources_ptr->Get(0));
+      shadow_obbs = shadow->cascade_obbs();
+    } else {
+      shadow_obbs = {};
+    }
+  }
+  if (ImGui::Button("close shadow OBBs visualization")) {
+    shadow_obbs = {};
+  }
   ImGui::End();
 
   camera_ptr->ImGuiWindow();
@@ -119,6 +133,7 @@ void Init(uint32_t width, uint32_t height) {
   deferred_shading_render_quad_ptr.reset(
       new DeferredShadingRenderQuad(width, height));
 
+  obb_drawer_ptr.reset(new OBBDrawer());
   smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
 
   light_sources_ptr = make_unique<LightSources>();
@@ -197,6 +212,10 @@ int main(int argc, char *argv[]) {
 
     if (enable_smaa) {
       smaa_ptr->Draw();
+    }
+
+    if (shadow_obbs.size() >= 1) {
+      obb_drawer_ptr->Draw(camera_ptr.get(), shadow_obbs);
     }
 
     ImGui_ImplGlfw_NewFrame();
