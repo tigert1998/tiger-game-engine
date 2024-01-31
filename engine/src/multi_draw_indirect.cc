@@ -443,6 +443,16 @@ MultiDrawIndirect::~MultiDrawIndirect() {
   glDeleteBuffers(1, &vbo_);
 }
 
+std::vector<AABB> MultiDrawIndirect::debug_instance_aabbs() const {
+  std::vector<AABB> ret;
+  for (int instance_id = 0; instance_id < num_instances_; instance_id++) {
+    uint32_t mesh_id = instance_to_mesh_[instance_id];
+    AABB aabb = aabbs_[mesh_id];
+    ret.push_back(aabb.Transform(model_matrices_[instance_id]));
+  }
+  return ret;
+}
+
 void MultiDrawIndirect::CheckRenderTargetParameter(
     const std::vector<RenderTargetParameter> &render_target_params) {
   const std::string all_models_must_present_error_message =

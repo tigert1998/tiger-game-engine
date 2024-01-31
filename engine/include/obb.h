@@ -3,8 +3,10 @@
 
 #include <glm/glm.hpp>
 #include <memory>
+#include <optional>
 #include <string>
 
+#include "aabb.h"
 #include "camera.h"
 #include "shader.h"
 
@@ -13,7 +15,15 @@ struct OBB {
   alignas(16) glm::vec3 max;
   alignas(16) float rotation_data[12];
 
+  inline OBB() = default;
+  inline OBB(const AABB& aabb) {
+    this->min = aabb.min;
+    this->max = aabb.max;
+    this->set_rotation(glm::mat3(1));
+  }
+
   inline glm::vec3 center() const { return (max + min) * 0.5f; }
+  inline glm::vec3 center_world_space() const { return rotation() * center(); }
   inline glm::vec3 extents() const { return max - center(); }
   inline glm::mat3 rotation() const {
     glm::mat3 ret;
@@ -36,7 +46,10 @@ class OBBDrawer {
   explicit OBBDrawer();
   ~OBBDrawer();
   void CompileShaders();
-  void Draw(Camera* camera, const std::vector<OBB>& obbs);
+  void Clear();
+  void AppendOBBs(const std::vector<OBB>& obbs, std::optional<glm::vec3> color);
+  void AllocateBuffer();
+  void Draw(Camera* camera);
 
  private:
   struct Vertex {
@@ -46,6 +59,7 @@ class OBBDrawer {
   };
 
   uint32_t vao_, vbo_;
+  std::vector<Vertex> vertices_;
 
   static std::unique_ptr<Shader> kShader;
   static const std::string kVsSource;

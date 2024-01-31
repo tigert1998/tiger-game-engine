@@ -7,11 +7,11 @@
 bool OBB::IntersectsOBB(const OBB &obb, float epsilon) const {
   // https://github.com/mrdoob/three.js/blob/dev/examples/jsm/math/OBB.js#L150
 
-  glm::vec3 a_c = center();
+  glm::vec3 a_c = center_world_space();
   glm::vec3 a_e = extents();
   glm::mat3 a_u = rotation();
 
-  glm::vec3 b_c = obb.center();
+  glm::vec3 b_c = obb.center_world_space();
   glm::vec3 b_e = obb.extents();
   glm::mat3 b_u = obb.rotation();
 
@@ -133,11 +133,11 @@ struct OBB {
 };
 
 bool IntersectsOBB(OBB x, OBB y, float epsilon) {
-    vec3 a_c = (x.coordsMax + x.coordsMin) * 0.5;
+    vec3 a_c = x.rotation * (x.coordsMax + x.coordsMin) * 0.5;
     vec3 a_e = (x.coordsMax - x.coordsMin) * 0.5;
     mat3 a_u = x.rotation;
 
-    vec3 b_c = (y.coordsMax + y.coordsMin) * 0.5;
+    vec3 b_c = y.rotation * (y.coordsMax + y.coordsMin) * 0.5;
     vec3 b_e = (y.coordsMax - y.coordsMin) * 0.5;
     mat3 b_u = y.rotation;
 
@@ -289,17 +289,18 @@ void OBBDrawer::CompileShaders() {
   }
 }
 
-void OBBDrawer::Draw(Camera *camera, const std::vector<OBB> &obbs) {
+void OBBDrawer::Clear() { vertices_.clear(); }
+
+void OBBDrawer::AppendOBBs(const std::vector<OBB> &obbs,
+                           std::optional<glm::vec3> color) {
   const static std::vector<glm::vec3> colors = {
       glm::vec3(1, 0, 0), glm::vec3(0, 1, 0), glm::vec3(0, 0, 1),
       glm::vec3(1, 1, 0), glm::vec3(1, 0, 1),
   };
 
-  std::vector<Vertex> vertices;
-  vertices.reserve(obbs.size() * 12);
   for (int obb_idx = 0; obb_idx < obbs.size(); obb_idx++) {
     const auto &obb = obbs[obb_idx];
-    const auto &color = colors[obb_idx % colors.size()];
+    const auto &v_color = color.value_or(colors[obb_idx % colors.size()]);
     for (float a : {obb.min.x, obb.max.x})
       for (float b : {obb.min.y, obb.max.y})
         for (float c : {obb.min.z, obb.max.z})
@@ -310,30 +311,39 @@ void OBBDrawer::Draw(Camera *camera, const std::vector<OBB> &obbs) {
                     (int(x > a) + int(y > b) + int(z > c) == 1)) {
                   Vertex _0;
                   _0.position = glm::vec3(a, b, c);
-                  _0.color = color;
+                  _0.color = v_color;
                   _0.rotation = obb.rotation();
 
                   Vertex _1;
                   _1.position = glm::vec3(x, y, z);
-                  _1.color = color;
+                  _1.color = v_color;
                   _1.rotation = obb.rotation();
 
-                  vertices.push_back(_0);
-                  vertices.push_back(_1);
+                  vertices_.push_back(_0);
+                  vertices_.push_back(_1);
                 }
   }
+}
+
+void OBBDrawer::AllocateBuffer() {
+  if (vertices_.size() > 0) {
+    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices_.size(),
+                 vertices_.data(), GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+  }
+}
+
+void OBBDrawer::Draw(Camera *camera) {
+  if (vertices_.size() == 0) return;
 
   glBindVertexArray(vao_);
-
-  glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-  glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * vertices.size(),
-               vertices.data(), GL_DYNAMIC_DRAW);
 
   kShader->Use();
   kShader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
   kShader->SetUniform<glm::mat4>("uProjectionMatrix",
                                  camera->projection_matrix());
-  glDrawArrays(GL_LINES, 0, vertices.size());
+  glDrawArrays(GL_LINES, 0, vertices_.size());
 
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);

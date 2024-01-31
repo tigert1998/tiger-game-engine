@@ -147,6 +147,8 @@ class MultiDrawIndirect {
     std::vector<ItemParameter> items;
   };
 
+  std::vector<AABB> debug_instance_aabbs() const;
+
   void Receive(const std::vector<VertexWithBones> &vertices,
                const std::vector<std::vector<uint32_t>> &indices,
                const std::vector<TextureRecord> &textures,
