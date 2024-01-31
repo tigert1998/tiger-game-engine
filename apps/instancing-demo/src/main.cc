@@ -8,6 +8,7 @@
 #include <fmt/core.h>
 #include <imgui.h>
 
+#define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/transform.hpp>
 #include <iostream>
 #include <memory>

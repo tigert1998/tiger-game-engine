@@ -225,18 +225,21 @@ void main() {
     if (instanceID >= uInstanceCount) return;
 
     uint meshID = instanceToMesh[instanceID];
-    AABB newAABB = TransformAABB(modelMatrices[instanceID], aabbs[meshID]);
+    bool doRender = aabbs[meshID].coordsMin.x > aabbs[meshID].coordsMax.x;
 
-    bool doRender;
-    if (uIsShadowPass) {
-        doRender = false;
-        OBB newOBB = OBB(newAABB.coordsMin, newAABB.coordsMax, mat3(1));
-        for (int i = 0; i < uNumCascades; i++) {
-            doRender = IntersectsOBB(newOBB, shadowOBBs[i], 1e-4);
-            if (doRender) break;
+    // animated model has min = inf and max = inf
+    if (!doRender) {
+        AABB newAABB = TransformAABB(modelMatrices[instanceID], aabbs[meshID]);
+        if (uIsShadowPass) {
+            doRender = false;
+            OBB newOBB = OBB(newAABB.coordsMin, newAABB.coordsMax, mat3(1));
+            for (int i = 0; i < uNumCascades; i++) {
+                doRender = IntersectsOBB(newOBB, shadowOBBs[i], 1e-4);
+                if (doRender) break;
+            }
+        } else {
+            doRender = AABBIsOnFrustum(newAABB, cameraFrustum);
         }
-    } else {
-        doRender = AABBIsOnFrustum(newAABB, cameraFrustum);
     }
 
     // put lod selection here
