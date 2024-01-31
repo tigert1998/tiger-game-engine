@@ -212,8 +212,8 @@ layout (std430, binding = 6) buffer cmdInstanceCountBuffer {
 layout (std430, binding = 7) writeonly buffer instanceToCmdBuffer {
     int instanceToCmd[]; // per instance
 };
-layout (std430, binding = 8) readonly buffer shadowObbsBuffer {
-    OBB shadowObbs[];
+layout (std430, binding = 8) readonly buffer shadowOBBsBuffer {
+    OBB shadowOBBs[];
 };
 
 uniform bool uIsShadowPass;
@@ -230,11 +230,9 @@ void main() {
     bool doRender;
     if (uIsShadowPass) {
         doRender = false;
-        for (int i = 0; i < uNumCascades; i++) {            
-            doRender = IntersectsOBB(
-                OBB(newAABB.coordsMin, newAABB.coordsMax, mat3(1)),
-                shadowObbs[i], 1e-4
-            );
+        OBB newOBB = OBB(newAABB.coordsMin, newAABB.coordsMax, mat3(1));
+        for (int i = 0; i < uNumCascades; i++) {
+            doRender = IntersectsOBB(newOBB, shadowOBBs[i], 1e-4);
             if (doRender) break;
         }
     } else {
@@ -534,7 +532,7 @@ void MultiDrawIndirect::DrawDepthForShadow(
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
-  auto obbs = ((DirectionalShadow *)shadow)->cascade_obbs();
+  auto obbs = dynamic_cast<DirectionalShadow *>(shadow)->cascade_obbs();
   glNamedBufferSubData(shadow_obbs_ssbo_->id(), 0,
                        obbs.size() * sizeof(obbs[0]), obbs.data());
   gpu_driven_->Compute(true);

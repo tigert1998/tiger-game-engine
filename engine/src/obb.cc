@@ -4,11 +4,11 @@ bool OBB::IntersectsOBB(const OBB& obb, float epsilon) const {
   // https://github.com/mrdoob/three.js/blob/dev/examples/jsm/math/OBB.js#L150
 
   glm::vec3 a_c = center();
-  float a_e[3] = {extents().x, extents().y, extents().z};
+  glm::vec3 a_e = extents();
   glm::mat3 a_u = rotation();
 
   glm::vec3 b_c = obb.center();
-  float b_e[3] = {obb.extents().x, obb.extents().y, obb.extents().z};
+  glm::vec3 b_e = obb.extents();
   glm::mat3 b_u = obb.rotation();
 
   // compute rotation matrix expressing b in a's coordinate frame
