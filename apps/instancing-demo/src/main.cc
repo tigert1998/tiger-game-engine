@@ -62,7 +62,7 @@ std::unique_ptr<ShadowSources> shadow_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
 std::unique_ptr<Controller> controller_ptr;
 
-const int kNumModelItems = 36;
+const int kNumModelItems = 12;
 
 double animation_time = 0;
 int animation_id = 0;
@@ -141,7 +141,7 @@ void Init(uint32_t width, uint32_t height) {
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
   model_ptr.reset(new Model(
-      "resources/Silver Dragonkin (Mir4)/source/Mon_BlackDragon31_Skeleton.FBX",
+      "resources/Tarisland - Dragon/source/M_B_44_Qishilong_skin_Skeleton.FBX",
       multi_draw_indirect.get(), kNumModelItems, true, false));
   multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(vec3(0.087, 8.209, 31.708),
@@ -164,19 +164,46 @@ std::vector<MultiDrawIndirect::RenderTargetParameter>
 ConstructRenderTargetParameters() {
   MultiDrawIndirect::RenderTargetParameter param;
   param.model = model_ptr.get();
-  float pi = glm::pi<float>();
-  for (int i = 0; i < kNumModelItems; i++) {
-    double t = 2 * pi / kNumModelItems * i;
-    double item_animation_time = t + animation_time;
+  auto get_xy = [](int i, int num_samples) -> glm::vec2 {
+    float pi = glm::pi<float>();
+    double t = 2 * pi / num_samples * i;
+    float x = 16 * pow(sin(t), 3);
+    float y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t);
+    return {x, y};
+  };
+
+  static const std::vector<glm::vec2> xys = [&](int num_models) {
+    int num_samples = 4096;
+    std::vector<glm::vec2> xys;
+    for (int i = 0; i < num_samples; i++) xys.push_back(get_xy(i, num_samples));
+    float distance = 0;
+    for (int i = 0; i < num_samples; i++)
+      distance += glm::distance(xys[i], xys[(i + 1) % num_samples]);
+    float distance_between_models = distance / num_models;
+    std::vector<glm::vec2> ret;
+    ret.push_back(xys[0]);
+    float tmp = 0;
+    for (int i = 0, j = 0; i < num_samples; i++) {
+      tmp += glm::distance(xys[i], xys[(i + 1) % num_samples]);
+      if (tmp >= distance_between_models) {
+        tmp = 0;
+        j = (i + 1) % num_samples;
+        if (ret.size() < num_models) ret.push_back(xys[j]);
+      }
+    }
+    return ret;
+  }(kNumModelItems);
+
+  for (int i = 0; i < xys.size(); i++) {
+    auto xy = xys[i];
+    double item_animation_time = i + animation_time;
     double duration = model_ptr->AnimationDurationInSeconds(animation_id);
     if (duration > 0) {
       item_animation_time = item_animation_time -
                             floor(item_animation_time / duration) * duration;
     }
-    float x = 16 * pow(sin(t), 3);
-    float y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t);
-    glm::mat4 transform = glm::translate(glm::vec3(x, y, 0)) *
-                          glm::scale(glm::vec3(0.2f)) *
+    glm::mat4 transform = glm::translate(glm::vec3(xy[0], xy[1], 0)) *
+                          glm::scale(glm::vec3(0.1f)) *
                           glm::rotate(glm::radians(90.f), glm::vec3(1, 0, 0));
     param.items.push_back(
         {animation_id, item_animation_time, transform, glm::vec4(0)});
