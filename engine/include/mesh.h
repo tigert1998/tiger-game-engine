@@ -31,13 +31,12 @@ class Mesh {
   explicit Mesh(const std::filesystem::path &directory_path, aiMesh *mesh,
                 const aiScene *scene, Namer *bone_namer,
                 std::vector<glm::mat4> *bone_offsets, bool flip_y,
-                MultiDrawIndirect *multi_draw_indirect);
-  void AppendTransform(glm::mat4 transform);
+                glm::mat4 transform, MultiDrawIndirect *multi_draw_indirect);
   void SubmitToMultiDrawIndirect();
 
  private:
   AABB aabb_;
-  std::vector<glm::mat4> transforms_;
+  glm::mat4 transform_;
   std::string name_;
   bool has_bone_ = false;
   MultiDrawIndirect *multi_draw_indirect_;

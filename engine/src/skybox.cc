@@ -3,7 +3,6 @@
 #include <glad/glad.h>
 
 #include <glm/glm.hpp>
-#include <glm/gtx/transform.hpp>
 
 Skybox::Skybox(const std::string &path) {
   shader_ptr_ = std::unique_ptr<Shader>(

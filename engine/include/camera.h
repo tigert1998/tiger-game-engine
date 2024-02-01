@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
+#include <string>
 #include <vector>
 
 struct FrustumPlane {
@@ -31,6 +32,8 @@ struct Frustum {
   FrustumPlane left_plane;
   FrustumPlane far_plane;
   FrustumPlane near_plane;
+
+  static std::string GLSLSource();
 };
 
 class Camera {

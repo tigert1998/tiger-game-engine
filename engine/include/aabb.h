@@ -14,6 +14,9 @@ struct AABB {
 
   bool IsOnOrForwardPlane(const FrustumPlane& plane) const;
   bool IsOnFrustum(const Frustum& frustum) const;
+  AABB Transform(const glm::mat4& transform) const;
+
+  static std::string GLSLSource();
 };
 
 #endif

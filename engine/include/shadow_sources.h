@@ -4,8 +4,10 @@
 #include <functional>
 #include <glm/glm.hpp>
 
+#include "aabb.h"
 #include "camera.h"
 #include "frame_buffer_object.h"
+#include "obb.h"
 #include "shader.h"
 
 class Shadow {
@@ -26,6 +28,12 @@ class DirectionalShadow : public Shadow {
   std::unique_ptr<FrameBufferObject> fbo_;
   const Camera *camera_;
 
+  AABB projection_matrix_ortho_param(
+      const std::vector<glm::vec3> &frustum_corners) const;
+  void CalcFrustumCorners(
+      const std::function<void(const std::vector<glm::vec3> &)> &callback)
+      const;
+
  public:
   DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
                     uint32_t fbo_height, const Camera *camera);
@@ -37,6 +45,9 @@ class DirectionalShadow : public Shadow {
 
   inline glm::vec3 direction() { return direction_; }
   inline void set_direction(glm::vec3 direction) { direction_ = direction; }
+
+  std::vector<OBB> cascade_obbs() const;
+  OBB cascade_obb(const std::vector<glm::vec3> &frustum_corners) const;
 
   std::vector<glm::mat4> view_projection_matrices() const;
   glm::mat4 view_matrix(const std::vector<glm::vec3> &frustum_corners) const;
@@ -51,7 +62,7 @@ class DirectionalShadow : public Shadow {
       1 / 2.f,
   };
 
-  std::vector<float> cascade_plane_distances() const {
+  inline std::vector<float> cascade_plane_distances() const {
     float dis = camera_->z_far() - camera_->z_near();
     std::vector<float> ret(NUM_CASCADES - 1);
     for (int i = 0; i < ret.size(); i++)
@@ -63,25 +74,20 @@ class DirectionalShadow : public Shadow {
                    const std::function<void()> &erase_callback) override;
 };
 
-class ShadowSources : public Shadow {
+class ShadowSources {
  private:
   std::vector<std::unique_ptr<Shadow>> shadows_;
   const Camera *camera_;
 
  public:
   void Add(std::unique_ptr<Shadow> shadow);
+  inline uint32_t Size() const { return shadows_.size(); }
   Shadow *Get(int32_t index);
-  inline void Bind() override {}
-  inline void Unbind() override {}
-  void Set(Shader *shader, int32_t *num_samplers) override;
-  inline void SetForDepthPass(Shader *shader) override {}
+  void Set(Shader *shader, int32_t *num_samplers);
   static std::string FsSource();
   inline ShadowSources(const Camera *camera) : camera_(camera) {}
-  inline ~ShadowSources() override {}
 
   void DrawDepthForShadow(const std::function<void(Shadow *)> &render_pass);
-  inline void ImGuiWindow(
-      uint32_t index, const std::function<void()> &erase_callback) override {}
   void ImGuiWindow();
 };
 

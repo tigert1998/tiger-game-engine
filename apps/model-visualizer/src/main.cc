@@ -57,6 +57,7 @@ std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<ShadowSources> shadow_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
 std::unique_ptr<Controller> controller_ptr;
+std::unique_ptr<OBBDrawer> obb_drawer_ptr;
 
 int default_shading_choice = 0;
 int enable_ssao = 0;
@@ -93,6 +94,36 @@ void ImGuiWindow() {
                  IM_ARRAYSIZE(choices));
   ImGui::ListBox("enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
+  if (ImGui::Button("refresh shadow OBBs visualization")) {
+    if (shadow_sources_ptr->Size() >= 1) {
+      auto shadow =
+          dynamic_cast<DirectionalShadow *>(shadow_sources_ptr->Get(0));
+      obb_drawer_ptr->Clear();
+      auto cascade_obbs = shadow->cascade_obbs();
+      obb_drawer_ptr->AppendOBBs(cascade_obbs, std::nullopt);
+      {
+        auto aabbs = multi_draw_indirect->debug_instance_aabbs();
+        std::vector<OBB> obbs;
+        obbs.reserve(aabbs.size());
+        for (int i = 0; i < aabbs.size(); i++) {
+          OBB obb(aabbs[i]);
+          bool do_render = false;
+          for (const auto &cascade_obb : cascade_obbs) {
+            do_render = obb.IntersectsOBB(cascade_obb, 1e-4);
+            if (do_render) break;
+          }
+          if (do_render) obbs.push_back(obb);
+        }
+        obb_drawer_ptr->AppendOBBs(obbs, glm::vec3(1, 0, 0));
+      }
+      obb_drawer_ptr->AllocateBuffer();
+    } else {
+      obb_drawer_ptr->Clear();
+    }
+  }
+  if (ImGui::Button("close shadow OBBs visualization")) {
+    obb_drawer_ptr->Clear();
+  }
   ImGui::End();
 
   camera_ptr->ImGuiWindow();
@@ -119,6 +150,7 @@ void Init(uint32_t width, uint32_t height) {
   deferred_shading_render_quad_ptr.reset(
       new DeferredShadingRenderQuad(width, height));
 
+  obb_drawer_ptr.reset(new OBBDrawer());
   smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
 
   light_sources_ptr = make_unique<LightSources>();
@@ -198,6 +230,8 @@ int main(int argc, char *argv[]) {
     if (enable_smaa) {
       smaa_ptr->Draw();
     }
+
+    obb_drawer_ptr->Draw(camera_ptr.get());
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();
