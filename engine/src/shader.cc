@@ -1,5 +1,6 @@
 #include "shader.h"
 
+#include <fmt/core.h>
 #include <glad/glad.h>
 
 #include <fstream>
@@ -12,9 +13,10 @@
 #include "cg_exception.h"
 #include "texture.h"
 
+namespace fs = std::filesystem;
+
 std::unique_ptr<Shader> ScreenSpaceShader(
-    const std::string &fs,
-    const std::map<std::string, std::any> &compile_time_constants) {
+    const std::string &fs, const std::map<std::string, std::any> &defines) {
   static const std::string kVsSource = R"(
 #version 410 core
 void main() {}
@@ -46,32 +48,31 @@ void main() {
   return std::unique_ptr<Shader>(new Shader({{GL_VERTEX_SHADER, kVsSource},
                                              {GL_GEOMETRY_SHADER, kGsSource},
                                              {GL_FRAGMENT_SHADER, fs}},
-                                            compile_time_constants));
+                                            defines));
 }
 
 Shader::Shader(const std::string &vs, const std::string &fs,
-               const std::map<std::string, std::any> &compile_time_constants)
+               const std::map<std::string, std::any> &defines)
     : Shader(
           std::vector<std::pair<uint32_t, std::string>>{
               {GL_VERTEX_SHADER, vs}, {GL_FRAGMENT_SHADER, fs}},
-          compile_time_constants) {}
+          defines) {}
 
 Shader::Shader(const std::vector<std::pair<uint32_t, std::string>> &pairs,
-               const std::map<std::string, std::any> &compile_time_constants) {
+               const std::map<std::string, std::any> &defines) {
   std::vector<uint32_t> ids;
   for (int i = 0; i < pairs.size(); i++) {
-    auto source =
-        InsertCompileTimeConstants(pairs[i].second, compile_time_constants);
+    auto source = InsertDefines("", pairs[i].second, defines);
     ids.push_back(Compile(pairs[i].first, source, ""));
   }
   id_ = Link(ids);
 }
 
-std::string Shader::InsertCompileTimeConstants(
-    const std::string &source,
-    const std::map<std::string, std::any> &compile_time_constants) {
+std::string Shader::InsertDefines(
+    const fs::path &path, const std::string &source,
+    const std::map<std::string, std::any> &defines) {
   std::string new_source = source;
-  for (auto kv : compile_time_constants) {
+  for (auto kv : defines) {
     std::string key = kv.first;
     std::any value = kv.second;
     std::string value_str;
@@ -90,15 +91,26 @@ std::string Shader::InsertCompileTimeConstants(
     } else {
       value_str = "UNSUPPORTED CONSTANT TYPE";
     }
-    auto regex_str = std::string("<!--") + key + "-->";
-    new_source =
-        std::regex_replace(new_source, std::regex(regex_str), value_str);
+    new_source = fmt::format("#define {} {}\n{}", key, value_str, new_source);
   }
+
+  // move #version string to the very front
+  std::string regex_str = "(?:^|\n)\s*(#version.*\n)";
+  std::smatch sm;
+  bool found = std::regex_search(new_source, sm, std::regex(regex_str));
+  if (!(sm.size() >= 2)) {
+    throw ShaderCompileError(path, "GLSL version string not found");
+  }
+  auto version_str = sm[1].str();
+
+  new_source = std::regex_replace(new_source, std::regex(regex_str), "");
+  new_source = version_str + new_source;
+
   return new_source;
 }
 
 uint32_t Shader::Compile(uint32_t type, const std::string &source,
-                         const std::string &path) {
+                         const fs::path &path) {
   uint32_t shader_id = glCreateShader(type);
   const char *temp = source.c_str();
   glShaderSource(shader_id, 1, &temp, nullptr);
@@ -112,7 +124,7 @@ uint32_t Shader::Compile(uint32_t type, const std::string &source,
   glGetShaderInfoLog(shader_id, length, nullptr, log);
   std::string log_str = log;
   delete[] log;
-  throw ShaderCompileError(path.c_str(), log_str);
+  throw ShaderCompileError(path, log_str);
 }
 
 uint32_t Shader::Link(const std::vector<uint32_t> &ids) {

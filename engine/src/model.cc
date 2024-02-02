@@ -225,27 +225,26 @@ void Model::InitAnimationChannelMap() {
 void Model::CompileShaders() {
   if (kShader == nullptr && kOITShader == nullptr && kShadowShader == nullptr &&
       kDeferredShadingShader == nullptr) {
-    std::map<std::string, std::any> constants = {
+    std::map<std::string, std::any> defines = {
         {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
         {"IS_SHADOW_PASS", std::any(false)},
     };
-    kShader.reset(new Shader(
-        Model::kVsSource, Model::kFsSource + Model::kFsMainSource, constants));
-    kOITShader.reset(new Shader(Model::kVsSource,
-                                Model::kFsSource + Model::kFsOITMainSource,
-                                constants));
+    kShader.reset(new Shader(Model::kVsSource,
+                             Model::kFsSource + Model::kFsMainSource, defines));
+    kOITShader.reset(new Shader(
+        Model::kVsSource, Model::kFsSource + Model::kFsOITMainSource, defines));
     kDeferredShadingShader.reset(new Shader(
         Model::kVsSource,
-        Model::kFsSource + Model::kFsDeferredShadingMainSource, constants));
+        Model::kFsSource + Model::kFsDeferredShadingMainSource, defines));
 
-    constants["IS_SHADOW_PASS"] = std::any(true);
+    defines["IS_SHADOW_PASS"] = std::any(true);
     kShadowShader.reset(new Shader(
         {
             {GL_VERTEX_SHADER, Model::kVsSource},
             {GL_GEOMETRY_SHADER, Model::kGsShadowSource},
             {GL_FRAGMENT_SHADER, Model::kFsShadowSource},
         },
-        constants));
+        defines));
   }
 }
 
@@ -256,8 +255,6 @@ std::unique_ptr<Shader> Model::kDeferredShadingShader = nullptr;
 
 const std::string Model::kVsSource = R"(
 #version 460 core
-
-const bool IS_SHADOW_PASS = <!--IS_SHADOW_PASS-->;
 
 layout (location = 0) in vec3 aPosition;
 layout (location = 1) in vec2 aTexCoord;
@@ -531,10 +528,10 @@ void main() {
 const std::string Model::kGsShadowSource = R"(
 #version 460 core
 
-layout (triangles, invocations = <!--NUM_CASCADES-->) in;
+layout (triangles, invocations = NUM_CASCADES) in;
 layout (triangle_strip, max_vertices = 3) out;
 
-uniform mat4 uDirectionalShadowViewProjectionMatrices[<!--NUM_CASCADES-->];
+uniform mat4 uDirectionalShadowViewProjectionMatrices[NUM_CASCADES];
 
 void main() {
     for (int i = 0; i < 3; ++i) {
@@ -547,6 +544,8 @@ void main() {
 )";
 
 const std::string Model::kFsShadowSource = R"(
+#version 460 core
+
 void main() {}
 )";
 

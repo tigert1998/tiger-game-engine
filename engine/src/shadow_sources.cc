@@ -246,8 +246,6 @@ void ShadowSources::ImGuiWindow() {
 
 std::string ShadowSources::FsSource() {
   return R"(
-const int NUM_CASCADES = <!--NUM_CASCADES-->;
-
 struct DirectionalShadow {
     // Cascaded Shadow Mapping
     bool enabled;

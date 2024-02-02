@@ -99,10 +99,10 @@ DeferredShadingRenderQuad::DeferredShadingRenderQuad(uint32_t width,
 
   if (kShader == nullptr && kSSAOShader == nullptr &&
       kSSAOBlurShader == nullptr) {
-    std::map<std::string, std::any> constants = {
+    std::map<std::string, std::any> defines = {
         {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
     };
-    kShader = ScreenSpaceShader(kFsSource, constants);
+    kShader = ScreenSpaceShader(kFsSource, defines);
     kSSAOShader = ScreenSpaceShader(kSSAOFsSource, {});
     kSSAOBlurShader = ScreenSpaceShader(kSSAOBlurFsSource, {});
     glGenVertexArrays(1, &vao_);
