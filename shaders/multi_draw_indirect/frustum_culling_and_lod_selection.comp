@@ -1,0 +1,66 @@
+#version 460 core
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+#include "aabb.glsl"
+#include "obb/obb.glsl"
+
+layout (std430, binding = 0) readonly buffer aabbsBuffer {
+    AABB aabbs[]; // per mesh
+};
+layout (std430, binding = 1) readonly buffer modelMatricesBuffer {
+    mat4 modelMatrices[]; // per instance
+};
+layout (std430, binding = 2) readonly buffer instanceToMeshBuffer {
+    uint instanceToMesh[]; // per instance
+};
+layout (std430, binding = 3) readonly buffer frustumBuffer {
+    Frustum cameraFrustum;
+};
+layout (std430, binding = 4) readonly buffer meshToCmdOffsetBuffer {
+    uint meshToCmdOffset[]; // per mesh
+};
+layout (std430, binding = 5) readonly buffer meshToNumCmdsBuffer {
+    uint meshToNumCmds[]; // per mesh
+};
+layout (std430, binding = 6) buffer cmdInstanceCountBuffer {
+    uint cmdInstanceCount[]; // per cmd
+};
+layout (std430, binding = 7) writeonly buffer instanceToCmdBuffer {
+    int instanceToCmd[]; // per instance
+};
+layout (std430, binding = 8) readonly buffer shadowOBBsBuffer {
+    OBB shadowOBBs[];
+};
+
+uniform bool uIsShadowPass;
+uniform uint uNumCascades;
+uniform uint uInstanceCount;
+
+void main() {
+    uint instanceID = gl_GlobalInvocationID.x; 
+    if (instanceID >= uInstanceCount) return;
+
+    uint meshID = instanceToMesh[instanceID];
+    bool doRender = aabbs[meshID].coordsMin.x > aabbs[meshID].coordsMax.x;
+
+    // animated model has min = inf and max = inf
+    if (!doRender) {
+        AABB newAABB = TransformAABB(modelMatrices[instanceID], aabbs[meshID]);
+        if (uIsShadowPass) {
+            doRender = false;
+            OBB newOBB = OBB(newAABB.coordsMin, newAABB.coordsMax, mat3(1));
+            for (int i = 0; i < uNumCascades; i++) {
+                doRender = IntersectsOBB(newOBB, shadowOBBs[i], 1e-4);
+                if (doRender) break;
+            }
+        } else {
+            doRender = AABBIsOnFrustum(newAABB, cameraFrustum);
+        }
+    }
+
+    // put lod selection here
+    uint cmdID = meshToCmdOffset[meshID];
+    atomicAdd(cmdInstanceCount[cmdID], uint(doRender));
+    instanceToCmd[instanceID] = doRender ? int(cmdID) : -1;
+}

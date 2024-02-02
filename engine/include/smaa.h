@@ -14,16 +14,6 @@ class SMAA {
   std::unique_ptr<FrameBufferObject> edges_fbo_;
   std::unique_ptr<FrameBufferObject> blend_fbo_;
 
-  const static std::string kCommonDefines;
-  std::string smaa_lib_;
-
-  std::string smaa_edge_detection_vs_source() const;
-  std::string smaa_edge_detection_fs_source() const;
-  std::string smaa_blending_weight_calc_vs_source() const;
-  std::string smaa_blending_weight_calc_fs_source() const;
-  std::string smaa_neighborhood_blending_vs_source() const;
-  std::string smaa_neighborhood_blending_fs_source() const;
-
   std::unique_ptr<Shader> edge_detection_shader_;
   std::unique_ptr<Shader> blending_weight_calc_shader_;
   std::unique_ptr<Shader> neighborhood_blending_shader_;
@@ -33,6 +23,7 @@ class SMAA {
 
   Texture area_, search_;
 
+  void AddShaderIncludeDirectory(const std::filesystem::path &smaa_repo_path);
   void PrepareVertexData();
   void PrepareAreaAndSearchTexture(const std::filesystem::path &smaa_repo_path);
 

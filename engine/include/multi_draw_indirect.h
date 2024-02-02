@@ -125,11 +125,6 @@ class GPUDrivenWorkloadGeneration {
   static std::unique_ptr<Shader> prefix_sum_0_shader_, prefix_sum_1_shader_,
       prefix_sum_2_shader_;
   static std::unique_ptr<Shader> remap_shader_;
-
-  static const std::string kCsFrustumCullingAndLodSelectionSource;
-  static const std::string kCsPrefixSum0Source, kCsPrefixSum1Source,
-      kCsPrefixSum2Source;
-  static const std::string kCsRemapSource;
 };
 
 class Model;

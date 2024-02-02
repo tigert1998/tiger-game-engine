@@ -9,7 +9,6 @@
 class Blade {
  private:
   const static std::string kOBJSource;
-  const static std::string kVsSource, kFsSource;
 
   uint32_t vao_, vbo_, ebo_, indices_size_;
 

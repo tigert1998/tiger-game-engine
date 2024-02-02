@@ -7,24 +7,6 @@
 
 using namespace glm;
 
-std::string Frustum::GLSLSource() {
-  return R"(
-struct FrustumPlane {
-    float normal[3];
-    float distance;
-};
-
-struct Frustum {
-    FrustumPlane topPlane;
-    FrustumPlane bottomPlane;
-    FrustumPlane rightPlane;
-    FrustumPlane leftPlane;
-    FrustumPlane farPlane;
-    FrustumPlane nearPlane;
-};
-)";
-}
-
 const double Camera::kMaxElevationAngle = 5 * pi<double>() / 12;
 
 mat4 Camera::projection_matrix() const {

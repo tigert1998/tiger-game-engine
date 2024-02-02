@@ -17,88 +17,6 @@
 #include "utils.h"
 #include "vertex.h"
 
-const std::string Grassland::kCsSource = R"(
-#version 430 core
-
-layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
-
-// inputs
-layout (binding = 0) buffer verticesBuffer {
-    vec3 vertices[];
-};
-layout (binding = 1) buffer indicesBuffer {
-    uint indices[];
-};
-layout (binding = 2) buffer texCoordsBuffer {
-    vec2 texCoords[];
-};
-layout (binding = 3) buffer randsBuffer {
-    float rands[];
-};
-
-// outputs
-layout (binding = 4) buffer bladeTransformsBuffer {
-    mat4 bladeTransforms[];
-};
-layout (binding = 5) buffer bladePositionsBuffer {
-    vec3 bladePositions[];
-};
-layout (binding = 6) buffer bladeTexCoordsBuffer {
-    vec2 bladeTexCoords[];
-};
-
-uniform uint uNumTriangles;
-
-const float PI = radians(180);
-
-void main() {
-    if (gl_GlobalInvocationID.x >= uNumTriangles) {
-        return;
-    }
-    uint a = indices[gl_GlobalInvocationID.x * 3 + 0];
-    uint b = indices[gl_GlobalInvocationID.x * 3 + 1];
-    uint c = indices[gl_GlobalInvocationID.x * 3 + 2];
-
-    for (int i = 0; i < 8; i++) {
-        float width = mix(0.15, 0.3, rands[gl_GlobalInvocationID.x * 56 + i * 7 + 0]);
-        float height = mix(0.5, 1.2, rands[gl_GlobalInvocationID.x * 56 + i * 7 + 1]);
-        float bend = mix(-PI / 6, PI / 6, rands[gl_GlobalInvocationID.x * 56 + i * 7 + 2]);
-        float theta = mix(0, 2 * PI, rands[gl_GlobalInvocationID.x * 56 + i * 7 + 3]);
-
-        vec3 coord = vec3(
-            rands[gl_GlobalInvocationID.x * 56 + i * 7 + 4],
-            rands[gl_GlobalInvocationID.x * 56 + i * 7 + 5],
-            rands[gl_GlobalInvocationID.x * 56 + i * 7 + 6]
-        );
-        coord = coord / (coord.x + coord.y + coord.z);
-
-        bladePositions[gl_GlobalInvocationID.x * 8 + i] = 
-        mat3(vertices[a], vertices[b], vertices[c]) * coord;
-
-        bladeTexCoords[gl_GlobalInvocationID.x * 8 + i] =
-        mat3x2(texCoords[a], texCoords[b], texCoords[c]) * coord;
-
-        bladeTransforms[gl_GlobalInvocationID.x * 8 + i] =
-        mat4(
-            vec4(cos(theta), 0.0, -sin(theta), 0.0),
-            vec4(0.0, 1.0, 0.0, 0.0),
-            vec4(sin(theta), 0.0, cos(theta), 0.0),
-            vec4(0.0, 0.0, 0.0, 1.0)
-        ) * mat4(
-            vec4(1.0, 0.0, 0.0, 0.0),
-            vec4(0.0, cos(bend), sin(bend), 0.0),
-            vec4(0.0, -sin(bend), cos(bend), 0.0),
-            vec4(0.0, 0.0, 0.0, 1.0)
-        ) * mat4(
-            vec4(width, 0.0, 0.0, 0.0),
-            vec4(0.0, height, 0.0, 0.0),
-            vec4(0.0, 0.0, 1.0, 0.0),
-            vec4(0.0, 0.0, 0.0, 1.0)
-        );
-    }
-}
-)";
-
 constexpr int32_t kMaxLOD = 8;
 
 Grassland::Grassland(const std::string& terrain_model_path,
@@ -153,7 +71,7 @@ Grassland::Grassland(const std::string& terrain_model_path,
   // launch compute shader to calculate blade transforms once and for all
 
   auto calc_blade_transforms_shader = std::unique_ptr<Shader>(
-      new Shader({{GL_COMPUTE_SHADER, Grassland::kCsSource}}, {}));
+      new Shader({{GL_COMPUTE_SHADER, "grass/grass.comp"}}, {}));
   SSBO vertices_ssbo(vertices.size() * sizeof(glm::vec4),
                      glm::value_ptr(vertices[0]), GL_STATIC_DRAW, 0);
   SSBO indices_ssbo(indices.size() * sizeof(uint32_t), &indices[0],

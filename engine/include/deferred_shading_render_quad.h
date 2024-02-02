@@ -24,7 +24,6 @@ class DeferredShadingRenderQuad {
   Texture ssao_noise_texture_;
   std::unique_ptr<FrameBufferObject> ssao_fbo_, ssao_blur_fbo_;
 
-  static const std::string kFsSource, kSSAOFsSource, kSSAOBlurFsSource;
   static std::unique_ptr<Shader> kShader, kSSAOShader, kSSAOBlurShader;
   static uint32_t vao_;
 

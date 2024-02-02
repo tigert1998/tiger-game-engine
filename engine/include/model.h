@@ -57,14 +57,6 @@ class Model {
   static std::unique_ptr<Shader> kOITShader;
   static std::unique_ptr<Shader> kShadowShader;
   static std::unique_ptr<Shader> kDeferredShadingShader;
-
-  static const std::string kVsSource;
-  static const std::string kGsShadowSource;
-  static const std::string kFsSource;
-  static const std::string kFsMainSource;
-  static const std::string kFsOITMainSource;
-  static const std::string kFsShadowSource;
-  static const std::string kFsDeferredShadingMainSource;
 };
 
 #endif

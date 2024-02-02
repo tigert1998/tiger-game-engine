@@ -130,6 +130,8 @@ void Init(uint32_t width, uint32_t height) {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+  Shader::include_directories = {"./shaders"};
+
   deferred_shading_render_quad_ptr.reset(
       new DeferredShadingRenderQuad(width, height));
 
@@ -212,7 +214,11 @@ ConstructRenderTargetParameters() {
 }
 
 int main(int argc, char *argv[]) {
-  Init(1920, 1080);
+  try {
+    Init(1920, 1080);
+  } catch (const std::exception &e) {
+    fmt::print(stderr, "[error] {}\n", e.what());
+  }
 
   while (!glfwWindowShouldClose(window)) {
     static uint32_t fps = 0;

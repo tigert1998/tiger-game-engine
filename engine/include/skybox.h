@@ -13,8 +13,6 @@ class Skybox {
   std::unique_ptr<Shader> shader_ptr_;
   uint32_t vao_, vbo_;
 
-  static const std::string kVsSource;
-  static const std::string kFsSource;
   static const float vertices_[36 * 3];
 
  public:

@@ -148,6 +148,8 @@ void Init(uint32_t width, uint32_t height) {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+  Shader::include_directories = {"./shaders"};
+
   deferred_shading_render_quad_ptr.reset(
       new DeferredShadingRenderQuad(width, height));
 
@@ -184,7 +186,7 @@ int main(int argc, char *argv[]) {
   try {
     Init(1920, 1080);
   } catch (const std::exception &e) {
-    fmt::print("[error] {}\n", e.what());
+    fmt::print(stderr, "[error] {}\n", e.what());
   }
 
   while (!glfwWindowShouldClose(window)) {
