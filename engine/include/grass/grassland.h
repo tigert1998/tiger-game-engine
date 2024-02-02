@@ -38,8 +38,6 @@ class Grassland {
   std::vector<VertexType> vertices_for_bvh_;
   std::vector<glm::uvec3> triangles_for_bvh_;
 
-  static const std::string kCsSource;
-
   std::unique_ptr<Blade> blade_;
 
   std::unique_ptr<BVH<VertexType>> bvh_;
@@ -47,9 +45,6 @@ class Grassland {
   std::vector<InstancingData> blade_data_for_gpu_;
 
   Texture distortion_texture_;
-
-  static uint32_t CreateAndBindSSBO(uint32_t size, void *data, uint32_t usage,
-                                    uint32_t index);
 };
 
 #endif

@@ -12,9 +12,7 @@ NoiseTextureGenerator::NoiseTextureGenerator(
     : weather_texture_perlin_frequency_(weather_texture_perlin_frequency) {
   {
     std::unique_ptr<Shader> shader(
-        new Shader({{GL_COMPUTE_SHADER,
-                     ReadFile("shaders/clouds/perlinworley.comp", false)}},
-                   {}));
+        new Shader({{GL_COMPUTE_SHADER, "clouds/perlinworley.comp"}}, {}));
     perlin_worley_texture_ = Texture(
         nullptr, GL_TEXTURE_3D, 128, 128, 128, GL_RGBA8, GL_RGBA, GL_FLOAT,
         GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, {}, true);
@@ -26,9 +24,8 @@ NoiseTextureGenerator::NoiseTextureGenerator(
     CHECK_OPENGL_ERROR();
   }
   {
-    std::unique_ptr<Shader> shader(new Shader(
-        {{GL_COMPUTE_SHADER, ReadFile("shaders/clouds/worley.comp", false)}},
-        {}));
+    std::unique_ptr<Shader> shader(
+        new Shader({{GL_COMPUTE_SHADER, "clouds/worley.comp"}}, {}));
     worley_texture_ =
         Texture(nullptr, GL_TEXTURE_3D, 32, 32, 32, GL_RGBA8, GL_RGBA, GL_FLOAT,
                 GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, {}, true);
@@ -40,9 +37,8 @@ NoiseTextureGenerator::NoiseTextureGenerator(
     CHECK_OPENGL_ERROR();
   }
   {
-    std::unique_ptr<Shader> shader(new Shader(
-        {{GL_COMPUTE_SHADER, ReadFile("shaders/clouds/weather.comp", false)}},
-        {}));
+    std::unique_ptr<Shader> shader(
+        new Shader({{GL_COMPUTE_SHADER, "clouds/weather.comp"}}, {}));
     weather_texture_ =
         Texture(nullptr, 1024, 1024, GL_RGBA8, GL_RGBA, GL_FLOAT, GL_REPEAT,
                 GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, {}, true);

@@ -1,0 +1,72 @@
+#version 460 core
+
+layout (local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+#include "multi_draw_indirect/draw_elements_indirect_command.glsl"
+#include "material.glsl"
+
+layout (std430, binding = 0) readonly buffer instanceToCmdBuffer {
+    int instanceToCmd[]; // per instance
+};
+layout (std430, binding = 1) readonly buffer commandsBuffer {
+    DrawElementsIndirectCommand commands[]; // per cmd
+};
+layout (std430, binding = 2) buffer cmdInstanceCountBuffer {
+    uint cmdInstanceCount[]; // per cmd
+};
+
+// input
+layout (std430, binding = 3) readonly buffer inputModelMatricesBuffer {
+    mat4 inputModelMatrices[]; // per instance
+};
+layout (std430, binding = 4) readonly buffer inputBoneMatricesOffsetBuffer {
+    int inputBoneMatricesOffset[]; // per instance
+};
+layout (std430, binding = 5) readonly buffer inputAnimatedBuffer {
+    uint inputAnimated[]; // per instance
+};
+layout (std430, binding = 6) readonly buffer inputTransformsBuffer {
+    mat4 inputTransforms[]; // per instance
+};
+layout (std430, binding = 7) readonly buffer inputClipPlanesBuffer {
+    vec4 inputClipPlanes[]; // per instance
+};
+layout (std430, binding = 8) readonly buffer inputMaterialsBuffer {
+    Material inputMaterials[]; // per instance
+};
+
+// output
+layout (std430, binding = 9) writeonly buffer modelMatricesBuffer {
+    mat4 modelMatrices[]; // per instance
+};
+layout (std430, binding = 10) writeonly buffer boneMatricesOffsetBuffer {
+    int boneMatricesOffset[]; // per instance
+};
+layout (std430, binding = 11) writeonly buffer animatedBuffer {
+    uint animated[]; // per instance
+};
+layout (std430, binding = 12) writeonly buffer transformsBuffer {
+    mat4 transforms[]; // per instance
+};
+layout (std430, binding = 13) writeonly buffer clipPlanesBuffer {
+    vec4 clipPlanes[]; // per instance
+};
+layout (std430, binding = 14) writeonly buffer materialsBuffer {
+    Material materials[]; // per instance
+};
+
+uniform uint uInstanceCount;
+
+void main() {
+    uint instanceID = gl_GlobalInvocationID.x;
+    if (instanceID >= uInstanceCount || instanceToCmd[instanceID] < 0) return;
+    uint cmdID = uint(instanceToCmd[instanceID]);
+    uint newInstanceID = atomicAdd(cmdInstanceCount[cmdID], 1) + commands[cmdID].baseInstance;
+
+    modelMatrices[newInstanceID] = inputModelMatrices[instanceID];
+    boneMatricesOffset[newInstanceID] = inputBoneMatricesOffset[instanceID];
+    animated[newInstanceID] = inputAnimated[instanceID];
+    transforms[newInstanceID] = inputTransforms[instanceID];
+    clipPlanes[newInstanceID] = inputClipPlanes[instanceID];
+    materials[newInstanceID] = inputMaterials[instanceID];
+}

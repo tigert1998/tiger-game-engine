@@ -6,7 +6,7 @@
 
 Skybox::Skybox(const std::string &path) {
   shader_ptr_ = std::unique_ptr<Shader>(
-      new Shader(Skybox::kVsSource, Skybox::kFsSource, {}));
+      new Shader("skybox/skybox.vert", "skybox/skybox.frag", {}));
 
   tex_ = Texture::LoadFromFS(path, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {},
                              false, false, true);
@@ -41,34 +41,6 @@ void Skybox::Draw(Camera *camera) {
 
   glDepthMask(GL_TRUE);
 }
-
-const std::string Skybox::kVsSource = R"(
-#version 410 core
-layout (location = 0) in vec3 aPosition;
-
-out vec3 vTexCoord;
-
-uniform mat4 uProjectionMatrix;
-uniform mat4 uViewMatrix;
-
-void main() {
-    vTexCoord = aPosition;
-    gl_Position = uProjectionMatrix * uViewMatrix * vec4(aPosition, 1);
-}
-)";
-const std::string Skybox::kFsSource = R"(
-#version 410 core
-out vec4 fragColor;
-
-in vec3 vTexCoord;
-
-uniform samplerCube uSkyboxTexture;
-
-void main() {
-    fragColor = texture(uSkyboxTexture, vTexCoord);
-    fragColor.rgb = pow(fragColor.rgb, vec3(1.0 / 2.2));
-}
-)";
 
 const float Skybox::vertices_[36 * 3] = {
     // positions

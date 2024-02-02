@@ -13,9 +13,6 @@
 
 class Clouds {
  private:
-  static const std::string kCsSource;
-  static const std::string kFsSource;
-
   std::unique_ptr<Shader> shader_, screen_space_shader_;
 
   uint32_t width_, height_;

@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
+#include <fmt/core.h>
 #include <imgui.h>
 
 #include <iostream>
@@ -147,6 +148,8 @@ void Init(uint32_t width, uint32_t height) {
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+  Shader::include_directories = {"./shaders"};
+
   deferred_shading_render_quad_ptr.reset(
       new DeferredShadingRenderQuad(width, height));
 
@@ -180,7 +183,11 @@ void Init(uint32_t width, uint32_t height) {
 }
 
 int main(int argc, char *argv[]) {
-  Init(1920, 1080);
+  try {
+    Init(1920, 1080);
+  } catch (const std::exception &e) {
+    fmt::print(stderr, "[error] {}\n", e.what());
+  }
 
   while (!glfwWindowShouldClose(window)) {
     static uint32_t fps = 0;

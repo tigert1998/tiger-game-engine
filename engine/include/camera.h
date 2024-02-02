@@ -32,8 +32,6 @@ struct Frustum {
   FrustumPlane left_plane;
   FrustumPlane far_plane;
   FrustumPlane near_plane;
-
-  static std::string GLSLSource();
 };
 
 class Camera {

@@ -1,7 +1,3 @@
-#include "glsl_common.h"
-
-const std::string GLSLCommon::Source() {
-  return R"(
 const float PI = radians(180);
 
 mat4 Rotate(vec3 axis, float angle) {
@@ -16,6 +12,4 @@ mat4 Rotate(vec3 axis, float angle) {
         oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c,           0.0,
         0.0,                                0.0,                                0.0,                                1.0
     );
-}
-)";
 }

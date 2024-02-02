@@ -8,7 +8,6 @@
 
 #include <assimp/Importer.hpp>
 
-#include "glsl_common.h"
 #include "light_sources.h"
 #include "vertex.h"
 
@@ -33,89 +32,8 @@ f 3/3 4/4 6/6 5/5
 f 5/5 6/6 7/7
 )";
 
-const std::string Blade::kVsSource = R"(
-#version 410 core
-
-layout (location = 0) in vec3 aPosition;
-layout (location = 1) in vec2 aTexCoord;
-layout (location = 2) in vec3 aNormal;
-layout (location = 3) in mat4 aBladeTransform;
-layout (location = 7) in vec3 aBladePosition;
-layout (location = 8) in vec2 aBladeTexCoord;
-
-out vec3 vPosition;
-out vec2 vTexCoord;
-out vec3 vNormal;
-
-uniform vec2 uWindFrequency;
-uniform float uTime;
-uniform sampler2D uDistortionTexture;
-
-uniform mat4 uViewMatrix;
-uniform mat4 uProjectionMatrix;
-)" + GLSLCommon::Source() + R"(
-
-mat4 CalcWindRotation() {
-    vec2 uv = aBladeTexCoord + uWindFrequency * uTime;
-    vec2 sampled = texture(uDistortionTexture, uv).xy * 2.0f - 1.0f;
-    return Rotate(
-        vec3(sampled.x, 0, sampled.y),
-        PI * 0.5 * length(sampled)
-    );
-}
-
-void main() {
-    mat4 modelMatrix = mat4(
-        vec4(1.0, 0.0, 0.0, 0.0),
-        vec4(0.0, 1.0, 0.0, 0.0),
-        vec4(0.0, 0.0, 1.0, 0.0),
-        vec4(aBladePosition, 1.0)
-    ) * CalcWindRotation() * aBladeTransform;
-    gl_Position = uProjectionMatrix * uViewMatrix * modelMatrix * vec4(aPosition, 1);
-    vPosition = vec3(modelMatrix * vec4(aPosition, 1));
-    vTexCoord = aTexCoord;
-    vNormal = vec3(transpose(inverse(modelMatrix)) * vec4(aNormal, 0));
-}
-)";
-
-const std::string Blade::kFsSource = R"(
-#version 420 core
-
-const float zero = 1e-6;
-
-uniform vec3 uCameraPosition;
-
-in vec3 vPosition;
-in vec2 vTexCoord;
-in vec3 vNormal;
-)" + LightSources::FsSource() + R"(
-
-out vec4 fragColor;
-
-vec4 CalcFragColor() {
-    vec3 lightGreen = vec3(139.0, 205.0, 80.0) / 255.0;
-    vec3 darkGreen = vec3(53.0, 116.0, 32.0) / 255.0;
-    vec3 green = mix(darkGreen, lightGreen, vTexCoord.y);
-
-    float facing = dot(vPosition - uCameraPosition, -vNormal);
-    vec3 normal = facing > 0 ? vNormal : -vNormal;
-
-    vec3 color = CalcPhongLighting(
-        green, green, vec3(zero),
-        normal, uCameraPosition, vPosition,
-        0, 0
-    );
-
-    return vec4(color, 1.0);
-}
-
-void main() {
-    fragColor = CalcFragColor();
-}
-)";
-
 Blade::Blade() {
-  shader_.reset(new Shader(Blade::kVsSource, Blade::kFsSource, {}));
+  shader_.reset(new Shader("grass/grass.vert", "grass/grass.frag", {}));
 
   auto scene = aiImportFileFromMemory(
       Blade::kOBJSource.c_str(), Blade::kOBJSource.size(),

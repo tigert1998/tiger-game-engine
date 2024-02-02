@@ -62,8 +62,6 @@ class OBBDrawer {
   std::vector<Vertex> vertices_;
 
   static std::unique_ptr<Shader> kShader;
-  static const std::string kVsSource;
-  static const std::string kFsSource;
 };
 
 #endif

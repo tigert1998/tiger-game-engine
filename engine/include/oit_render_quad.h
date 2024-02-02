@@ -21,8 +21,6 @@ class OITRenderQuad {
   void Deallocate();
   void Allocate(uint32_t width, uint32_t height, float fragment_per_pixel);
 
-  const static std::string kFsSource;
-
   static std::shared_ptr<Shader> kShader;
   static uint32_t vao_;
 

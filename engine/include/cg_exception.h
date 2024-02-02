@@ -8,7 +8,7 @@
 class ShaderCompileError : public std::exception {
  public:
   ShaderCompileError() = delete;
-  ShaderCompileError(const std::string &title, const std::string &log);
+  ShaderCompileError(const std::filesystem::path &path, const std::string &log);
   const char *what() const noexcept;
 
  private:

@@ -1,0 +1,37 @@
+#version 460 core
+
+layout (local_size_x = 1024, local_size_y = 1, local_size_z = 1) in;
+
+#include "multi_draw_indirect/draw_elements_indirect_command.glsl"
+
+layout (std430, binding = 0) readonly buffer cmdInstanceCountBuffer {
+    uint cmdInstanceCount[]; // per cmd
+};
+layout (std430, binding = 1) buffer commandsBuffer {
+    DrawElementsIndirectCommand commands[]; // per cmd
+};
+
+uniform uint uCmdCount;
+
+void main() {
+    uint cmdID = gl_GlobalInvocationID.x;
+    if (cmdID >= uCmdCount) return;
+
+    commands[cmdID].baseInstance = cmdInstanceCount[cmdID];
+    barrier();
+
+    uint step = 0;
+    while (min(uCmdCount, gl_WorkGroupSize.x) > (1 << step)) {
+        if ((cmdID & (1 << step)) > 0) {
+            uint readCmdID = (cmdID | ((1 << step) - 1)) - (1 << step);
+            commands[cmdID].baseInstance += commands[readCmdID].baseInstance;
+        }
+        barrier();
+        step += 1;
+    }
+
+    commands[cmdID].instanceCount = cmdInstanceCount[cmdID];
+    if (uCmdCount <= gl_WorkGroupSize.x) {
+        commands[cmdID].baseInstance -= cmdInstanceCount[cmdID];
+    }
+}

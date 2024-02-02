@@ -69,8 +69,6 @@ class LightSources : public Light {
       uint32_t index, const std::function<void()> &erase_callback) override {}
 
   void ImGuiWindow();
-
-  static std::string FsSource();
 };
 
 #endif

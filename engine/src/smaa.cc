@@ -81,22 +81,26 @@ SMAA::~SMAA() {
   glDeleteBuffers(1, &vbo_);
 }
 
-SMAA::SMAA(const fs::path &smaa_repo_path, uint32_t width, uint32_t height) {
-  smaa_lib_ = ReadFile(smaa_repo_path / "SMAA.hlsl", false);
+void SMAA::AddShaderIncludeDirectory(const fs::path &smaa_repo_path) {
+  for (const auto &dir : Shader::include_directories) {
+    if (dir == smaa_repo_path) return;
+  }
+  Shader::include_directories.push_back(smaa_repo_path);
+}
 
+SMAA::SMAA(const fs::path &smaa_repo_path, uint32_t width, uint32_t height) {
   Resize(width, height);
   PrepareVertexData();
   PrepareAreaAndSearchTexture(smaa_repo_path);
+  AddShaderIncludeDirectory(smaa_repo_path);
 
-  edge_detection_shader_.reset(new Shader(smaa_edge_detection_vs_source(),
-                                          smaa_edge_detection_fs_source(), {}));
-  blending_weight_calc_shader_.reset(
-      new Shader(smaa_blending_weight_calc_vs_source(),
-                 smaa_blending_weight_calc_fs_source(), {}));
-
+  edge_detection_shader_.reset(
+      new Shader("smaa/edge_detection.vert", "smaa/edge_detection.frag", {}));
+  blending_weight_calc_shader_.reset(new Shader(
+      "smaa/blending_weight_calc.vert", "smaa/blending_weight_calc.frag", {}));
   neighborhood_blending_shader_.reset(
-      new Shader(smaa_neighborhood_blending_vs_source(),
-                 smaa_neighborhood_blending_fs_source(), {}));
+      new Shader("smaa/neighborhood_blending.vert",
+                 "smaa/neighborhood_blending.frag", {}));
 }
 
 void SMAA::Draw() {
@@ -147,146 +151,4 @@ void SMAA::Draw() {
   glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
 
   glEnable(GL_BLEND);
-}
-
-const std::string SMAA::kCommonDefines = R"(
-#define SMAA_GLSL_4
-#define SMAA_PRESET_HIGH
-uniform vec4 SMAA_RT_METRICS;
-)";
-
-std::string SMAA::smaa_edge_detection_vs_source() const {
-  return std::string(R"(
-#version 460 core
-
-#define SMAA_INCLUDE_VS 1
-#define SMAA_INCLUDE_PS 0
-)") + kCommonDefines +
-         smaa_lib_ + R"(
-layout (location = 0) in vec3 aPosition;
-layout (location = 1) in vec2 aTexCoord;
-
-out vec4 vOffset[3];
-out vec2 vTexCoord;
-
-void main() {
-    gl_Position = vec4(aPosition, 1);
-    vTexCoord = aTexCoord;
-    SMAAEdgeDetectionVS(vTexCoord, vOffset);
-}
-)";
-}
-
-std::string SMAA::smaa_edge_detection_fs_source() const {
-  return std::string(R"(
-#version 460 core
-
-#define SMAA_INCLUDE_VS 0
-#define SMAA_INCLUDE_PS 1
-)") + kCommonDefines +
-         smaa_lib_ + R"(
-uniform sampler2D uColor;
-
-in vec4 vOffset[3];
-in vec2 vTexCoord;
-
-out vec4 fragColor;
-
-void main() {
-    fragColor = vec4(SMAALumaEdgeDetectionPS(vTexCoord, vOffset, uColor), vec2(0));
-}
-)";
-}
-
-std::string SMAA::smaa_blending_weight_calc_vs_source() const {
-  return std::string(R"(
-#version 460 core
-
-#define SMAA_INCLUDE_VS 1
-#define SMAA_INCLUDE_PS 0
-)") + kCommonDefines +
-         smaa_lib_ + R"(
-layout (location = 0) in vec3 aPosition;
-layout (location = 1) in vec2 aTexCoord;
-
-out vec4 vOffset[3];
-out vec2 vTexCoord;
-out vec2 vPixCoord;
-
-void main() {
-    gl_Position = vec4(aPosition, 1);
-    vTexCoord = aTexCoord;
-    SMAABlendingWeightCalculationVS(vTexCoord, vPixCoord, vOffset);
-}
-)";
-}
-
-std::string SMAA::smaa_blending_weight_calc_fs_source() const {
-  return std::string(R"(
-#version 460 core
-
-#define SMAA_INCLUDE_VS 0
-#define SMAA_INCLUDE_PS 1
-)") + kCommonDefines +
-         smaa_lib_ + R"(
-in vec4 vOffset[3];
-in vec2 vTexCoord;
-in vec2 vPixCoord;
-
-uniform sampler2D uEdges;
-uniform sampler2D uArea;
-uniform sampler2D uSearch;
-
-out vec4 fragColor;
-
-void main() {
-    fragColor = SMAABlendingWeightCalculationPS(vTexCoord, vPixCoord, vOffset, uEdges, uArea, uSearch, vec4(0));
-    // gamma correction
-    fragColor.rgb = pow(fragColor.rgb, vec3(1.0 / 2.2));
-}
-)";
-}
-
-std::string SMAA::smaa_neighborhood_blending_vs_source() const {
-  return std::string(R"(
-#version 460 core
-
-#define SMAA_INCLUDE_VS 1
-#define SMAA_INCLUDE_PS 0
-)") + kCommonDefines +
-         smaa_lib_ + R"(
-layout (location = 0) in vec3 aPosition;
-layout (location = 1) in vec2 aTexCoord;
-
-out vec4 vOffset;
-out vec2 vTexCoord;
-
-void main() {
-    gl_Position = vec4(aPosition, 1);
-    vTexCoord = aTexCoord;
-    SMAANeighborhoodBlendingVS(vTexCoord, vOffset);
-}
-)";
-}
-
-std::string SMAA::smaa_neighborhood_blending_fs_source() const {
-  return std::string(R"(
-#version 460 core
-
-#define SMAA_INCLUDE_VS 0
-#define SMAA_INCLUDE_PS 1
-)") + kCommonDefines +
-         smaa_lib_ + R"(
-in vec4 vOffset;
-in vec2 vTexCoord;
-
-uniform sampler2D uColor;
-uniform sampler2D uBlend;
-
-out vec4 fragColor;
-
-void main() {
-    fragColor = SMAANeighborhoodBlendingPS(vTexCoord, vOffset, uColor, uBlend);
-}
-)";
 }

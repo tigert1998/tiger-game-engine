@@ -3,8 +3,10 @@
 namespace fs = std::filesystem;
 using std::string;
 
-ShaderCompileError::ShaderCompileError(const string &title, const string &log) {
-  error_message = "[shader compile error on \"" + title + "\"] " + log;
+ShaderCompileError::ShaderCompileError(const fs::path &path,
+                                       const string &log) {
+  error_message = std::string("[shader compile error on \"") +
+                  (const char *)path.u8string().data() + "\"] " + log;
 }
 
 const char *ShaderCompileError::what() const noexcept {
