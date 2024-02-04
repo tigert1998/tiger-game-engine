@@ -35,8 +35,8 @@ class Shader {
  private:
   static std::optional<std::string> ReadFileInIncludeDirectory(
       const std::filesystem::path &path);
-  static uint32_t Compile(uint32_t type, const std::string &source,
-                          const std::filesystem::path &path);
+  static uint32_t Compile(uint32_t type, const std::filesystem::path &path,
+                          const std::string &source);
   static uint32_t Link(const std::vector<uint32_t> &ids);
   static std::string InsertDefines(
       const std::filesystem::path &path, const std::string &source,

@@ -1,6 +1,7 @@
 #include "utils.h"
 
 #include <glad/glad.h>
+#include <imgui.h>
 
 #include <algorithm>
 #include <cctype>
@@ -72,4 +73,18 @@ std::string StringToHex(const std::string &input) {
     output.push_back(hex_digits[c & 15]);
   }
   return output;
+}
+
+void ImGuiListBox(const std::string &label, int *current_item,
+                  const std::vector<std::string> &items) {
+  ImGui::ListBox(
+      label.c_str(), current_item,
+      [](void *vec, int idx, const char **out_text) {
+        std::vector<std::string> *vector =
+            reinterpret_cast<std::vector<std::string> *>(vec);
+        if (idx < 0 || idx >= vector->size()) return false;
+        *out_text = vector->at(idx).c_str();
+        return true;
+      },
+      (void *)(&items), items.size());
 }

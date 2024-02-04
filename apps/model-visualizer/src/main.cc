@@ -85,17 +85,17 @@ void ImGuiWindow() {
   const char *choices[] = {"off", "on"};
 
   ImGui::Begin("Panel");
-  if (ImGui::InputText("model path", buf, sizeof(buf),
+  if (ImGui::InputText("Model path", buf, sizeof(buf),
                        ImGuiInputTextFlags_EnterReturnsTrue)) {
     multi_draw_indirect.reset(new MultiDrawIndirect());
     model_ptr.reset(new Model(buf, multi_draw_indirect.get(), 1, true, true));
     multi_draw_indirect->PrepareForDraw();
   }
-  ImGui::ListBox("default shading", &default_shading_choice, choices,
+  ImGui::ListBox("Default shading", &default_shading_choice, choices,
                  IM_ARRAYSIZE(choices));
-  ImGui::ListBox("enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
-  ImGui::ListBox("enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
-  if (ImGui::Button("refresh shadow OBBs visualization")) {
+  ImGui::ListBox("Enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
+  ImGui::ListBox("Enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
+  if (ImGui::Button("Generate shadow OBBs visualization")) {
     if (shadow_sources_ptr->Size() >= 1) {
       auto shadow =
           dynamic_cast<DirectionalShadow *>(shadow_sources_ptr->Get(0));
@@ -122,7 +122,7 @@ void ImGuiWindow() {
       obb_drawer_ptr->Clear();
     }
   }
-  if (ImGui::Button("close shadow OBBs visualization")) {
+  if (ImGui::Button("Erase shadow OBBs visualization")) {
     obb_drawer_ptr->Clear();
   }
   ImGui::End();
@@ -239,6 +239,7 @@ int main(int argc, char *argv[]) {
     }
 
     obb_drawer_ptr->Draw(camera_ptr.get());
+    shadow_sources_ptr->Visualize();
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

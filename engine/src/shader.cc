@@ -8,6 +8,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 #include <regex>
+#include <sstream>
 #include <vector>
 
 #include "cg_exception.h"
@@ -54,7 +55,7 @@ Shader::Shader(const std::vector<std::pair<uint32_t, fs::path>> &pairs,
     if (!source.has_value()) throw ShaderCompileError(path, "file not exists");
     source = InsertIncludes(path, source.value());
     source = InsertDefines(path, source.value(), defines);
-    ids.push_back(Compile(pairs[i].first, source.value(), path));
+    ids.push_back(Compile(pairs[i].first, path, source.value()));
   }
   id_ = Link(ids);
 }
@@ -89,7 +90,7 @@ std::string Shader::InsertIncludes(const std::filesystem::path &path,
 std::string Shader::InsertDefines(
     const fs::path &path, const std::string &source,
     const std::map<std::string, std::any> &defines) {
-  std::string new_source = source;
+  std::stringstream ss;
   for (auto kv : defines) {
     std::string key = kv.first;
     std::any value = kv.second;
@@ -110,8 +111,10 @@ std::string Shader::InsertDefines(
       throw ShaderCompileError(
           path, fmt::format("definition \"{}\" type not supported", key));
     }
-    new_source = fmt::format("#define {} {}\n{}", key, value_str, new_source);
+    ss << fmt::format("#define {} {}\n", key, value_str);
   }
+
+  std::string new_source = ss.str() + source;
 
   // move #version string to the very front
   std::string regex_str = "(?:^|\n)\\s*(#version.*\n)";
@@ -128,8 +131,8 @@ std::string Shader::InsertDefines(
   return new_source;
 }
 
-uint32_t Shader::Compile(uint32_t type, const std::string &source,
-                         const fs::path &path) {
+uint32_t Shader::Compile(uint32_t type, const fs::path &path,
+                         const std::string &source) {
   uint32_t shader_id = glCreateShader(type);
   const char *temp = source.c_str();
   glShaderSource(shader_id, 1, &temp, nullptr);

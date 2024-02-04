@@ -105,4 +105,7 @@ std::u8string ToU8string(const aiString &str);
 
 std::string StringToHex(const std::string &input);
 
+void ImGuiListBox(const std::string &label, int *current_item,
+                  const std::vector<std::string> &items);
+
 #endif
