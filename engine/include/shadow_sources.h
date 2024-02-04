@@ -3,12 +3,14 @@
 
 #include <functional>
 #include <glm/glm.hpp>
+#include <memory>
 
 #include "aabb.h"
 #include "camera.h"
 #include "frame_buffer_object.h"
 #include "obb.h"
 #include "shader.h"
+#include "texture.h"
 
 class Shadow {
  public:
@@ -18,8 +20,11 @@ class Shadow {
   virtual void SetForDepthPass(Shader *shader) = 0;
   virtual void ImGuiWindow(uint32_t index,
                            const std::function<void()> &erase_callback) = 0;
+  virtual void Visualize() const = 0;
   virtual ~Shadow(){};
 };
+
+class DirectionalShadowViewer;
 
 class DirectionalShadow : public Shadow {
  private:
@@ -28,11 +33,16 @@ class DirectionalShadow : public Shadow {
   std::unique_ptr<FrameBufferObject> fbo_;
   const Camera *camera_;
 
+  int32_t imgui_visualize_layer_ = -1;
+  glm::vec4 imgui_visualize_viewport = glm::vec4(0, 0, 128, 128);
+
   AABB projection_matrix_ortho_param(
       const std::vector<glm::vec3> &frustum_corners) const;
   void CalcFrustumCorners(
       const std::function<void(const std::vector<glm::vec3> &)> &callback)
       const;
+
+  static std::unique_ptr<DirectionalShadowViewer> kViewer;
 
  public:
   DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
@@ -72,6 +82,8 @@ class DirectionalShadow : public Shadow {
 
   void ImGuiWindow(uint32_t index,
                    const std::function<void()> &erase_callback) override;
+
+  void Visualize() const override;
 };
 
 class ShadowSources {
@@ -84,11 +96,23 @@ class ShadowSources {
   inline uint32_t Size() const { return shadows_.size(); }
   Shadow *Get(int32_t index);
   void Set(Shader *shader, int32_t *num_samplers);
-  static std::string FsSource();
   inline ShadowSources(const Camera *camera) : camera_(camera) {}
 
   void DrawDepthForShadow(const std::function<void(Shadow *)> &render_pass);
   void ImGuiWindow();
+  void Visualize();
+};
+
+class DirectionalShadowViewer {
+ private:
+  uint32_t vao_;
+  static std::unique_ptr<Shader> kShader;
+
+ public:
+  explicit DirectionalShadowViewer();
+  ~DirectionalShadowViewer();
+
+  void Draw(glm::vec4 viewport, const Texture &shadow_map, uint32_t layer);
 };
 
 #endif

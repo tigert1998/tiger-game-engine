@@ -30,8 +30,6 @@ float CalcShadow(vec3 position, vec3 normal) {
 
     vec4 homoPosition = uDirectionalShadow.viewProjectionMatrices[layer] * vec4(position, 1.0);
 
-    const float kShadowBiasFactor = 1e-3;
-
     position = homoPosition.xyz / homoPosition.w;
     position = position * 0.5 + 0.5;
     float currentDepth = position.z;
@@ -39,7 +37,7 @@ float CalcShadow(vec3 position, vec3 normal) {
     // If the fragment is outside the shadow frustum, we don't care about its depth.
     // Otherwise, the fragment's depth must be between [0, 1].
 
-    float bias = max(0.05 * (1.0 - dot(normal, -uDirectionalShadow.dir)), 0.005);
+    float bias = max(0.05 * (1.0 - dot(normal, normalize(-uDirectionalShadow.dir))), 0.005);
     const float biasModifier = 0.5f;
     if (layer == NUM_CASCADES - 1) {
         bias *= 1 / (uDirectionalShadow.farPlaneDistance * biasModifier);

@@ -193,10 +193,11 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
     float target_error = 0.2;
     uint32_t options = 0;
     float lod_error;
-    indices_[i].resize(meshopt_simplifySloppy(
+    indices_[i].resize(meshopt_simplify(
         indices_[i].data(), indices_[i - 1].data(), indices_[i - 1].size(),
         glm::value_ptr(vertices_[0].position), vertices_.size(),
-        sizeof(vertices_[0]), target_index_count, target_error, &lod_error));
+        sizeof(vertices_[0]), target_index_count, target_error, options,
+        &lod_error));
 
     if (indices_[i].size() == indices_[i - 1].size()) {
       // meshopt stops early

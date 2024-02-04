@@ -195,7 +195,26 @@ void DirectionalShadow::ImGuiWindow(
   ImGui::InputFloat3(
       ("Direction##shadow_source_" + std::to_string(index)).c_str(), d_arr);
   direction_ = glm::vec3(d_arr[0], d_arr[1], d_arr[2]);
+
+  ImGui::InputInt(
+      fmt::format("Visualize layer##shadow_source_{}", index).c_str(),
+      &imgui_visualize_layer_);
+  ImGui::InputFloat4(
+      fmt::format("Visualize viewport##shadow_source_{}", index).c_str(),
+      &imgui_visualize_viewport.x);
+  if (0 <= imgui_visualize_layer_ && imgui_visualize_layer_ < NUM_CASCADES) {
+    if (kViewer == nullptr) kViewer.reset(new DirectionalShadowViewer());
+  }
 }
+
+void DirectionalShadow::Visualize() const {
+  if (0 <= imgui_visualize_layer_ && imgui_visualize_layer_ < NUM_CASCADES) {
+    kViewer->Draw(imgui_visualize_viewport, fbo_->depth_texture(),
+                  imgui_visualize_layer_);
+  }
+}
+
+std::unique_ptr<DirectionalShadowViewer> DirectionalShadow::kViewer = nullptr;
 
 void ShadowSources::Add(std::unique_ptr<Shadow> shadow) {
   shadows_.emplace_back(std::move(shadow));
@@ -242,4 +261,39 @@ void ShadowSources::ImGuiWindow() {
         i, [this, i]() { this->shadows_.erase(shadows_.begin() + i); });
   }
   ImGui::End();
+}
+
+void ShadowSources::Visualize() {
+  for (const auto &shadow : shadows_) {
+    shadow->Visualize();
+  }
+}
+
+std::unique_ptr<Shader> DirectionalShadowViewer::kShader = nullptr;
+
+DirectionalShadowViewer::DirectionalShadowViewer() {
+  glGenVertexArrays(1, &vao_);
+  if (kShader == nullptr) {
+    kShader =
+        Shader::ScreenSpaceShader("shadow/directional_shadow_viewer.frag", {});
+  }
+}
+
+DirectionalShadowViewer::~DirectionalShadowViewer() {
+  glDeleteVertexArrays(1, &vao_);
+}
+
+void DirectionalShadowViewer::Draw(glm::vec4 viewport,
+                                   const Texture &shadow_map, uint32_t layer) {
+  glBindVertexArray(vao_);
+
+  kShader->Use();
+  kShader->SetUniformSampler("uDirectionalShadowMap", shadow_map, 0);
+  kShader->SetUniform<glm::vec4>("uViewport", viewport);
+  kShader->SetUniform<uint32_t>("uLayer", layer);
+
+  glViewport(viewport.x, viewport.y, viewport.z, viewport.w);
+  glDrawArrays(GL_POINTS, 0, 1);
+
+  glBindVertexArray(0);
 }
