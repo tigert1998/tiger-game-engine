@@ -10,4 +10,5 @@ void main() {
     vec2 uv = (gl_FragCoord.xy - uViewport.xy) / min(uViewport.z, uViewport.w);
     float sampled = texture(uDirectionalShadowMap, vec3(uv, uLayer)).r;
     fragColor = vec4(vec3(sampled), 1);
+    gl_FragDepth = 0;
 }
