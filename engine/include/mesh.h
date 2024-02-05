@@ -45,6 +45,9 @@ class Mesh {
   std::vector<VertexWithBones> vertices_;
   std::vector<std::vector<uint32_t>> indices_;  // LODs
   PhongMaterial material_;
+
+  void AddVerticesIndicesAndBones(aiMesh *mesh, Namer *bone_namer,
+                                  std::vector<glm::mat4> *bone_offsets);
 };
 
 #endif

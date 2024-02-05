@@ -6,6 +6,8 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <map>
+#include <tuple>
 
 #include "utils.h"
 #include "vertex.h"
@@ -128,48 +130,7 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
 #undef TRY_ADD_TEXTURE_WITH_BASE_COLOR
   }
 
-  vertices_.reserve(mesh->mNumVertices);
-  indices_.reserve(mesh->mNumFaces * 3);
-
-  for (int i = 0; i < mesh->mNumVertices; i++) {
-    auto vertex = VertexWithBones();
-    vertex.position = glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y,
-                                mesh->mVertices[i].z);
-    if (mesh->HasTextureCoords(0)) {
-      vertex.tex_coord =
-          glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
-    }
-    if (mesh->HasNormals()) {
-      vertex.normal = glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y,
-                                mesh->mNormals[i].z);
-    }
-    if (mesh->HasTangentsAndBitangents()) {
-      vertex.tangent = glm::vec3(mesh->mTangents[i].x, mesh->mTangents[i].y,
-                                 mesh->mTangents[i].z);
-    }
-    vertices_.push_back(vertex);
-  }
-
-  indices_.resize(1);
-  for (int i = 0; i < mesh->mNumFaces; i++) {
-    auto face = mesh->mFaces[i];
-    for (int j = 0; j < face.mNumIndices; j++)
-      indices_[0].push_back(face.mIndices[j]);
-  }
-
-  for (int i = 0; i < mesh->mNumBones; i++) {
-    auto bone = mesh->mBones[i];
-    auto id = bone_namer->Name(bone->mName.C_Str());
-
-    bone_offsets->resize((std::max)(id + 1, (uint32_t)bone_offsets->size()));
-    bone_offsets->at(id) = Mat4FromAimatrix4x4(bone->mOffsetMatrix);
-
-    for (int j = 0; j < bone->mNumWeights; j++) {
-      auto weight = bone->mWeights[j];
-      vertices_[weight.mVertexId].AddBone(id, weight.mWeight);
-      has_bone_ = true;
-    }
-  }
+  AddVerticesIndicesAndBones(mesh, bone_namer, bone_offsets);
 
   // generate AABB
   aabb_.min = glm::vec3((std::numeric_limits<float>::max)());
@@ -185,7 +146,7 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
   }
 
   for (int i = 1; i <= 7; i++) {
-    if (indices_[i - 1].size() <= 1024 * 3) break;
+    if (indices_[i - 1].size() <= 1024) break;
     indices_.push_back({});
     indices_[i].resize(indices_[i - 1].size());
     float threshold = 0.5f;
@@ -218,6 +179,87 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
       "normals? {}\n",
       name_, mesh->mNumVertices, mesh->mNumFaces, lod_log_str,
       mesh->HasTextureCoords(0), mesh->HasNormals());
+}
+
+void Mesh::AddVerticesIndicesAndBones(aiMesh *mesh, Namer *bone_namer,
+                                      std::vector<glm::mat4> *bone_offsets) {
+  for (int i = 0; i < mesh->mNumBones; i++) {
+    auto bone = mesh->mBones[i];
+    has_bone_ = bone->mNumWeights > 0;
+    if (has_bone_) break;
+  }
+
+  vertices_.reserve(mesh->mNumVertices);
+  indices_.reserve(mesh->mNumFaces * 3);
+
+  using Tuple =
+      std::tuple<float, float, float, float, float, float, float, float>;
+  std::map<Tuple, uint32_t> vertex_dedup;
+  std::map<uint32_t, uint32_t> index_remap;
+
+  for (int i = 0; i < mesh->mNumVertices; i++) {
+    glm::vec3 position = glm::vec3(mesh->mVertices[i].x, mesh->mVertices[i].y,
+                                   mesh->mVertices[i].z);
+    glm::vec2 tex_coord(0);
+    if (mesh->HasTextureCoords(0)) {
+      tex_coord =
+          glm::vec2(mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y);
+    }
+    glm::vec3 normal(0);
+    if (mesh->HasNormals()) {
+      normal = glm::vec3(mesh->mNormals[i].x, mesh->mNormals[i].y,
+                         mesh->mNormals[i].z);
+    }
+    glm::vec3 tangent(0);
+    if (mesh->HasTangentsAndBitangents()) {
+      tangent = glm::vec3(mesh->mTangents[i].x, mesh->mTangents[i].y,
+                          mesh->mTangents[i].z);
+    }
+
+    if (has_bone_) {
+      // we don't deduplicate vertices for animated mesh
+      index_remap[i] = i;
+    } else {
+      // vertex deduplication
+      Tuple tp = {
+          position.x,  position.y, position.z, tex_coord.x,
+          tex_coord.y, normal.x,   normal.y,   normal.z,
+      };
+      if (vertex_dedup.count(tp)) {
+        index_remap[i] = vertex_dedup[tp];
+        continue;
+      } else {
+        index_remap[i] = vertex_dedup[tp] = vertices_.size();
+      }
+    }
+
+    auto vertex = VertexWithBones();
+    vertex.position = position;
+    vertex.tex_coord = tex_coord;
+    vertex.normal = normal;
+    vertex.tangent = tangent;
+    vertices_.push_back(vertex);
+  }
+
+  indices_.resize(1);
+  for (int i = 0; i < mesh->mNumFaces; i++) {
+    auto face = mesh->mFaces[i];
+    for (int j = 0; j < face.mNumIndices; j++)
+      indices_[0].push_back(index_remap[face.mIndices[j]]);
+  }
+
+  for (int i = 0; i < mesh->mNumBones; i++) {
+    auto bone = mesh->mBones[i];
+    auto id = bone_namer->Name(bone->mName.C_Str());
+
+    bone_offsets->resize((std::max)(id + 1, (uint32_t)bone_offsets->size()));
+    bone_offsets->at(id) = Mat4FromAimatrix4x4(bone->mOffsetMatrix);
+
+    for (int j = 0; j < bone->mNumWeights; j++) {
+      auto weight = bone->mWeights[j];
+      vertices_[index_remap[weight.mVertexId]].AddBone(id, weight.mWeight);
+    }
+  }
 }
 
 void Mesh::SubmitToMultiDrawIndirect() {
