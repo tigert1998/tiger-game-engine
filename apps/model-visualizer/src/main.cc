@@ -96,9 +96,8 @@ void ImGuiWindow() {
   ImGui::ListBox("Enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
   if (ImGui::Button("Generate shadow OBBs visualization")) {
-    if (shadow_sources_ptr->Size() >= 1) {
-      auto shadow =
-          dynamic_cast<DirectionalShadow *>(shadow_sources_ptr->Get(0));
+    if (shadow_sources_ptr->SizeDirectional() >= 1) {
+      auto shadow = shadow_sources_ptr->GetDirectional(0);
       obb_drawer_ptr->Clear();
       auto cascade_obbs = shadow->cascade_obbs();
       obb_drawer_ptr->AppendOBBs(cascade_obbs, std::nullopt);
@@ -170,7 +169,7 @@ void Init(uint32_t width, uint32_t height) {
   camera_ptr->set_front(-camera_ptr->position());
 
   shadow_sources_ptr = make_unique<ShadowSources>(camera_ptr.get());
-  shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
+  shadow_sources_ptr->AddDirectional(make_unique<DirectionalShadow>(
       vec3(0, -1, 0.5), 2048, 2048, camera_ptr.get()));
 
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");

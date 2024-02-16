@@ -1,4 +1,6 @@
-#version 420 core
+#version 460 core
+
+#extension GL_ARB_bindless_texture : require
 
 uniform mat4 uViewMatrix;
 uniform vec3 uCameraPosition;

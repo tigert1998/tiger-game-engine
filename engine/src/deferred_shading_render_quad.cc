@@ -101,6 +101,8 @@ DeferredShadingRenderQuad::DeferredShadingRenderQuad(uint32_t width,
       kSSAOBlurShader == nullptr) {
     std::map<std::string, std::any> defines = {
         {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
+        {"DIRECTIONAL_SHADOW_BINDING",
+         std::any(DirectionalShadow::GLSL_BINDING)},
     };
     kShader = Shader::ScreenSpaceShader(
         "deferred_shading/deferred_shading.frag", defines);
@@ -209,7 +211,7 @@ void DeferredShadingRenderQuad::TwoPasses(
   int num_samplers = 10;
 
   light_sources->Set(kShader.get(), false);
-  shadow_sources->Set(kShader.get(), &num_samplers);
+  shadow_sources->Set(kShader.get());
 
   if (dest_fbo != nullptr) {
     dest_fbo->Bind();

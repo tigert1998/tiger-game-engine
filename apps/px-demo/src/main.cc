@@ -221,7 +221,7 @@ void Init(uint32_t width, uint32_t height) {
   camera_ptr->set_front(-camera_ptr->position());
 
   shadow_sources_ptr = make_unique<ShadowSources>(camera_ptr.get());
-  shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
+  shadow_sources_ptr->AddDirectional(make_unique<DirectionalShadow>(
       vec3(0, -1, 0.1), 2048, 2048, camera_ptr.get()));
 
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");

@@ -10,13 +10,13 @@
 #include "frame_buffer_object.h"
 #include "obb.h"
 #include "shader.h"
+#include "ssbo.h"
 #include "texture.h"
 
 class Shadow {
  public:
   virtual void Bind() = 0;
   virtual void Unbind() = 0;
-  virtual void Set(Shader *shader, int32_t *num_samplers) = 0;
   virtual void SetForDepthPass(Shader *shader) = 0;
   virtual void ImGuiWindow(uint32_t index,
                            const std::function<void()> &erase_callback) = 0;
@@ -49,7 +49,6 @@ class DirectionalShadow : public Shadow {
                     uint32_t fbo_height, const Camera *camera);
   void Bind() override;
   inline void Unbind() override { fbo_->Unbind(); }
-  void Set(Shader *shader, int32_t *num_samplers) override;
   void SetForDepthPass(Shader *shader) override;
   inline ~DirectionalShadow() override {}
 
@@ -65,6 +64,8 @@ class DirectionalShadow : public Shadow {
       const std::vector<glm::vec3> &frustum_corners) const;
 
   static constexpr uint32_t NUM_CASCADES = 5;
+  static constexpr uint32_t GLSL_BINDING = 17;
+
   static constexpr float CASCADE_PLANE_RATIO[NUM_CASCADES - 1] = {
       1 / 50.f,
       1 / 25.f,
@@ -84,20 +85,32 @@ class DirectionalShadow : public Shadow {
                    const std::function<void()> &erase_callback) override;
 
   void Visualize() const override;
+
+  struct DirectionalShadowGLSL {
+    glm::mat4 view_projection_matrices[NUM_CASCADES];
+    float cascade_plane_distances[NUM_CASCADES - 1];
+    float far_plane_distance;
+    uint64_t shadow_map;
+    glm::vec3 dir;
+  };
+
+  DirectionalShadowGLSL directional_shadow_glsl() const;
 };
 
 class ShadowSources {
  private:
-  std::vector<std::unique_ptr<Shadow>> shadows_;
+  std::unique_ptr<SSBO> directional_shadow_ssbo_;
+  std::vector<std::unique_ptr<DirectionalShadow>> directional_shadows_;
   const Camera *camera_;
 
  public:
-  void Add(std::unique_ptr<Shadow> shadow);
-  inline uint32_t Size() const { return shadows_.size(); }
-  Shadow *Get(int32_t index);
-  void Set(Shader *shader, int32_t *num_samplers);
-  inline ShadowSources(const Camera *camera) : camera_(camera) {}
-
+  explicit ShadowSources(const Camera *camera);
+  void AddDirectional(std::unique_ptr<DirectionalShadow> shadow);
+  inline uint32_t SizeDirectional() const {
+    return directional_shadows_.size();
+  }
+  DirectionalShadow *GetDirectional(int32_t index);
+  void Set(Shader *shader);
   void DrawDepthForShadow(const std::function<void(Shadow *)> &render_pass);
   void ImGuiWindow();
   void Visualize();

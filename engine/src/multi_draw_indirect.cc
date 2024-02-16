@@ -303,7 +303,7 @@ void MultiDrawIndirect::Draw(
   if (!deferred_shading) {
     light_sources->Set(shader, false);
     int32_t num_samplers = 0;
-    shadow_sources->Set(shader, &num_samplers);
+    shadow_sources->Set(shader);
     shader->SetUniform<glm::vec3>("uCameraPosition", camera->position());
   }
   shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());

@@ -24,6 +24,7 @@ DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
                         GL_FLOAT, GL_CLAMP_TO_BORDER, GL_LINEAR, GL_LINEAR,
                         {1, 1, 1, 1}, false);
   fbo_.reset(new FrameBufferObject(empty, depth_texture));
+  fbo_->depth_texture().MakeResident();
 }
 
 void DirectionalShadow::CalcFrustumCorners(
@@ -69,18 +70,18 @@ std::vector<glm::mat4> DirectionalShadow::view_projection_matrices() const {
   return matrices;
 }
 
-void DirectionalShadow::Set(Shader *shader, int32_t *num_samplers) {
-  shader->SetUniform<int32_t>("uDirectionalShadow.enabled", 1);
-  shader->SetUniform<std::vector<glm::mat4>>(
-      "uDirectionalShadow.viewProjectionMatrices", view_projection_matrices());
-  shader->SetUniform<std::vector<float>>(
-      "uDirectionalShadow.cascadePlaneDistances", cascade_plane_distances());
-  shader->SetUniform<float>("uDirectionalShadow.farPlaneDistance",
-                            camera_->z_far());
-  shader->SetUniformSampler("uDirectionalShadow.shadowMap",
-                            fbo_->depth_texture(), (*num_samplers)++);
-  shader->SetUniform<glm::vec3>(std::string("uDirectionalShadow.dir"),
-                                direction_);
+DirectionalShadow::DirectionalShadowGLSL
+DirectionalShadow::directional_shadow_glsl() const {
+  DirectionalShadowGLSL ret;
+  auto vpms = view_projection_matrices();
+  std::copy(vpms.begin(), vpms.end(), ret.view_projection_matrices);
+  auto cpds = cascade_plane_distances();
+  std::copy(cpds.begin(), cpds.end(), ret.cascade_plane_distances);
+  ret.far_plane_distance = camera_->z_far();
+  ret.shadow_map = fbo_->depth_texture().handle();
+  ret.dir = direction_;
+
+  return ret;
 }
 
 void DirectionalShadow::Bind() {
@@ -216,28 +217,46 @@ void DirectionalShadow::Visualize() const {
 
 std::unique_ptr<DirectionalShadowViewer> DirectionalShadow::kViewer = nullptr;
 
-void ShadowSources::Add(std::unique_ptr<Shadow> shadow) {
-  shadows_.emplace_back(std::move(shadow));
+ShadowSources::ShadowSources(const Camera *camera) : camera_(camera) {
+  directional_shadow_ssbo_.reset(
+      new SSBO(0, nullptr, GL_DYNAMIC_DRAW, DirectionalShadow::GLSL_BINDING));
 }
 
-Shadow *ShadowSources::Get(int32_t index) { return shadows_[index].get(); }
+void ShadowSources::AddDirectional(std::unique_ptr<DirectionalShadow> shadow) {
+  directional_shadows_.emplace_back(std::move(shadow));
+  directional_shadow_ssbo_.reset(
+      new SSBO(sizeof(DirectionalShadow::DirectionalShadowGLSL) *
+                   directional_shadows_.size(),
+               nullptr, GL_DYNAMIC_DRAW, DirectionalShadow::GLSL_BINDING));
+}
 
-void ShadowSources::Set(Shader *shader, int32_t *num_samplers) {
-  shader->SetUniform<int32_t>("uDirectionalShadow.enabled", 0);
+DirectionalShadow *ShadowSources::GetDirectional(int32_t index) {
+  return directional_shadows_[index].get();
+}
 
-  for (int i = 0; i < shadows_.size(); i++) {
-    shadows_[i]->Set(shader, num_samplers);
+void ShadowSources::Set(Shader *shader) {
+  std::vector<DirectionalShadow::DirectionalShadowGLSL> dir_shadow_glsl_vec;
+  for (const auto &shadow : directional_shadows_) {
+    dir_shadow_glsl_vec.push_back(shadow->directional_shadow_glsl());
   }
+  glNamedBufferSubData(
+      directional_shadow_ssbo_->id(), 0,
+      dir_shadow_glsl_vec.size() * sizeof(dir_shadow_glsl_vec[0]),
+      dir_shadow_glsl_vec.data());
+  directional_shadow_ssbo_->BindBufferBase();
+
+  shader->SetUniform<uint32_t>("uNumDirectionalShadows",
+                               directional_shadows_.size());
 }
 
 void ShadowSources::DrawDepthForShadow(
     const std::function<void(Shadow *)> &render_pass) {
   glDisable(GL_CULL_FACE);
-  for (int i = 0; i < shadows_.size(); i++) {
-    shadows_[i]->Bind();
+  for (int i = 0; i < directional_shadows_.size(); i++) {
+    directional_shadows_[i]->Bind();
     glClear(GL_DEPTH_BUFFER_BIT);
-    render_pass(shadows_[i].get());
-    shadows_[i]->Unbind();
+    render_pass(directional_shadows_[i].get());
+    directional_shadows_[i]->Unbind();
   }
 }
 
@@ -251,20 +270,21 @@ void ShadowSources::ImGuiWindow() {
   ImGui::SameLine();
   if (ImGui::Button("Add##add_shadow_source")) {
     if (shadow_source_type == 0) {
-      Add(std::make_unique<DirectionalShadow>(glm::vec3(0, -1, 0), 2048, 2048,
-                                              camera_));
+      AddDirectional(std::make_unique<DirectionalShadow>(glm::vec3(0, -1, 0),
+                                                         2048, 2048, camera_));
     }
   }
 
-  for (int i = 0; i < shadows_.size(); i++) {
-    shadows_[i]->ImGuiWindow(
-        i, [this, i]() { this->shadows_.erase(shadows_.begin() + i); });
+  for (int i = 0; i < directional_shadows_.size(); i++) {
+    directional_shadows_[i]->ImGuiWindow(i, [this, i]() {
+      this->directional_shadows_.erase(directional_shadows_.begin() + i);
+    });
   }
   ImGui::End();
 }
 
 void ShadowSources::Visualize() {
-  for (const auto &shadow : shadows_) {
+  for (const auto &shadow : directional_shadows_) {
     shadow->Visualize();
   }
 }
