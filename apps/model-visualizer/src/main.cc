@@ -171,7 +171,7 @@ void Init(uint32_t width, uint32_t height) {
 
   shadow_sources_ptr = make_unique<ShadowSources>(camera_ptr.get());
   shadow_sources_ptr->Add(make_unique<DirectionalShadow>(
-      vec3(0, -1, 0.5), 4096, 4096, camera_ptr.get()));
+      vec3(0, -1, 0.5), 2048, 2048, camera_ptr.get()));
 
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
 
@@ -187,6 +187,7 @@ int main(int argc, char *argv[]) {
     Init(1920, 1080);
   } catch (const std::exception &e) {
     fmt::print(stderr, "[error] {}\n", e.what());
+    exit(1);
   }
 
   while (!glfwWindowShouldClose(window)) {

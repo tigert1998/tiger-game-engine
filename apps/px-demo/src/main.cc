@@ -238,6 +238,7 @@ int main(int argc, char *argv[]) {
     Init(1920, 1080);
   } catch (const std::exception &e) {
     fmt::print(stderr, "[error] {}\n", e.what());
+    exit(1);
   }
 
   while (!glfwWindowShouldClose(window)) {
