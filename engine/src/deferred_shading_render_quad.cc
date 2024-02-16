@@ -57,7 +57,8 @@ void DeferredShadingRenderQuad::Allocate(uint32_t width, uint32_t height) {
                                         GL_NEAREST, {}, false);
   Texture normal(nullptr, width, height, GL_RGB16F, GL_RGB, GL_FLOAT, GL_REPEAT,
                  GL_NEAREST, GL_NEAREST, {}, false);
-  Texture position_and_alpha(nullptr, width, height, GL_RGBA16F, GL_RGBA,
+  // position precision affects shadow quality
+  Texture position_and_alpha(nullptr, width, height, GL_RGBA32F, GL_RGBA,
                              GL_FLOAT, GL_REPEAT, GL_NEAREST, GL_NEAREST, {},
                              false);
   Texture flag(nullptr, width, height, GL_R8UI, GL_RED_INTEGER,
