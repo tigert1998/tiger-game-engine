@@ -67,6 +67,7 @@ void main() {
     mat4 modelMatrix = modelMatrices[vInstanceID];
     if (IS_SHADOW_PASS) {
         gl_Position = modelMatrix * transform * vec4(aPosition, 1);
+        vTexCoord = aTexCoord;
     } else {
         gl_Position = uProjectionMatrix * uViewMatrix * modelMatrix * transform * vec4(aPosition, 1);
         vPosition = vec3(modelMatrix * transform * vec4(aPosition, 1));

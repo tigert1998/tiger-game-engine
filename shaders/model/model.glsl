@@ -34,7 +34,7 @@ vec3 ConvertDerivativeMapToNormalMap(vec3 normal) {
 void SampleForGBuffer(
     out vec3 ka, out vec3 kd, out vec3 ks, out float shininess, // for Phong
     out vec3 albedo, out float metallic, out float roughness, out float ao, // for PBR
-    out vec3 normal, out vec3 position, out float alpha, out int flag // shared variable
+    out vec3 normal, out float alpha, out int flag // shared variable
 ) {
     if (uDefaultShading) {
         ka = vec3(0.2);
@@ -42,7 +42,6 @@ void SampleForGBuffer(
         ks = vec3(0.2);
         shininess = 20;
         normal = vTBN[2];
-        position = vPosition;
         alpha = 1;
         flag = 1;
         return;
@@ -119,20 +118,20 @@ void SampleForGBuffer(
         normal = ConvertDerivativeMapToNormalMap(normal);
         normal = normalize(vTBN * normal);
     }
-
-    position = vPosition;
 }
 
 vec4 CalcFragColor() {
     vec3 ka; vec3 kd; vec3 ks; float shininess; // for Phong
     vec3 albedo; float metallic; float roughness; float ao; // for PBR
-    vec3 normal; vec3 position; float alpha; int flag; // shared variable
+    vec3 normal; float alpha; int flag; // shared variable
 
     SampleForGBuffer(
         ka, kd, ks, shininess, // for Phong
         albedo, metallic, roughness, ao, // for PBR
-        normal, position, alpha, flag // shared variable
+        normal, alpha, flag // shared variable
     );
+
+    vec3 position = vPosition;
 
     float shadow = CalcShadow(position, normal);
     vec3 color;

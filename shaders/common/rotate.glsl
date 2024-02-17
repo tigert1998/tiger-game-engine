@@ -1,3 +1,6 @@
+#ifndef COMMON_ROTATE_GLSL_
+#define COMMON_ROTATE_GLSL_
+
 const float PI = radians(180);
 
 mat4 Rotate(vec3 axis, float angle) {
@@ -13,3 +16,5 @@ mat4 Rotate(vec3 axis, float angle) {
         0.0,                                0.0,                                0.0,                                1.0
     );
 }
+
+#endif

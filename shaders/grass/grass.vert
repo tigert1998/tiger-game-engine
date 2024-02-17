@@ -18,7 +18,7 @@ uniform sampler2D uDistortionTexture;
 uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;
 
-#include "common.glsl"
+#include "common/rotate.glsl"
 
 mat4 CalcWindRotation() {
     vec2 uv = aBladeTexCoord + uWindFrequency * uTime;

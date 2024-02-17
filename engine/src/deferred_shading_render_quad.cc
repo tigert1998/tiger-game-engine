@@ -37,7 +37,7 @@ void DeferredShadingRenderQuad::InitSSAO() {
 
 void DeferredShadingRenderQuad::ClearTextures() {
   uint8_t zero = 0;
-  glClearTexImage(fbo_->color_texture(7).id(), 0, GL_RED_INTEGER,
+  glClearTexImage(fbo_->color_texture(6).id(), 0, GL_RED_INTEGER,
                   GL_UNSIGNED_BYTE, &zero);
   glClear(GL_DEPTH_BUFFER_BIT);
 }
@@ -55,11 +55,8 @@ void DeferredShadingRenderQuad::Allocate(uint32_t width, uint32_t height) {
   Texture metallic_and_roughness_and_ao(nullptr, width, height, GL_RGB16F,
                                         GL_RGB, GL_FLOAT, GL_REPEAT, GL_NEAREST,
                                         GL_NEAREST, {}, false);
-  Texture normal(nullptr, width, height, GL_RGB16F, GL_RGB, GL_FLOAT, GL_REPEAT,
-                 GL_NEAREST, GL_NEAREST, {}, false);
-  Texture position_and_alpha(nullptr, width, height, GL_RGBA16F, GL_RGBA,
-                             GL_FLOAT, GL_REPEAT, GL_NEAREST, GL_NEAREST, {},
-                             false);
+  Texture normal_and_alpha(nullptr, width, height, GL_RGB16F, GL_RGB, GL_FLOAT,
+                           GL_REPEAT, GL_NEAREST, GL_NEAREST, {}, false);
   Texture flag(nullptr, width, height, GL_R8UI, GL_RED_INTEGER,
                GL_UNSIGNED_BYTE, GL_REPEAT, GL_NEAREST, GL_NEAREST, {}, false);
   std::vector<Texture> color_textures;
@@ -68,10 +65,9 @@ void DeferredShadingRenderQuad::Allocate(uint32_t width, uint32_t height) {
   color_textures.push_back(std::move(ks_and_shininess));
   color_textures.push_back(std::move(albedo));
   color_textures.push_back(std::move(metallic_and_roughness_and_ao));
-  color_textures.push_back(std::move(normal));
-  color_textures.push_back(std::move(position_and_alpha));
+  color_textures.push_back(std::move(normal_and_alpha));
   color_textures.push_back(std::move(flag));
-  Texture depth_texture(nullptr, width, height, GL_DEPTH_COMPONENT,
+  Texture depth_texture(nullptr, width, height, GL_DEPTH_COMPONENT32F,
                         GL_DEPTH_COMPONENT, GL_FLOAT, GL_REPEAT, GL_LINEAR,
                         GL_LINEAR, {}, false);
   fbo_.reset(new FrameBufferObject(color_textures, depth_texture));
@@ -101,6 +97,8 @@ DeferredShadingRenderQuad::DeferredShadingRenderQuad(uint32_t width,
       kSSAOBlurShader == nullptr) {
     std::map<std::string, std::any> defines = {
         {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
+        {"DIRECTIONAL_SHADOW_BINDING",
+         std::any(DirectionalShadow::GLSL_BINDING)},
     };
     kShader = Shader::ScreenSpaceShader(
         "deferred_shading/deferred_shading.frag", defines);
@@ -149,9 +147,8 @@ void DeferredShadingRenderQuad::TwoPasses(
     glClear(GL_COLOR_BUFFER_BIT);
     glBindVertexArray(vao_);
     kSSAOShader->Use();
-    kSSAOShader->SetUniformSampler("normal", fbo_->color_texture(5), 0);
-    kSSAOShader->SetUniformSampler("positionAndAlpha", fbo_->color_texture(6),
-                                   1);
+    kSSAOShader->SetUniformSampler("normalAndAlpha", fbo_->color_texture(5), 0);
+    kSSAOShader->SetUniformSampler("depth", fbo_->depth_texture(), 1);
     kSSAOShader->SetUniformSampler("uNoiseTexture", ssao_noise_texture_, 2);
     kSSAOShader->SetUniform<glm::vec2>("uScreenSize",
                                        glm::vec2(width_, height_));
@@ -184,6 +181,8 @@ void DeferredShadingRenderQuad::TwoPasses(
 
   glBindVertexArray(vao_);
   kShader->Use();
+  kShader->SetUniform<glm::mat4>("uProjectionMatrix",
+                                 camera->projection_matrix());
   kShader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
   kShader->SetUniform<glm::vec3>("uCameraPosition", camera->position());
   kShader->SetUniform<glm::vec2>("uScreenSize", glm::vec2(width_, height_));
@@ -195,10 +194,9 @@ void DeferredShadingRenderQuad::TwoPasses(
   kShader->SetUniformSampler("albedo", fbo_->color_texture(3), 3);
   kShader->SetUniformSampler("metallicAndRoughnessAndAo",
                              fbo_->color_texture(4), 4);
-  kShader->SetUniformSampler("normal", fbo_->color_texture(5), 5);
-  kShader->SetUniformSampler("positionAndAlpha", fbo_->color_texture(6), 6);
-  kShader->SetUniformSampler("flag", fbo_->color_texture(7), 7);
-  kShader->SetUniformSampler("depth", fbo_->depth_texture(), 8);
+  kShader->SetUniformSampler("normalAndAlpha", fbo_->color_texture(5), 5);
+  kShader->SetUniformSampler("flag", fbo_->color_texture(6), 6);
+  kShader->SetUniformSampler("depth", fbo_->depth_texture(), 7);
 
   if (enable_ssao) {
     kShader->SetUniformSampler("uSSAO", ssao_blur_fbo_->color_texture(0), 9);
@@ -209,7 +207,7 @@ void DeferredShadingRenderQuad::TwoPasses(
   int num_samplers = 10;
 
   light_sources->Set(kShader.get(), false);
-  shadow_sources->Set(kShader.get(), &num_samplers);
+  shadow_sources->Set(kShader.get());
 
   if (dest_fbo != nullptr) {
     dest_fbo->Bind();

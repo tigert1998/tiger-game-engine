@@ -228,6 +228,8 @@ void Model::CompileShaders() {
     std::map<std::string, std::any> defines = {
         {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
         {"IS_SHADOW_PASS", std::any(false)},
+        {"DIRECTIONAL_SHADOW_BINDING",
+         std::any(DirectionalShadow::GLSL_BINDING)},
     };
     kShader.reset(new Shader("model/model.vert", "model/model.frag", defines));
     kOITShader.reset(new Shader("model/model.vert", "model/oit.frag", defines));
