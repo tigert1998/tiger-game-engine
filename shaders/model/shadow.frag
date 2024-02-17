@@ -3,6 +3,7 @@
 #extension GL_ARB_bindless_texture : require
 
 #include "material.glsl"
+#include "common/alpha_test.glsl"
 
 layout (std430, binding = 6) buffer materialsBuffer {
     Material materials[]; // per instance
@@ -21,5 +22,5 @@ void main() {
         vec4 sampled = texture(textures[material.diffuseTexture], gTexCoord);
         alpha = sampled.a;
     }
-    if (alpha < 0.5) discard;
+    AlphaTest(alpha);
 }
