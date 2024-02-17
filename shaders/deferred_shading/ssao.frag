@@ -1,6 +1,6 @@
 #version 430 core
 
-uniform sampler2D normal;
+uniform sampler2D normalAndAlpha;
 uniform sampler2D depth;
 uniform sampler2D uNoiseTexture;
 uniform vec2 uScreenSize;
@@ -22,7 +22,7 @@ void main() {
         uProjectionMatrix * uViewMatrix,
         coord, texture(depth, coord).r
     );
-    vec3 normalVector = texture(normal, coord).xyz;
+    vec3 normalVector = texture(normalAndAlpha, coord).xyz;
     vec3 random = texture(uNoiseTexture, coord * uScreenSize / 4.0f).xyz;
     vec3 tangent = normalize(random - normalVector * dot(random, normalVector));
     vec3 bitangent = cross(normalVector, tangent);
