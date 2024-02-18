@@ -248,8 +248,9 @@ int main(int argc, char *argv[]) {
     auto render_target_params = ConstructRenderTargetParameters();
 
     // draw depth map first
-    shadow_sources_ptr->DrawDepthForShadow([&](Shadow *shadow) {
-      multi_draw_indirect->DrawDepthForShadow(shadow, render_target_params);
+    shadow_sources_ptr->DrawDepthForShadow([&](int32_t directional_index) {
+      multi_draw_indirect->DrawDepthForShadow(
+          shadow_sources_ptr.get(), directional_index, render_target_params);
     });
 
     deferred_shading_render_quad_ptr->TwoPasses(
