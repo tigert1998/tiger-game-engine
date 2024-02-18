@@ -283,7 +283,8 @@ int main(int argc, char *argv[]) {
           skybox_ptr->Draw(camera_ptr.get());
         },
         []() {
-          glDisable(GL_CULL_FACE);
+          glEnable(GL_CULL_FACE);
+          glCullFace(GL_BACK);
           multi_draw_indirect->Draw(
               camera_ptr.get(), light_sources_ptr.get(),
               shadow_sources_ptr.get(), oit_render_quad_ptr.get(), false, false,
