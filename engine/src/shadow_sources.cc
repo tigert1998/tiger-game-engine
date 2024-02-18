@@ -32,18 +32,8 @@ void DirectionalShadow::CalcFrustumCorners(
   auto distances = cascade_plane_distances();
 
   for (int i = 0; i < NUM_CASCADES; i++) {
-    double z_near, z_far;
-    if (i == 0) {
-      z_near = camera_->z_near();
-      z_far = distances[i];
-    } else if (0 < i && i < NUM_CASCADES - 1) {
-      z_near = distances[i - 1];
-      z_far = distances[i];
-    } else if (i == NUM_CASCADES - 1) {
-      z_near = distances[i - 1];
-      z_far = camera_->z_far();
-    }
-    auto corners = camera_->frustum_corners(z_near, z_far);
+    auto corners =
+        camera_->frustum_corners(distances[i * 2 + 0], distances[i * 2 + 1]);
 
     callback(corners);
   }
@@ -77,7 +67,6 @@ DirectionalShadow::directional_shadow_glsl() const {
   std::copy(vpms.begin(), vpms.end(), ret.view_projection_matrices);
   auto cpds = cascade_plane_distances();
   std::copy(cpds.begin(), cpds.end(), ret.cascade_plane_distances);
-  ret.far_plane_distance = camera_->z_far();
   ret.shadow_map = fbo_->depth_texture().handle();
   ret.dir = direction_;
 

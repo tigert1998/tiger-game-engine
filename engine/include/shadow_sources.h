@@ -64,18 +64,16 @@ class DirectionalShadow : public Shadow {
   static constexpr uint32_t NUM_CASCADES = 5;
   static constexpr uint32_t GLSL_BINDING = 17;
 
-  static constexpr float CASCADE_PLANE_RATIO[NUM_CASCADES - 1] = {
-      1 / 50.f,
-      1 / 25.f,
-      1 / 10.f,
-      1 / 2.f,
+  static constexpr float CASCADE_PLANE_RATIO[NUM_CASCADES][2] = {
+      {0, 0.03}, {0.02, 0.04}, {0.03, 0.1}, {0.07, 0.5}, {0.4, 1},
   };
 
   inline std::vector<float> cascade_plane_distances() const {
     float dis = camera_->z_far() - camera_->z_near();
-    std::vector<float> ret(NUM_CASCADES - 1);
-    for (int i = 0; i < ret.size(); i++)
-      ret[i] = camera_->z_near() + dis * CASCADE_PLANE_RATIO[i];
+    std::vector<float> ret(NUM_CASCADES * 2);
+    for (int i = 0; i < NUM_CASCADES; i++)
+      for (int j = 0; j < 2; j++)
+        ret[i * 2 + j] = camera_->z_near() + dis * CASCADE_PLANE_RATIO[i][j];
     return ret;
   }
 
@@ -86,8 +84,7 @@ class DirectionalShadow : public Shadow {
 
   struct DirectionalShadowGLSL {
     glm::mat4 view_projection_matrices[NUM_CASCADES];
-    float cascade_plane_distances[NUM_CASCADES - 1];
-    float far_plane_distance;
+    float cascade_plane_distances[NUM_CASCADES * 2];
     uint64_t shadow_map;
     glm::vec3 dir;
   };

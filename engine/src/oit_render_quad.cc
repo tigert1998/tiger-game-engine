@@ -145,13 +145,10 @@ void OITRenderQuad::TwoPasses(const std::function<void()> &first_pass,
 
   // append transparent objects to the linked list
   glViewport(0, 0, width_, height_);
-  glEnable(GL_CULL_FACE);
-  glCullFace(GL_BACK);
   glDepthMask(GL_FALSE);
   ResetBeforeRender();
   second_pass();
   glDepthMask(GL_TRUE);
-  glDisable(GL_CULL_FACE);
 
   if (dest_fbo != nullptr) {
     dest_fbo->Bind();

@@ -4,8 +4,7 @@
 struct DirectionalShadow {
     // Cascaded Shadow Mapping
     mat4 viewProjectionMatrices[NUM_CASCADES];
-    float cascadePlaneDistances[NUM_CASCADES - 1];
-    float farPlaneDistance;
+    float cascadePlaneDistances[NUM_CASCADES * 2];
     sampler2DArray shadowMap;
     vec3 dir;
 };
