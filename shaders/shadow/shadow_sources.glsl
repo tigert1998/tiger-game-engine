@@ -1,19 +1,6 @@
-struct DirectionalShadow {
-    // Cascaded Shadow Mapping
-    mat4 viewProjectionMatrices[NUM_CASCADES];
-    float cascadePlaneDistances[NUM_CASCADES - 1];
-    float farPlaneDistance;
-    sampler2DArray shadowMap;
-    vec3 dir;
-};
+#include "shadow/directional_shadow.glsl"
 
-uniform uint uNumDirectionalShadows;
-
-layout (std430, binding = DIRECTIONAL_SHADOW_BINDING) buffer directionalShadowsBuffer {
-    DirectionalShadow directionalShadows[];
-};
-
-float CalcShadow(vec3 position, vec3 normal) {
+float CalcShadow(vec3 position) {
     if (uNumDirectionalShadows == 0) {
         return 0;
     }
@@ -40,14 +27,6 @@ float CalcShadow(vec3 position, vec3 normal) {
     // If the fragment is outside the shadow frustum, we don't care about its depth.
     // Otherwise, the fragment's depth must be between [0, 1].
 
-    float bias = max(0.05 * (1.0 - dot(normal, normalize(-directionalShadow.dir))), 0.005);
-    const float biasModifier = 0.5f;
-    if (layer == NUM_CASCADES - 1) {
-        bias *= 1 / (directionalShadow.farPlaneDistance * biasModifier);
-    } else {
-        bias *= 1 / (directionalShadow.cascadePlaneDistances[layer] * biasModifier);
-    }
-
     float shadow = 0;
     vec2 texelSize = 1.0 / vec2(textureSize(directionalShadow.shadowMap, 0));
     int numSamples = 0;
@@ -57,7 +36,7 @@ float CalcShadow(vec3 position, vec3 normal) {
                 directionalShadow.shadowMap,
                 vec3(position.xy + vec2(x, y) * texelSize, layer)
             ).r;
-            shadow += (currentDepth - bias) > closestDepth ? 1.0 : 0.0;
+            shadow += currentDepth > closestDepth ? 1.0 : 0.0;
             numSamples += 1;
         }
     }

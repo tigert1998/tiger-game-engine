@@ -17,7 +17,6 @@ class Shadow {
  public:
   virtual void Bind() = 0;
   virtual void Unbind() = 0;
-  virtual void SetForDepthPass(Shader *shader) = 0;
   virtual void ImGuiWindow(uint32_t index,
                            const std::function<void()> &erase_callback) = 0;
   virtual void Visualize() const = 0;
@@ -49,7 +48,6 @@ class DirectionalShadow : public Shadow {
                     uint32_t fbo_height, const Camera *camera);
   void Bind() override;
   inline void Unbind() override { fbo_->Unbind(); }
-  void SetForDepthPass(Shader *shader) override;
   inline ~DirectionalShadow() override {}
 
   inline glm::vec3 direction() { return direction_; }
@@ -111,7 +109,7 @@ class ShadowSources {
   }
   DirectionalShadow *GetDirectional(int32_t index);
   void Set(Shader *shader);
-  void DrawDepthForShadow(const std::function<void(Shadow *)> &render_pass);
+  void DrawDepthForShadow(const std::function<void(int32_t)> &render_pass);
   void ImGuiWindow();
   void Visualize();
 };

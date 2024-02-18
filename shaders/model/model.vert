@@ -65,20 +65,19 @@ void main() {
         transform = transforms[vInstanceID];
     }
     mat4 modelMatrix = modelMatrices[vInstanceID];
+    vTexCoord = aTexCoord;
+    mat3 normalMatrix = transpose(inverse(mat3(modelMatrix * transform)));
+    vec3 T = normalize(normalMatrix * aTangent);
+    vec3 N = normalize(normalMatrix * aNormal);
+    T = normalize(T - dot(T, N) * N);
+    vec3 B = cross(N, T);
+    vTBN = mat3(T, B, N);
+
     if (IS_SHADOW_PASS) {
-        gl_Position = modelMatrix * transform * vec4(aPosition, 1);
-        vTexCoord = aTexCoord;
+        gl_Position = modelMatrix * transform * vec4(aPosition, 1);    
     } else {
         gl_Position = uProjectionMatrix * uViewMatrix * modelMatrix * transform * vec4(aPosition, 1);
         vPosition = vec3(modelMatrix * transform * vec4(aPosition, 1));
-        vTexCoord = aTexCoord;
-
-        mat3 normalMatrix = transpose(inverse(mat3(modelMatrix * transform)));
-        vec3 T = normalize(normalMatrix * aTangent);
-        vec3 N = normalize(normalMatrix * aNormal);
-        T = normalize(T - dot(T, N) * N);
-        vec3 B = cross(N, T);
-        vTBN = mat3(T, B, N);
 
         gl_ClipDistance[0] = dot(vec4(vPosition, 1), clipPlanes[vInstanceID]);
     }
