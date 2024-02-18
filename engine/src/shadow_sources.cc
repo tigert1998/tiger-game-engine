@@ -251,7 +251,8 @@ void ShadowSources::Set(Shader *shader) {
 
 void ShadowSources::DrawDepthForShadow(
     const std::function<void(Shadow *)> &render_pass) {
-  glDisable(GL_CULL_FACE);
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_FRONT);  // avoid peter panning
   for (int i = 0; i < directional_shadows_.size(); i++) {
     directional_shadows_[i]->Bind();
     glClear(GL_DEPTH_BUFFER_BIT);
