@@ -51,8 +51,8 @@ void SMAA::PrepareVertexData() {
 
   float vertices[] = {
       -1, -1, 0, 0, 0,  // bottom left corner
-      -1, 3,  0, 0, 2,  // top left corner
       3,  -1, 0, 2, 0,  // bottom right corner
+      -1, 3,  0, 0, 2,  // top left corner
   };
 
   uint32_t indices[] = {0, 1, 2};
@@ -104,6 +104,7 @@ SMAA::SMAA(const fs::path &smaa_repo_path, uint32_t width, uint32_t height) {
 }
 
 void SMAA::Draw() {
+  glDisable(GL_CULL_FACE);
   glDisable(GL_BLEND);
 
   // run edge detection

@@ -268,19 +268,22 @@ int main(int argc, char *argv[]) {
     camera_ptr->set_position(character_controller->position());
 
     // draw depth map first
-    shadow_sources_ptr->DrawDepthForShadow([](Shadow *shadow) {
+    shadow_sources_ptr->DrawDepthForShadow([](int32_t directional_index) {
       multi_draw_indirect->DrawDepthForShadow(
-          shadow,
+          shadow_sources_ptr.get(), directional_index,
           {{scene_model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
     });
 
     oit_render_quad_ptr->TwoPasses(
         []() {
+          glEnable(GL_CULL_FACE);
+          glCullFace(GL_BACK);
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
           skybox_ptr->Draw(camera_ptr.get());
         },
         []() {
+          glDisable(GL_CULL_FACE);
           multi_draw_indirect->Draw(
               camera_ptr.get(), light_sources_ptr.get(),
               shadow_sources_ptr.get(), oit_render_quad_ptr.get(), false, false,

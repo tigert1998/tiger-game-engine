@@ -248,19 +248,23 @@ int main(int argc, char *argv[]) {
     auto render_target_params = ConstructRenderTargetParameters();
 
     // draw depth map first
-    shadow_sources_ptr->DrawDepthForShadow([&](Shadow *shadow) {
-      multi_draw_indirect->DrawDepthForShadow(shadow, render_target_params);
+    shadow_sources_ptr->DrawDepthForShadow([&](int32_t directional_index) {
+      multi_draw_indirect->DrawDepthForShadow(
+          shadow_sources_ptr.get(), directional_index, render_target_params);
     });
 
     deferred_shading_render_quad_ptr->TwoPasses(
         camera_ptr.get(), light_sources_ptr.get(), shadow_sources_ptr.get(),
         enable_ssao,
         []() {
+          glEnable(GL_CULL_FACE);
+          glCullFace(GL_BACK);
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
           skybox_ptr->Draw(camera_ptr.get());
         },
         [&]() {
+          glDisable(GL_CULL_FACE);
           multi_draw_indirect->Draw(camera_ptr.get(), nullptr, nullptr, nullptr,
                                     true, default_shading_choice, true,
                                     render_target_params);

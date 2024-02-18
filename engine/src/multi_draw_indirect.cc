@@ -254,19 +254,19 @@ void MultiDrawIndirect::BindBuffers() {
 }
 
 void MultiDrawIndirect::DrawDepthForShadow(
-    Shadow *shadow,
+    ShadowSources *shadow_sources, int32_t directional_index,
     const std::vector<RenderTargetParameter> &render_target_params) {
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
-  auto obbs = dynamic_cast<DirectionalShadow *>(shadow)->cascade_obbs();
+  auto obbs = shadow_sources->GetDirectional(directional_index)->cascade_obbs();
   glNamedBufferSubData(shadow_obbs_ssbo_->id(), 0,
                        obbs.size() * sizeof(obbs[0]), obbs.data());
   gpu_driven_->Compute(true);
 
   BindBuffers();
   Model::kShadowShader->Use();
-  shadow->SetForDepthPass(Model::kShadowShader.get());
+  shadow_sources->Set(Model::kShadowShader.get());
 
   glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                               commands_.size(), 0);

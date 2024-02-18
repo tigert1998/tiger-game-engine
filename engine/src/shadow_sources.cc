@@ -180,11 +180,6 @@ glm::mat4 DirectionalShadow::projection_matrix(
                     aabb.max.z);
 }
 
-void DirectionalShadow::SetForDepthPass(Shader *shader) {
-  shader->SetUniform<std::vector<glm::mat4>>(
-      "uDirectionalShadowViewProjectionMatrices", view_projection_matrices());
-}
-
 void DirectionalShadow::ImGuiWindow(
     uint32_t index, const std::function<void()> &erase_callback) {
   ImGui::Text("Shadow Source #%d Type: Directional", index);
@@ -245,17 +240,19 @@ void ShadowSources::Set(Shader *shader) {
       dir_shadow_glsl_vec.data());
   directional_shadow_ssbo_->BindBufferBase();
 
-  shader->SetUniform<uint32_t>("uNumDirectionalShadows",
-                               directional_shadows_.size());
+  if (shader->UniformVariableExists("uNumDirectionalShadows")) {
+    shader->SetUniform<uint32_t>("uNumDirectionalShadows",
+                                 directional_shadows_.size());
+  }
 }
 
 void ShadowSources::DrawDepthForShadow(
-    const std::function<void(Shadow *)> &render_pass) {
+    const std::function<void(int32_t)> &render_pass) {
   glDisable(GL_CULL_FACE);
   for (int i = 0; i < directional_shadows_.size(); i++) {
     directional_shadows_[i]->Bind();
     glClear(GL_DEPTH_BUFFER_BIT);
-    render_pass(directional_shadows_[i].get());
+    render_pass(i);
     directional_shadows_[i]->Unbind();
   }
 }

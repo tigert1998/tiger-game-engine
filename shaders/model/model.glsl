@@ -13,7 +13,7 @@ in mat3 vTBN;
 flat in int vInstanceID;
 
 #include "light_sources.glsl"
-#include "shadow_sources.glsl"
+#include "shadow/shadow_sources.glsl"
 #include "material.glsl"
 
 uniform bool uDefaultShading;
@@ -133,7 +133,7 @@ vec4 CalcFragColor() {
 
     vec3 position = vPosition;
 
-    float shadow = CalcShadow(position, normal);
+    float shadow = CalcShadow(position);
     vec3 color;
 
     if (flag == 1) {

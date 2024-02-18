@@ -179,7 +179,7 @@ class MultiDrawIndirect {
   void PrepareForDraw();
 
   void DrawDepthForShadow(
-      Shadow *shadow,
+      ShadowSources *shadow_sources, int32_t directional_index,
       const std::vector<RenderTargetParameter> &render_target_params);
   void Draw(Camera *camera, LightSources *light_sources,
             ShadowSources *shadow_sources, OITRenderQuad *oit_render_quad,
