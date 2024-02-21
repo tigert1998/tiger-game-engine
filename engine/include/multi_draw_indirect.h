@@ -104,7 +104,8 @@ class GPUDrivenWorkloadGeneration {
                                        const DynamicBuffers &dynamic_buffers,
                                        const Constants &constants);
 
-  void Compute(bool is_shadow_pass);
+  void Compute(bool is_directional_shadow_pass,
+               bool is_omnidirectional_shadow_pass);
 
  private:
   void CompileShaders();
@@ -180,6 +181,7 @@ class MultiDrawIndirect {
 
   void DrawDepthForShadow(
       ShadowSources *shadow_sources, int32_t directional_index,
+      int32_t omnidirectional_index,
       const std::vector<RenderTargetParameter> &render_target_params);
   void Draw(Camera *camera, LightSources *light_sources,
             ShadowSources *shadow_sources, OITRenderQuad *oit_render_quad,

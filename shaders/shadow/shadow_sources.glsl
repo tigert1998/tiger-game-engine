@@ -1,9 +1,9 @@
 #ifndef SHADOW_SHADOW_SOURCES_GLSL_
 #define SHADOW_SHADOW_SOURCES_GLSL_
 
-#include "shadow/directional_shadow.glsl"
+#include "shadow/shadow_buffers.glsl"
 
-float CalcShadowForSingleCascade(DirectionalShadow directionalShadow, uint layer, vec3 position) {
+float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow, uint layer, vec3 position) {
     vec4 homoPosition = directionalShadow.viewProjectionMatrices[layer] * vec4(position, 1.0);
 
     position = homoPosition.xyz / homoPosition.w;
@@ -31,11 +31,8 @@ float CalcShadowForSingleCascade(DirectionalShadow directionalShadow, uint layer
     return shadow;
 }
 
-float CalcShadow(vec3 position) {
-    if (uNumDirectionalShadows == 0) {
-        return 0;
-    }
-    DirectionalShadow directionalShadow = directionalShadows[0];
+float CalcDirectionalShadow(uint shadowIndex, vec3 position) {
+    DirectionalShadow directionalShadow = directionalShadows[shadowIndex];
 
     // select cascade layer
     vec4 viewSpacePosition = uViewMatrix * vec4(position, 1);
@@ -47,7 +44,7 @@ float CalcShadow(vec3 position) {
         float near = directionalShadow.cascadePlaneDistances[i * 2];
         float far = directionalShadow.cascadePlaneDistances[i * 2 + 1]; 
         if (near <= depth && depth < far) {
-            float shadow = CalcShadowForSingleCascade(directionalShadow, i, position);
+            float shadow = CalcDirectionalShadowForSingleCascade(directionalShadow, i, position);
             float ratio = (far - depth) / (far - near);
             num += shadow * ratio;
             denom += ratio;
@@ -55,6 +52,35 @@ float CalcShadow(vec3 position) {
     }
 
     return num / denom;
+}
+
+float CalcOmnidirectionalShadow(uint shadowIndex, vec3 position) {
+    OmnidirectionalShadow omnidirectionalShadow = omnidirectionalShadows[shadowIndex];
+    vec3 dir = position - omnidirectionalShadow.pos; 
+
+    mat4 viewProjectionMatrix;
+    vec3 absDir = abs(dir);
+    if (absDir.x >= absDir.y && absDir.x >= absDir.z) {
+        // posx and negx
+        viewProjectionMatrix = omnidirectionalShadow.viewProjectionMatrices[0 + uint(dir.x < 0)];    
+    } else if (absDir.y >= absDir.x && absDir.y >= absDir.z) {
+        // posy and negy
+        viewProjectionMatrix = omnidirectionalShadow.viewProjectionMatrices[2 + uint(dir.y < 0)];
+    } else {
+        // posz and negz
+        viewProjectionMatrix = omnidirectionalShadow.viewProjectionMatrices[4 + uint(dir.z < 0)];    
+    }
+    vec4 homoPosition = viewProjectionMatrix * vec4(position, 1.0);
+
+    position = homoPosition.xyz / homoPosition.w;
+    position = position * 0.5 + 0.5;
+    float currentDepth = position.z;
+    currentDepth = clamp(currentDepth, 0, 1);
+
+    float closestDepth = texture(omnidirectionalShadow.shadowMap, dir).r;
+    float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
+
+    return shadow;
 }
 
 #endif

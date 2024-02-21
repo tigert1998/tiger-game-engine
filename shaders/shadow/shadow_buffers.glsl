@@ -1,5 +1,5 @@
-#ifndef SHADOW_DIRECTIONAL_SHADOW_GLSL_
-#define SHADOW_DIRECTIONAL_SHADOW_GLSL_
+#ifndef SHADOW_SHADOW_BUFFERS_GLSL_
+#define SHADOW_SHADOW_BUFFERS_GLSL_
 
 struct DirectionalShadow {
     // Cascaded Shadow Mapping
@@ -13,6 +13,18 @@ uniform uint uNumDirectionalShadows;
 
 layout (std430, binding = DIRECTIONAL_SHADOW_BINDING) buffer directionalShadowsBuffer {
     DirectionalShadow directionalShadows[];
+};
+
+struct OmnidirectionalShadow {
+    mat4 viewProjectionMatrices[6];
+    samplerCube shadowMap;
+    vec3 pos;
+};
+
+uniform uint uNumOmnidirectionalShadows;
+
+layout (std430, binding = OMNIDIRECTIONAL_SHADOW_BINDING) buffer omnidirectionalShadowsBuffer {
+    OmnidirectionalShadow omnidirectionalShadows[];
 };
 
 #endif

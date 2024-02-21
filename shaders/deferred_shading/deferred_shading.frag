@@ -7,7 +7,6 @@ uniform mat4 uViewMatrix;
 uniform vec3 uCameraPosition;
 
 #include "light_sources.glsl"
-#include "shadow/shadow_sources.glsl"
 #include "common/position_from_depth.glsl"
 
 out vec4 fragColor;
@@ -34,8 +33,6 @@ void main() {
     if (renderType == 0) {
         discard;
     } else if (renderType == 1) {
-        float shadow = CalcShadow(position);
-
         fragColor.rgb = CalcPhongLighting(
             texture(ka, coord).rgb,
             texture(kd, coord).rgb,
@@ -43,12 +40,9 @@ void main() {
             texture(normalAndAlpha, coord).xyz,
             uCameraPosition,
             position,
-            texture(ksAndShininess, coord).w,
-            shadow
+            texture(ksAndShininess, coord).w
         );
     } else if (renderType == 2) {
-        float shadow = CalcShadow(position);
-
         float ao = texture(metallicAndRoughnessAndAo, coord).z;
         if (uEnableSSAO) {
             ao = texture(uSSAO, coord).r;
@@ -61,8 +55,7 @@ void main() {
             ao,
             texture(normalAndAlpha, coord).xyz,
             uCameraPosition,
-            position,
-            shadow
+            position
         );
     }
 

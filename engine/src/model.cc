@@ -223,13 +223,17 @@ void Model::InitAnimationChannelMap() {
 }
 
 void Model::CompileShaders() {
-  if (kShader == nullptr && kOITShader == nullptr && kShadowShader == nullptr &&
+  if (kShader == nullptr && kOITShader == nullptr &&
+      kDirectionalShadowShader == nullptr &&
+      kOmnidirectionalShadowShader == nullptr &&
       kDeferredShadingShader == nullptr) {
     std::map<std::string, std::any> defines = {
         {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
         {"IS_SHADOW_PASS", std::any(false)},
         {"DIRECTIONAL_SHADOW_BINDING",
          std::any(DirectionalShadow::GLSL_BINDING)},
+        {"OMNIDIRECTIONAL_SHADOW_BINDING",
+         std::any(OmnidirectionalShadow::GLSL_BINDING)},
     };
     kShader.reset(new Shader("model/model.vert", "model/model.frag", defines));
     kOITShader.reset(new Shader("model/model.vert", "model/oit.frag", defines));
@@ -237,11 +241,18 @@ void Model::CompileShaders() {
         new Shader("model/model.vert", "model/deferred_shading.frag", defines));
 
     defines["IS_SHADOW_PASS"] = std::any(true);
-    kShadowShader.reset(new Shader(
+    kDirectionalShadowShader.reset(new Shader(
         {
             {GL_VERTEX_SHADER, "model/model.vert"},
-            {GL_GEOMETRY_SHADER, "model/shadow.geom"},
-            {GL_FRAGMENT_SHADER, "model/shadow.frag"},
+            {GL_GEOMETRY_SHADER, "model/directional_shadow.geom"},
+            {GL_FRAGMENT_SHADER, "model/directional_shadow.frag"},
+        },
+        defines));
+    kOmnidirectionalShadowShader.reset(new Shader(
+        {
+            {GL_VERTEX_SHADER, "model/model.vert"},
+            {GL_GEOMETRY_SHADER, "model/omnidirectional_shadow.geom"},
+            {GL_FRAGMENT_SHADER, "model/omnidirectional_shadow.frag"},
         },
         defines));
   }
@@ -249,5 +260,6 @@ void Model::CompileShaders() {
 
 std::unique_ptr<Shader> Model::kShader = nullptr;
 std::unique_ptr<Shader> Model::kOITShader = nullptr;
-std::unique_ptr<Shader> Model::kShadowShader = nullptr;
+std::unique_ptr<Shader> Model::kDirectionalShadowShader = nullptr;
+std::unique_ptr<Shader> Model::kOmnidirectionalShadowShader = nullptr;
 std::unique_ptr<Shader> Model::kDeferredShadingShader = nullptr;

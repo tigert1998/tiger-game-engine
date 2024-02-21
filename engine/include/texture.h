@@ -72,6 +72,13 @@ class Texture {
                    uint32_t mag_filter, const std::vector<float> &border_color,
                    bool mipmap);
 
+  // create cube map
+  explicit Texture(const std::vector<void *> &data, uint32_t width,
+                   uint32_t height, uint32_t internal_format, uint32_t format,
+                   uint32_t type, uint32_t wrap, uint32_t min_filter,
+                   uint32_t mag_filter, const std::vector<float> &border_color,
+                   bool mipmap);
+
   inline uint32_t target() const { return target_; }
   inline uint32_t id() const { return id_; }
   uint64_t handle() const;

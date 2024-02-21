@@ -213,9 +213,10 @@ int main(int argc, char *argv[]) {
     glfwPollEvents();
 
     // draw depth map first
-    shadow_sources_ptr->DrawDepthForShadow([](int32_t directional_index) {
+    shadow_sources_ptr->DrawDepthForShadow([](int32_t directional_index,
+                                              int32_t omnidirectional_index) {
       multi_draw_indirect->DrawDepthForShadow(
-          shadow_sources_ptr.get(), directional_index,
+          shadow_sources_ptr.get(), directional_index, omnidirectional_index,
           {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
     });
 

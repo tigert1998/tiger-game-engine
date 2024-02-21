@@ -7,12 +7,7 @@
 
 void FrameBufferObject::AttachTexture(uint32_t attachment,
                                       const Texture &texture) {
-  if (texture.target() == GL_TEXTURE_2D_ARRAY) {
-    glFramebufferTexture(GL_FRAMEBUFFER, attachment, texture.id(), 0);
-  } else {
-    glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, texture.target(),
-                           texture.id(), 0);
-  }
+  glFramebufferTexture(GL_FRAMEBUFFER, attachment, texture.id(), 0);
 }
 
 void FrameBufferObject::AttachColorTextures(
