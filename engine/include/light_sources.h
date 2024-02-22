@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "shader.h"
-#include "shadow_sources.h"
+#include "shadows.h"
 #include "ssbo.h"
 
 class Light {

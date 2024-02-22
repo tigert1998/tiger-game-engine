@@ -14,7 +14,7 @@
 #include "mesh.h"
 #include "multi_draw_indirect.h"
 #include "shader.h"
-#include "shadow_sources.h"
+#include "shadows.h"
 
 class Model {
   friend class MultiDrawIndirect;

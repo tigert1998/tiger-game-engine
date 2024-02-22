@@ -8,7 +8,7 @@
 #include "frame_buffer_object.h"
 #include "light_sources.h"
 #include "shader.h"
-#include "shadow_sources.h"
+#include "shadows.h"
 #include "ssbo.h"
 
 class DeferredShadingRenderQuad {

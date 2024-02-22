@@ -1,5 +1,5 @@
-#ifndef SHADOW_SOURCES_H_
-#define SHADOW_SOURCES_H_
+#ifndef SHADOWS_H_
+#define SHADOWS_H_
 
 #include <functional>
 #include <glm/glm.hpp>

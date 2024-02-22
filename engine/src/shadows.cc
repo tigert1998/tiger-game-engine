@@ -4,7 +4,7 @@
 #include <glad/glad.h>
 // clang-format on
 
-#include "shadow_sources.h"
+#include "shadows.h"
 
 #include <imgui.h>
 

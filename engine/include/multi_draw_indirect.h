@@ -12,7 +12,7 @@
 #include "light_sources.h"
 #include "oit_render_quad.h"
 #include "shader.h"
-#include "shadow_sources.h"
+#include "shadows.h"
 #include "ssbo.h"
 #include "texture.h"
 #include "vertex.h"
