@@ -60,7 +60,6 @@ class DirectionalShadow : public Shadow {
       const std::vector<glm::vec3> &frustum_corners) const;
 
   static constexpr uint32_t NUM_CASCADES = 5;
-  static constexpr uint32_t GLSL_BINDING = 16;
 
   static constexpr float CASCADE_PLANE_RATIO[NUM_CASCADES][2] = {
       {0, 0.03}, {0.02, 0.04}, {0.03, 0.1}, {0.07, 0.5}, {0.4, 1},
@@ -78,7 +77,7 @@ class DirectionalShadow : public Shadow {
   void Visualize() const override;
 
   struct DirectionalShadowGLSL {
-    glm::mat4 view_projection_matrices[NUM_CASCADES];
+    alignas(16) glm::mat4 view_projection_matrices[NUM_CASCADES];
     float cascade_plane_distances[NUM_CASCADES * 2];
     uint64_t shadow_map;
     glm::vec3 dir;
@@ -92,6 +91,7 @@ class OmnidirectionalShadow : public Shadow {
   glm::vec3 position_;
   uint32_t fbo_width_, fbo_height_;
   std::unique_ptr<FrameBufferObject> fbo_;
+  float z_near_ = 1e-2, z_far_ = 1e2;
 
  public:
   OmnidirectionalShadow(glm::vec3 position, uint32_t fbo_width,
@@ -100,48 +100,19 @@ class OmnidirectionalShadow : public Shadow {
   inline void Unbind() override { fbo_->Unbind(); }
   inline glm::vec3 position() { return position_; }
   inline void set_position(glm::vec3 position) { position_ = position; }
+  std::vector<glm::mat4> view_projection_matrices() const;
   inline ~OmnidirectionalShadow() override {}
 
   void Visualize() const override;
 
-  static constexpr uint32_t GLSL_BINDING = 17;
-
   struct OmnidirectionalShadowGLSL {
+    glm::mat4 view_projection_matrices[6];
     uint64_t shadow_map;
-    glm::vec3 pos;
+    alignas(16) glm::vec3 pos;
+    float far_plane;
   };
 
   OmnidirectionalShadowGLSL omnidirectional_shadow_glsl() const;
-};
-
-class ShadowSources {
- private:
-  std::unique_ptr<SSBO> directional_shadows_ssbo_;
-  std::unique_ptr<SSBO> omnidirectional_shadows_ssbo_;
-  std::vector<std::unique_ptr<DirectionalShadow>> directional_shadows_;
-  std::vector<std::unique_ptr<OmnidirectionalShadow>> omnidirectional_shadows_;
-
- public:
-  explicit ShadowSources();
-  void AddDirectional(std::unique_ptr<DirectionalShadow> shadow);
-  void AddOmnidirectional(std::unique_ptr<OmnidirectionalShadow> shadow);
-  void EraseDirectional(DirectionalShadow *shadow);
-  void EraseOmnidirectional(OmnidirectionalShadow *shadow);
-  int32_t GetDirectionalIndex(DirectionalShadow *shadow);
-  int32_t GetOmnidirectionalIndex(OmnidirectionalShadow *shadow);
-
-  inline uint32_t SizeDirectional() const {
-    return directional_shadows_.size();
-  }
-  inline uint32_t SizeOmnidirectional() const {
-    return omnidirectional_shadows_.size();
-  }
-  DirectionalShadow *GetDirectional(int32_t index);
-  OmnidirectionalShadow *GetOmnidirectional(int32_t index);
-  void Set(Shader *shader);
-  void DrawDepthForShadow(
-      const std::function<void(int32_t, int32_t)> &render_pass);
-  void Visualize();
 };
 
 class DirectionalShadowViewer {

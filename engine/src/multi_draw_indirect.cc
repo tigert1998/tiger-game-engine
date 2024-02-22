@@ -257,19 +257,19 @@ void MultiDrawIndirect::BindBuffers() {
 }
 
 void MultiDrawIndirect::DrawDepthForShadow(
-    ShadowSources *shadow_sources, int32_t directional_index,
-    int32_t omnidirectional_index,
+    LightSources *light_sources, int32_t directional_index, int32_t point_index,
     const std::vector<RenderTargetParameter> &render_target_params) {
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
   if (directional_index >= 0) {
-    auto obbs =
-        shadow_sources->GetDirectional(directional_index)->cascade_obbs();
+    auto obbs = light_sources->GetDirectional(directional_index)
+                    ->shadow()
+                    ->cascade_obbs();
     glNamedBufferSubData(shadow_obbs_ssbo_->id(), 0,
                          obbs.size() * sizeof(obbs[0]), obbs.data());
     gpu_driven_->Compute(true, false);
-  } else if (omnidirectional_index >= 0) {
+  } else if (point_index >= 0) {
     gpu_driven_->Compute(false, true);
   }
 
@@ -277,14 +277,14 @@ void MultiDrawIndirect::DrawDepthForShadow(
 
   if (directional_index >= 0) {
     Model::kDirectionalShadowShader->Use();
-    shadow_sources->Set(Model::kDirectionalShadowShader.get());
-    Model::kDirectionalShadowShader->SetUniform<uint32_t>("uShadowIndex",
+    light_sources->Set();
+    Model::kDirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
                                                           directional_index);
-  } else if (omnidirectional_index >= 0) {
+  } else if (point_index >= 0) {
     Model::kOmnidirectionalShadowShader->Use();
-    shadow_sources->Set(Model::kOmnidirectionalShadowShader.get());
-    Model::kOmnidirectionalShadowShader->SetUniform<uint32_t>(
-        "uShadowIndex", omnidirectional_index);
+    light_sources->Set();
+    Model::kOmnidirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
+                                                              point_index);
   }
 
   glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
@@ -294,9 +294,8 @@ void MultiDrawIndirect::DrawDepthForShadow(
 }
 
 void MultiDrawIndirect::Draw(
-    Camera *camera, LightSources *light_sources, ShadowSources *shadow_sources,
-    OITRenderQuad *oit_render_quad, bool deferred_shading, bool default_shading,
-    bool force_pbr,
+    Camera *camera, LightSources *light_sources, OITRenderQuad *oit_render_quad,
+    bool deferred_shading, bool default_shading, bool force_pbr,
     const std::vector<RenderTargetParameter> &render_target_params) {
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
@@ -320,9 +319,7 @@ void MultiDrawIndirect::Draw(
     oit_render_quad->Set(shader);
   }
   if (!deferred_shading) {
-    light_sources->Set(shader, false);
-    int32_t num_samplers = 0;
-    shadow_sources->Set(shader);
+    light_sources->Set();
     shader->SetUniform<glm::vec3>("uCameraPosition", camera->position());
   }
   shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());

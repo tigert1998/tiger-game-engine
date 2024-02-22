@@ -97,8 +97,7 @@ DeferredShadingRenderQuad::DeferredShadingRenderQuad(uint32_t width,
       kSSAOBlurShader == nullptr) {
     std::map<std::string, std::any> defines = {
         {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
-        {"DIRECTIONAL_SHADOW_BINDING",
-         std::any(DirectionalShadow::GLSL_BINDING)},
+        {"DIRECTIONAL_POINT_BINDING", std::any(DirectionalLight::GLSL_BINDING)},
     };
     kShader = Shader::ScreenSpaceShader(
         "deferred_shading/deferred_shading.frag", defines);
@@ -116,8 +115,7 @@ void DeferredShadingRenderQuad::Resize(uint32_t width, uint32_t height) {
 }
 
 void DeferredShadingRenderQuad::TwoPasses(
-    const Camera* camera, LightSources* light_sources,
-    ShadowSources* shadow_sources, bool enable_ssao,
+    const Camera* camera, LightSources* light_sources, bool enable_ssao,
     const std::function<void()>& first_pass,
     const std::function<void()>& second_pass,
     const FrameBufferObject* dest_fbo) {
@@ -206,8 +204,7 @@ void DeferredShadingRenderQuad::TwoPasses(
 
   int num_samplers = 10;
 
-  light_sources->Set(kShader.get(), false);
-  shadow_sources->Set(kShader.get());
+  light_sources->Set();
 
   if (dest_fbo != nullptr) {
     dest_fbo->Bind();

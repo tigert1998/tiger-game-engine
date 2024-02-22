@@ -44,7 +44,7 @@ void Clouds::Resize(uint32_t width, uint32_t height) {
 
 void Clouds::Draw(Camera *camera, LightSources *light_sources, double time) {
   shader_->Use();
-  light_sources->Set(shader_.get(), true);
+  light_sources->Set();
   glBindImageTexture(0, frag_color_texture_.id(), 0, GL_FALSE, 0, GL_WRITE_ONLY,
                      GL_RGBA32F);
   shader_->SetUniform<int32_t>("uFragColor", 0);

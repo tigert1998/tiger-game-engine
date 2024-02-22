@@ -1,7 +1,20 @@
-#ifndef SHADOW_SHADOW_SOURCES_GLSL_
-#define SHADOW_SHADOW_SOURCES_GLSL_
+#ifndef SHADOW_SHADOW_GLSL_
+#define SHADOW_SHADOW_GLSL_
 
-#include "shadow/shadow_buffers.glsl"
+struct DirectionalShadow {
+    // Cascaded Shadow Mapping
+    mat4 viewProjectionMatrices[NUM_CASCADES];
+    float cascadePlaneDistances[NUM_CASCADES * 2];
+    sampler2DArray shadowMap;
+    vec3 dir;
+};
+
+struct OmnidirectionalShadow {
+    mat4 viewProjectionMatrices[6];
+    samplerCube shadowMap;
+    vec3 pos;
+    float farPlane;
+};
 
 float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow, uint layer, vec3 position) {
     vec4 homoPosition = directionalShadow.viewProjectionMatrices[layer] * vec4(position, 1.0);
@@ -31,11 +44,9 @@ float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow,
     return shadow;
 }
 
-float CalcDirectionalShadow(uint shadowIndex, vec3 position) {
-    DirectionalShadow directionalShadow = directionalShadows[shadowIndex];
-
+float CalcDirectionalShadow(DirectionalShadow directionalShadow, vec3 position, mat4 cameraViewMatrix) {
     // select cascade layer
-    vec4 viewSpacePosition = uViewMatrix * vec4(position, 1);
+    vec4 viewSpacePosition = cameraViewMatrix * vec4(position, 1);
     float depth = -viewSpacePosition.z;
 
     float num = 0;
@@ -54,29 +65,9 @@ float CalcDirectionalShadow(uint shadowIndex, vec3 position) {
     return num / denom;
 }
 
-float CalcOmnidirectionalShadow(uint shadowIndex, vec3 position) {
-    OmnidirectionalShadow omnidirectionalShadow = omnidirectionalShadows[shadowIndex];
-    vec3 dir = position - omnidirectionalShadow.pos; 
-
-    mat4 viewProjectionMatrix;
-    vec3 absDir = abs(dir);
-    if (absDir.x >= absDir.y && absDir.x >= absDir.z) {
-        // posx and negx
-        viewProjectionMatrix = omnidirectionalShadow.viewProjectionMatrices[0 + uint(dir.x < 0)];    
-    } else if (absDir.y >= absDir.x && absDir.y >= absDir.z) {
-        // posy and negy
-        viewProjectionMatrix = omnidirectionalShadow.viewProjectionMatrices[2 + uint(dir.y < 0)];
-    } else {
-        // posz and negz
-        viewProjectionMatrix = omnidirectionalShadow.viewProjectionMatrices[4 + uint(dir.z < 0)];    
-    }
-    vec4 homoPosition = viewProjectionMatrix * vec4(position, 1.0);
-
-    position = homoPosition.xyz / homoPosition.w;
-    position = position * 0.5 + 0.5;
-    float currentDepth = position.z;
-    currentDepth = clamp(currentDepth, 0, 1);
-
+float CalcOmnidirectionalShadow(OmnidirectionalShadow omnidirectionalShadow, vec3 position) {
+    vec3 dir = position - omnidirectionalShadow.pos;
+    float currentDepth = distance(position, omnidirectionalShadow.pos) / omnidirectionalShadow.farPlane;
     float closestDepth = texture(omnidirectionalShadow.shadowMap, dir).r;
     float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
 

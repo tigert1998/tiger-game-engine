@@ -191,6 +191,33 @@ OmnidirectionalShadow::OmnidirectionalShadow(glm::vec3 position,
   fbo_->depth_texture().MakeResident();
 }
 
+std::vector<glm::mat4> OmnidirectionalShadow::view_projection_matrices() const {
+  float aspect = (float)fbo_width_ / fbo_height_;
+  glm::mat4 projection_matrix =
+      glm::perspective(glm::radians(90.0f), aspect, z_near_, z_far_);
+
+  std::vector<glm::mat4> ret;
+  ret.push_back(projection_matrix *
+                glm::lookAt(position_, position_ + glm::vec3(1.0, 0.0, 0.0),
+                            glm::vec3(0.0, -1.0, 0.0)));
+  ret.push_back(projection_matrix *
+                glm::lookAt(position_, position_ + glm::vec3(-1.0, 0.0, 0.0),
+                            glm::vec3(0.0, -1.0, 0.0)));
+  ret.push_back(projection_matrix *
+                glm::lookAt(position_, position_ + glm::vec3(0.0, 1.0, 0.0),
+                            glm::vec3(0.0, 0.0, 1.0)));
+  ret.push_back(projection_matrix *
+                glm::lookAt(position_, position_ + glm::vec3(0.0, -1.0, 0.0),
+                            glm::vec3(0.0, 0.0, -1.0)));
+  ret.push_back(projection_matrix *
+                glm::lookAt(position_, position_ + glm::vec3(0.0, 0.0, 1.0),
+                            glm::vec3(0.0, -1.0, 0.0)));
+  ret.push_back(projection_matrix *
+                glm::lookAt(position_, position_ + glm::vec3(0.0, 0.0, -1.0),
+                            glm::vec3(0.0, -1.0, 0.0)));
+  return ret;
+}
+
 void OmnidirectionalShadow::Bind() {
   glViewport(0, 0, fbo_width_, fbo_height_);
   fbo_->Bind();
@@ -201,127 +228,12 @@ void OmnidirectionalShadow::Visualize() const {}
 OmnidirectionalShadow::OmnidirectionalShadowGLSL
 OmnidirectionalShadow::omnidirectional_shadow_glsl() const {
   OmnidirectionalShadowGLSL ret;
+  auto vpms = view_projection_matrices();
+  std::copy(vpms.begin(), vpms.end(), ret.view_projection_matrices);
   ret.shadow_map = fbo_->depth_texture().handle();
   ret.pos = position_;
+  ret.far_plane = z_far_;
   return ret;
-}
-
-ShadowSources::ShadowSources() {
-  directional_shadows_ssbo_.reset(
-      new SSBO(0, nullptr, GL_DYNAMIC_DRAW, DirectionalShadow::GLSL_BINDING));
-  omnidirectional_shadows_ssbo_.reset(new SSBO(
-      0, nullptr, GL_DYNAMIC_DRAW, OmnidirectionalShadow::GLSL_BINDING));
-}
-
-void ShadowSources::AddDirectional(std::unique_ptr<DirectionalShadow> shadow) {
-  directional_shadows_.emplace_back(std::move(shadow));
-  directional_shadows_ssbo_.reset(
-      new SSBO(sizeof(DirectionalShadow::DirectionalShadowGLSL) *
-                   directional_shadows_.size(),
-               nullptr, GL_DYNAMIC_DRAW, DirectionalShadow::GLSL_BINDING));
-}
-
-void ShadowSources::AddOmnidirectional(
-    std::unique_ptr<OmnidirectionalShadow> shadow) {
-  omnidirectional_shadows_.emplace_back(std::move(shadow));
-  omnidirectional_shadows_ssbo_.reset(
-      new SSBO(sizeof(OmnidirectionalShadow::OmnidirectionalShadowGLSL) *
-                   omnidirectional_shadows_.size(),
-               nullptr, GL_DYNAMIC_DRAW, OmnidirectionalShadow::GLSL_BINDING));
-}
-
-void ShadowSources::EraseDirectional(DirectionalShadow *shadow) {
-  int32_t index = GetDirectionalIndex(shadow);
-  if (index >= 0) {
-    directional_shadows_.erase(directional_shadows_.begin() + index);
-  }
-}
-
-void ShadowSources::EraseOmnidirectional(OmnidirectionalShadow *shadow) {
-  int32_t index = GetOmnidirectionalIndex(shadow);
-  if (index >= 0) {
-    omnidirectional_shadows_.erase(omnidirectional_shadows_.begin() + index);
-  }
-}
-
-int32_t ShadowSources::GetDirectionalIndex(DirectionalShadow *shadow) {
-  for (int i = 0; i < directional_shadows_.size(); i++) {
-    if (directional_shadows_[i].get() == shadow) return i;
-  }
-  return -1;
-}
-
-int32_t ShadowSources::GetOmnidirectionalIndex(OmnidirectionalShadow *shadow) {
-  for (int i = 0; i < omnidirectional_shadows_.size(); i++) {
-    if (omnidirectional_shadows_[i].get() == shadow) return i;
-  }
-  return -1;
-}
-
-DirectionalShadow *ShadowSources::GetDirectional(int32_t index) {
-  return directional_shadows_[index].get();
-}
-
-OmnidirectionalShadow *ShadowSources::GetOmnidirectional(int32_t index) {
-  return omnidirectional_shadows_[index].get();
-}
-
-void ShadowSources::Set(Shader *shader) {
-  // directional
-  std::vector<DirectionalShadow::DirectionalShadowGLSL> dir_shadow_glsl_vec;
-  for (const auto &shadow : directional_shadows_) {
-    dir_shadow_glsl_vec.push_back(shadow->directional_shadow_glsl());
-  }
-  glNamedBufferSubData(
-      directional_shadows_ssbo_->id(), 0,
-      dir_shadow_glsl_vec.size() * sizeof(dir_shadow_glsl_vec[0]),
-      dir_shadow_glsl_vec.data());
-  directional_shadows_ssbo_->BindBufferBase();
-
-  if (shader->UniformVariableExists("uNumDirectionalShadows")) {
-    shader->SetUniform<uint32_t>("uNumDirectionalShadows",
-                                 directional_shadows_.size());
-  }
-
-  // omnidirectional
-  std::vector<OmnidirectionalShadow::OmnidirectionalShadowGLSL>
-      omnidir_shadow_glsl_vec;
-  for (const auto &shadow : omnidirectional_shadows_) {
-    omnidir_shadow_glsl_vec.push_back(shadow->omnidirectional_shadow_glsl());
-  }
-  glNamedBufferSubData(
-      omnidirectional_shadows_ssbo_->id(), 0,
-      omnidir_shadow_glsl_vec.size() * sizeof(omnidir_shadow_glsl_vec[0]),
-      omnidir_shadow_glsl_vec.data());
-  omnidirectional_shadows_ssbo_->BindBufferBase();
-
-  if (shader->UniformVariableExists("uNumOmnidirectionalShadows")) {
-    shader->SetUniform<uint32_t>("uNumOmnidirectionalShadows",
-                                 omnidirectional_shadows_.size());
-  }
-}
-
-void ShadowSources::DrawDepthForShadow(
-    const std::function<void(int32_t, int32_t)> &render_pass) {
-  glDisable(GL_CULL_FACE);
-  for (int i = 0; i < directional_shadows_.size(); i++) {
-    directional_shadows_[i]->Bind();
-    glClear(GL_DEPTH_BUFFER_BIT);
-    render_pass(i, -1);
-    directional_shadows_[i]->Unbind();
-  }
-  for (int i = 0; i < omnidirectional_shadows_.size(); i++) {
-    omnidirectional_shadows_[i]->Bind();
-    glClear(GL_DEPTH_BUFFER_BIT);
-    render_pass(-1, i);
-    omnidirectional_shadows_[i]->Unbind();
-  }
-}
-
-void ShadowSources::Visualize() {
-  for (const auto &shadow : directional_shadows_) {
-    shadow->Visualize();
-  }
 }
 
 std::unique_ptr<Shader> DirectionalShadowViewer::kShader = nullptr;

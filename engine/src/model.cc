@@ -230,10 +230,9 @@ void Model::CompileShaders() {
     std::map<std::string, std::any> defines = {
         {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
         {"IS_SHADOW_PASS", std::any(false)},
-        {"DIRECTIONAL_SHADOW_BINDING",
-         std::any(DirectionalShadow::GLSL_BINDING)},
-        {"OMNIDIRECTIONAL_SHADOW_BINDING",
-         std::any(OmnidirectionalShadow::GLSL_BINDING)},
+        {"AMBIENT_LIGHT_BINDING", std::any(AmbientLight::GLSL_BINDING)},
+        {"DIRECTIONAL_LIGHT_BINDING", std::any(DirectionalLight::GLSL_BINDING)},
+        {"POINT_LIGHT_BINDING", std::any(PointLight::GLSL_BINDING)},
     };
     kShader.reset(new Shader("model/model.vert", "model/model.frag", defines));
     kOITShader.reset(new Shader("model/model.vert", "model/oit.frag", defines));

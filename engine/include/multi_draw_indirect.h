@@ -54,8 +54,6 @@ struct TextureRecord {
 struct PhongMaterial {
   glm::vec3 ka, kd, ks;
   float shininess;
-
-  static const std::string GLSLSource();
 };
 
 struct DrawElementsIndirectCommand {
@@ -64,8 +62,6 @@ struct DrawElementsIndirectCommand {
   uint32_t first_index;
   int32_t base_vertex;
   uint32_t base_instance;
-
-  static const std::string GLSLSource();
 };
 
 class GPUDrivenWorkloadGeneration {
@@ -180,12 +176,12 @@ class MultiDrawIndirect {
   void PrepareForDraw();
 
   void DrawDepthForShadow(
-      ShadowSources *shadow_sources, int32_t directional_index,
-      int32_t omnidirectional_index,
+      LightSources *light_sources, int32_t directional_index,
+      int32_t point_index,
       const std::vector<RenderTargetParameter> &render_target_params);
   void Draw(Camera *camera, LightSources *light_sources,
-            ShadowSources *shadow_sources, OITRenderQuad *oit_render_quad,
-            bool deferred_shading, bool default_shading, bool force_pbr,
+            OITRenderQuad *oit_render_quad, bool deferred_shading,
+            bool default_shading, bool force_pbr,
             const std::vector<RenderTargetParameter> &render_target_params);
 
   ~MultiDrawIndirect();
@@ -203,7 +199,7 @@ class MultiDrawIndirect {
     alignas(16) glm::vec3 kd;
     alignas(16) glm::vec3 ks;
     alignas(16) float shininess;
-    bool bind_metalness_and_diffuse_roughness;
+    int32_t bind_metalness_and_diffuse_roughness;
   };
 
   // counters

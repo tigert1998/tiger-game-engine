@@ -5,7 +5,7 @@
 layout (triangles) in;
 layout (triangle_strip, max_vertices = 18) out;
 
-#include "shadow/shadow_buffers.glsl"
+#include "light_sources.glsl"
 
 in vec2 vTexCoord[3];
 in mat3 vTBN[3];
@@ -15,10 +15,10 @@ out mat3 gTBN;
 flat out int gInstanceID;
 out vec3 gPosition;
 
-uniform uint uShadowIndex;
+uniform uint uLightIndex;
 
 void main() {
-    OmnidirectionalShadow omnidirectionalShadow = omnidirectionalShadows[uShadowIndex];
+    OmnidirectionalShadow omnidirectionalShadow = pointLights[uLightIndex].shadow;
 
     for (int face = 0; face < 6; face++) {
         gl_Layer = face;

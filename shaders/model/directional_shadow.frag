@@ -3,7 +3,7 @@
 #extension GL_ARB_bindless_texture : require
 
 #include "material.glsl"
-#include "shadow/shadow_buffers.glsl"
+#include "light_sources.glsl"
 #include "common/alpha_test.glsl"
 
 layout (std430, binding = 6) buffer materialsBuffer {
@@ -17,7 +17,7 @@ in vec2 gTexCoord;
 in mat3 gTBN;
 flat in int gInstanceID;
 
-uniform uint uShadowIndex;
+uniform uint uLightIndex;
 
 void main() {
     Material material = materials[gInstanceID];
@@ -30,7 +30,7 @@ void main() {
 
     // add bias in the shadow mapping generation stage:
     // According to Arccch's comment in https://learnopengl.com/Advanced-Lighting/Shadows/Shadow-Mapping
-    DirectionalShadow directionalShadow = directionalShadows[uShadowIndex];
+    DirectionalShadow directionalShadow = directionalLights[uLightIndex].shadow;
     float bias = max(0.05 * (1.0 - dot(gTBN[2], normalize(-directionalShadow.dir))), 0.005);
     const float biasModifier = 0.5;
     bias *= 1 / (directionalShadow.cascadePlaneDistances[gl_Layer * 2 + 1] * biasModifier);

@@ -138,12 +138,12 @@ vec4 CalcFragColor() {
         color = CalcPhongLighting(
             ka, kd, ks,
             normal, uCameraPosition, position,
-            shininess
+            shininess, uViewMatrix
         );
     } else if (flag == 2) {
         color = CalcPBRLighting(
             albedo, metallic, roughness, ao,
-            normal, uCameraPosition, position
+            normal, uCameraPosition, position, uViewMatrix
         );
     }
 
