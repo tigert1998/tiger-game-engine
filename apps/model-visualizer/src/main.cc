@@ -55,10 +55,8 @@ std::unique_ptr<SMAA> smaa_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
-std::unique_ptr<ShadowSources> shadow_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
 std::unique_ptr<Controller> controller_ptr;
-std::unique_ptr<OBBDrawer> obb_drawer_ptr;
 
 int default_shading_choice = 0;
 int enable_ssao = 0;
@@ -95,40 +93,10 @@ void ImGuiWindow() {
                  IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
-  if (ImGui::Button("Generate shadow OBBs visualization")) {
-    if (shadow_sources_ptr->SizeDirectional() >= 1) {
-      auto shadow = shadow_sources_ptr->GetDirectional(0);
-      obb_drawer_ptr->Clear();
-      auto cascade_obbs = shadow->cascade_obbs();
-      obb_drawer_ptr->AppendOBBs(cascade_obbs, std::nullopt);
-      {
-        auto aabbs = multi_draw_indirect->debug_instance_aabbs();
-        std::vector<OBB> obbs;
-        obbs.reserve(aabbs.size());
-        for (int i = 0; i < aabbs.size(); i++) {
-          OBB obb(aabbs[i]);
-          bool do_render = false;
-          for (const auto &cascade_obb : cascade_obbs) {
-            do_render = obb.IntersectsOBB(cascade_obb, 1e-4);
-            if (do_render) break;
-          }
-          if (do_render) obbs.push_back(obb);
-        }
-        obb_drawer_ptr->AppendOBBs(obbs, glm::vec3(1, 0, 0));
-      }
-      obb_drawer_ptr->AllocateBuffer();
-    } else {
-      obb_drawer_ptr->Clear();
-    }
-  }
-  if (ImGui::Button("Erase shadow OBBs visualization")) {
-    obb_drawer_ptr->Clear();
-  }
   ImGui::End();
 
   camera_ptr->ImGuiWindow();
-  light_sources_ptr->ImGuiWindow();
-  shadow_sources_ptr->ImGuiWindow();
+  light_sources_ptr->ImGuiWindow(camera_ptr.get());
 }
 
 void Init(uint32_t width, uint32_t height) {
@@ -152,25 +120,22 @@ void Init(uint32_t width, uint32_t height) {
   deferred_shading_render_quad_ptr.reset(
       new DeferredShadingRenderQuad(width, height));
 
-  obb_drawer_ptr.reset(new OBBDrawer());
   smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
 
-  light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->Add(make_unique<Directional>(vec3(0, -1, 0.5), vec3(10)));
-  light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
-
-  multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model("resources/Bistro_v5_2/BistroExterior.fbx",
-                            multi_draw_indirect.get(), 1, true, true));
-  multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
       -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
   camera_ptr->set_front(-camera_ptr->position());
 
-  shadow_sources_ptr = make_unique<ShadowSources>(camera_ptr.get());
-  shadow_sources_ptr->AddDirectional(make_unique<DirectionalShadow>(
-      vec3(0, -1, 0.5), 2048, 2048, camera_ptr.get()));
+  light_sources_ptr = make_unique<LightSources>();
+  light_sources_ptr->AddDirectional(make_unique<DirectionalLight>(
+      vec3(0, -1, 0.5), vec3(10), camera_ptr.get()));
+  light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
+
+  multi_draw_indirect.reset(new MultiDrawIndirect());
+  model_ptr.reset(new Model("resources/Bistro_v5_2/BistroExterior.fbx",
+                            multi_draw_indirect.get(), 1, true, true));
+  multi_draw_indirect->PrepareForDraw();
 
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
 
@@ -213,16 +178,15 @@ int main(int argc, char *argv[]) {
     glfwPollEvents();
 
     // draw depth map first
-    shadow_sources_ptr->DrawDepthForShadow([](int32_t directional_index,
-                                              int32_t omnidirectional_index) {
-      multi_draw_indirect->DrawDepthForShadow(
-          shadow_sources_ptr.get(), directional_index, omnidirectional_index,
-          {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
-    });
+    light_sources_ptr->DrawDepthForShadow(
+        [](int32_t directional_index, int32_t point_index) {
+          multi_draw_indirect->DrawDepthForShadow(
+              light_sources_ptr.get(), directional_index, point_index,
+              {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
+        });
 
     deferred_shading_render_quad_ptr->TwoPasses(
-        camera_ptr.get(), light_sources_ptr.get(), shadow_sources_ptr.get(),
-        enable_ssao,
+        camera_ptr.get(), light_sources_ptr.get(), enable_ssao,
         []() {
           glEnable(GL_CULL_FACE);
           glCullFace(GL_BACK);
@@ -233,18 +197,14 @@ int main(int argc, char *argv[]) {
         []() {
           glDisable(GL_CULL_FACE);
           multi_draw_indirect->Draw(
-              camera_ptr.get(), nullptr, nullptr, nullptr, true,
-              default_shading_choice, true,
-              {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
+              camera_ptr.get(), nullptr, nullptr, true, default_shading_choice,
+              true, {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
         },
         enable_smaa ? smaa_ptr->fbo() : nullptr);
 
     if (enable_smaa) {
       smaa_ptr->Draw();
     }
-
-    obb_drawer_ptr->Draw(camera_ptr.get());
-    shadow_sources_ptr->Visualize();
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

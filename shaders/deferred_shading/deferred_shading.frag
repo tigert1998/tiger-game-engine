@@ -40,7 +40,8 @@ void main() {
             texture(normalAndAlpha, coord).xyz,
             uCameraPosition,
             position,
-            texture(ksAndShininess, coord).w
+            texture(ksAndShininess, coord).w,
+            uViewMatrix
         );
     } else if (renderType == 2) {
         float ao = texture(metallicAndRoughnessAndAo, coord).z;
@@ -55,7 +56,8 @@ void main() {
             ao,
             texture(normalAndAlpha, coord).xyz,
             uCameraPosition,
-            position
+            position,
+            uViewMatrix
         );
     }
 

@@ -58,7 +58,6 @@ std::unique_ptr<SMAA> smaa_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
-std::unique_ptr<ShadowSources> shadow_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
 std::unique_ptr<Controller> controller_ptr;
 
@@ -111,8 +110,7 @@ void ImGuiWindow() {
   }
 
   camera_ptr->ImGuiWindow();
-  light_sources_ptr->ImGuiWindow();
-  shadow_sources_ptr->ImGuiWindow();
+  light_sources_ptr->ImGuiWindow(camera_ptr.get());
 }
 
 void Init(uint32_t width, uint32_t height) {
@@ -137,21 +135,21 @@ void Init(uint32_t width, uint32_t height) {
 
   smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
 
+  camera_ptr = make_unique<Camera>(vec3(0.087, 8.209, 31.708),
+                                   static_cast<double>(width) / height, -1.687,
+                                   -0.281, glm::radians(60.f), 0.1, 500);
+  camera_ptr->set_front(-camera_ptr->position());
+
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->Add(make_unique<Directional>(vec3(0, 0, -1), vec3(2)));
-  light_sources_ptr->Add(make_unique<Ambient>(vec3(0.1)));
+  light_sources_ptr->AddDirectional(
+      make_unique<DirectionalLight>(vec3(0, 0, -1), vec3(2), camera_ptr.get()));
+  light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
   model_ptr.reset(new Model(
       "resources/Tarisland - Dragon/source/M_B_44_Qishilong_skin_Skeleton.FBX",
       multi_draw_indirect.get(), kNumModelItems, true, false));
   multi_draw_indirect->PrepareForDraw();
-  camera_ptr = make_unique<Camera>(vec3(0.087, 8.209, 31.708),
-                                   static_cast<double>(width) / height, -1.687,
-                                   -0.281, glm::radians(60.f), 0.1, 500);
-  camera_ptr->set_front(-camera_ptr->position());
-
-  shadow_sources_ptr = make_unique<ShadowSources>(camera_ptr.get());
 
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/learnopengl");
 
@@ -248,14 +246,15 @@ int main(int argc, char *argv[]) {
     auto render_target_params = ConstructRenderTargetParameters();
 
     // draw depth map first
-    shadow_sources_ptr->DrawDepthForShadow([&](int32_t directional_index) {
-      multi_draw_indirect->DrawDepthForShadow(
-          shadow_sources_ptr.get(), directional_index, render_target_params);
+    light_sources_ptr->DrawDepthForShadow([&](int32_t directional_index,
+                                              int32_t point_index) {
+      multi_draw_indirect->DrawDepthForShadow(light_sources_ptr.get(),
+                                              directional_index, point_index,
+                                              render_target_params);
     });
 
     deferred_shading_render_quad_ptr->TwoPasses(
-        camera_ptr.get(), light_sources_ptr.get(), shadow_sources_ptr.get(),
-        enable_ssao,
+        camera_ptr.get(), light_sources_ptr.get(), enable_ssao,
         []() {
           glEnable(GL_CULL_FACE);
           glCullFace(GL_BACK);
@@ -265,8 +264,8 @@ int main(int argc, char *argv[]) {
         },
         [&]() {
           glDisable(GL_CULL_FACE);
-          multi_draw_indirect->Draw(camera_ptr.get(), nullptr, nullptr, nullptr,
-                                    true, default_shading_choice, true,
+          multi_draw_indirect->Draw(camera_ptr.get(), nullptr, nullptr, true,
+                                    default_shading_choice, true,
                                     render_target_params);
         },
         enable_smaa ? smaa_ptr->fbo() : nullptr);

@@ -55,14 +55,15 @@ void Init(uint32_t width, uint32_t height) {
 
   Shader::include_directories = {"./shaders"};
 
-  light_sources_ptr = std::make_unique<LightSources>();
-  light_sources_ptr->Add(
-      std::make_unique<Directional>(glm::vec3(0, -1, -1), glm::vec3(1, 1, 1)));
-  light_sources_ptr->Add(std::make_unique<Ambient>(glm::vec3(0.4)));
-
   camera_ptr = std::make_unique<Camera>(
       glm::vec3(0, 10, 0), static_cast<double>(width) / height,
       -0.5 * glm::pi<float>(), 0, glm::radians(60.0f), 0.1, 5000);
+
+  light_sources_ptr = std::make_unique<LightSources>();
+  light_sources_ptr->AddDirectional(std::make_unique<DirectionalLight>(
+      glm::vec3(0, -1, -1), glm::vec3(1, 1, 1), camera_ptr.get()));
+  light_sources_ptr->AddAmbient(std::make_unique<AmbientLight>(glm::vec3(0.4)));
+
   skybox_ptr = std::make_unique<Skybox>("resources/skyboxes/cloud");
   grassland_ptr = std::make_unique<Grassland>("resources/terrain/sample.obj",
                                               "resources/distortion.png");

@@ -48,7 +48,6 @@ std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<OITRenderQuad> oit_render_quad_ptr;
 std::unique_ptr<Controller> controller;
 std::unique_ptr<Clouds> clouds_ptr;
-std::unique_ptr<ShadowSources> shadow_sources_ptr;
 
 GLFWwindow *window;
 
@@ -84,16 +83,15 @@ void Init(uint32_t width, uint32_t height) {
 
   Shader::include_directories = {"./shaders"};
 
-  light_sources_ptr = std::make_unique<LightSources>();
-  light_sources_ptr->Add(
-      std::make_unique<Directional>(glm::vec3(0, -1, -1), glm::vec3(1)));
-  light_sources_ptr->Add(std::make_unique<Ambient>(glm::vec3(0.04)));
-
-  shadow_sources_ptr = std::make_unique<ShadowSources>(camera_ptr.get());
-
   camera_ptr = std::make_unique<Camera>(
       glm::vec3(0, 10, 0), static_cast<double>(width) / height,
       -0.5 * glm::pi<float>(), 0, glm::radians(60.f), 0.1, 5000);
+
+  light_sources_ptr = std::make_unique<LightSources>();
+  light_sources_ptr->AddDirectional(std::make_unique<DirectionalLight>(
+      glm::vec3(0, -1, -1), glm::vec3(1), camera_ptr.get()));
+  light_sources_ptr->AddAmbient(
+      std::make_unique<AmbientLight>(glm::vec3(0.04)));
 
   oit_render_quad_ptr.reset(new OITRenderQuad(width, height));
   clouds_ptr.reset(new Clouds(width, height));
