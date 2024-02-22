@@ -198,9 +198,12 @@ class MultiDrawIndirect {
     alignas(16) glm::vec3 ka;
     alignas(16) glm::vec3 kd;
     alignas(16) glm::vec3 ks;
-    alignas(16) float shininess;
+    alignas(4) float shininess;
     int32_t bind_metalness_and_diffuse_roughness;
   };
+
+  // counter to print
+  uint32_t num_triangles_ = 0;
 
   // counters
   uint32_t num_instances_ = 0, num_bone_matrices_ = 0, num_meshes_ = 0;

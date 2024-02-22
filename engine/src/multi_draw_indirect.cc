@@ -462,6 +462,8 @@ void MultiDrawIndirect::PrepareForDraw() {
   constants.num_instances = num_instances_;
   gpu_driven_.reset(new GPUDrivenWorkloadGeneration(
       fixed_arrays, dynamic_buffers, constants));
+
+  fmt::print(stderr, "[info] # of triangles: {}\n", num_triangles_);
 }
 
 void MultiDrawIndirect::Receive(
@@ -477,6 +479,7 @@ void MultiDrawIndirect::Receive(
   mesh_to_cmd_offset_.push_back(commands_.size());
   mesh_to_num_cmds_.push_back(indices.size());
 
+  num_triangles_ += indices[0].size() / 3;
   for (int i = 0; i < indices.size(); i++) {
     DrawElementsIndirectCommand cmd;
     cmd.count = indices[i].size();
