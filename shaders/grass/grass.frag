@@ -1,8 +1,11 @@
-#version 420 core
+#version 460 core
+
+#extension GL_ARB_bindless_texture : require
 
 const float zero = 1e-6;
 
 uniform vec3 uCameraPosition;
+uniform mat4 uViewMatrix;
 
 in vec3 vPosition;
 in vec2 vTexCoord;
@@ -21,9 +24,9 @@ vec4 CalcFragColor() {
     vec3 normal = facing > 0 ? vNormal : -vNormal;
 
     vec3 color = CalcPhongLighting(
-        green, green, vec3(zero),
+        green, green, vec3(zero), vec3(zero),
         normal, uCameraPosition, vPosition,
-        0, 0
+        0, uViewMatrix
     );
 
     return vec4(color, 1.0);

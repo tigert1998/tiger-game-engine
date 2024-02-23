@@ -8,11 +8,9 @@
 #include <fmt/core.h>
 #include <imgui.h>
 
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/transform.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <memory>
-#include <string>
 
 #include "controller/sightseeing_controller.h"
 #include "deferred_shading_render_quad.h"
@@ -53,18 +51,18 @@ class Controller : public SightseeingController {
 };
 
 std::unique_ptr<MultiDrawIndirect> multi_draw_indirect;
+std::unique_ptr<MultiDrawIndirect> multi_draw_indirect_lights;
 std::unique_ptr<DeferredShadingRenderQuad> deferred_shading_render_quad_ptr;
 std::unique_ptr<SMAA> smaa_ptr;
 std::unique_ptr<Model> model_ptr;
+std::unique_ptr<Model> brick_wall_ptr;
+std::unique_ptr<Model> sphere_red_ptr;
+std::unique_ptr<Model> sphere_green_ptr;
+std::unique_ptr<Model> sphere_blue_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
-std::unique_ptr<Skybox> skybox_ptr;
 std::unique_ptr<Controller> controller_ptr;
 
-const int kNumModelItems = 12;
-
-double animation_time = 0;
-int animation_id = 0;
 int default_shading_choice = 0;
 int enable_ssao = 0;
 int enable_smaa = 0;
@@ -87,27 +85,14 @@ void ImGuiInit() {
 void ImGuiWindow() {
   // model
   char buf[1 << 10] = {0};
-  static int prev_animation_id = animation_id;
   const char *choices[] = {"off", "on"};
 
   ImGui::Begin("Panel");
-  ImGui::InputInt("animation id", &animation_id, 1, 1);
-  ImGui::ListBox("default shading", &default_shading_choice, choices,
+  ImGui::ListBox("Default shading", &default_shading_choice, choices,
                  IM_ARRAYSIZE(choices));
-  ImGui::ListBox("enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
-  ImGui::ListBox("enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
+  ImGui::ListBox("Enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
+  ImGui::ListBox("Enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
   ImGui::End();
-
-  // model
-  if (prev_animation_id != animation_id) {
-    if (0 <= animation_id && animation_id < model_ptr->NumAnimations()) {
-      fmt::print(stderr, "[info] switching to animation #{}\n", animation_id);
-    } else {
-      fmt::print(stderr, "[info] deactivate animation\n");
-    }
-    prev_animation_id = animation_id;
-    animation_time = 0;
-  }
 
   camera_ptr->ImGuiWindow();
   light_sources_ptr->ImGuiWindow(camera_ptr.get());
@@ -120,7 +105,8 @@ void Init(uint32_t width, uint32_t height) {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-  window = glfwCreateWindow(width, height, "Instancing Demo", nullptr, nullptr);
+  window = glfwCreateWindow(
+      width, height, "Multiple Omnidirectional Shadows Demo", nullptr, nullptr);
   glfwMakeContextCurrent(window);
   gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
@@ -135,23 +121,38 @@ void Init(uint32_t width, uint32_t height) {
 
   smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
 
-  camera_ptr = make_unique<Camera>(vec3(0.087, 8.209, 31.708),
-                                   static_cast<double>(width) / height, -1.687,
-                                   -0.281, glm::radians(60.f), 0.1, 500);
+  camera_ptr = make_unique<Camera>(
+      vec3(7, 9, 0), static_cast<double>(width) / height,
+      -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
   camera_ptr->set_front(-camera_ptr->position());
 
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->AddDirectional(
-      make_unique<DirectionalLight>(vec3(0, 0, -1), vec3(2), camera_ptr.get()));
+  light_sources_ptr->AddPoint(
+      make_unique<PointLight>(vec3(0), vec3(0), vec3(1, 0, 0)));
+  light_sources_ptr->AddPoint(
+      make_unique<PointLight>(vec3(0), vec3(0), vec3(1, 0, 0)));
+  light_sources_ptr->AddPoint(
+      make_unique<PointLight>(vec3(0), vec3(0), vec3(1, 0, 0)));
   light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model(
-      "resources/Tarisland - Dragon/source/M_B_44_Qishilong_skin_Skeleton.FBX",
-      multi_draw_indirect.get(), kNumModelItems, true, false));
+  model_ptr.reset(new Model("resources/dragon/dragon.obj",
+                            multi_draw_indirect.get(), 1, false, true));
+  brick_wall_ptr.reset(new Model("resources/brickwall/brickwall.obj",
+                                 multi_draw_indirect.get(), 1, false, false));
   multi_draw_indirect->PrepareForDraw();
 
-  skybox_ptr = make_unique<Skybox>("resources/skyboxes/learnopengl");
+  multi_draw_indirect_lights.reset(new MultiDrawIndirect());
+  sphere_red_ptr.reset(new Model("resources/sphere/sphere_red.obj",
+                                 multi_draw_indirect_lights.get(), 1, false,
+                                 false));
+  sphere_green_ptr.reset(new Model("resources/sphere/sphere_green.obj",
+                                   multi_draw_indirect_lights.get(), 1, false,
+                                   false));
+  sphere_blue_ptr.reset(new Model("resources/sphere/sphere_blue.obj",
+                                  multi_draw_indirect_lights.get(), 1, false,
+                                  false));
+  multi_draw_indirect_lights->PrepareForDraw();
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
@@ -160,55 +161,62 @@ void Init(uint32_t width, uint32_t height) {
   ImGuiInit();
 }
 
-std::vector<MultiDrawIndirect::RenderTargetParameter>
-ConstructRenderTargetParameters() {
-  MultiDrawIndirect::RenderTargetParameter param;
-  param.model = model_ptr.get();
-  auto get_xy = [](int i, int num_samples) -> glm::vec2 {
-    float pi = glm::pi<float>();
-    double t = 2 * pi / num_samples * i;
-    float x = 16 * pow(sin(t), 3);
-    float y = 13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t);
-    return {x, y};
-  };
+std::pair<std::vector<MultiDrawIndirect::RenderTargetParameter>,
+          std::vector<MultiDrawIndirect::RenderTargetParameter>>
+UpdateObjectsAndLights(double time) {
+  std::vector<MultiDrawIndirect::RenderTargetParameter> render_target_params = {
+      {model_ptr.get(),
+       {{-1, 0,
+         glm::scale(glm::translate(glm::mat4(1), glm::vec3(0, 2.75f, 0)),
+                    glm::vec3(10.f)),
+         glm::vec4(0)}}},
+      {brick_wall_ptr.get(),
+       {{-1, 0,
+         glm::scale(glm::translate(glm::mat4(1), glm::vec3(-12.5f, 0, -12.5f)),
+                    glm::vec3(25.f)),
+         glm::vec4(0)}}}};
 
-  static const std::vector<glm::vec2> xys = [&](int num_models) {
-    int num_samples = 4096;
-    std::vector<glm::vec2> xys;
-    for (int i = 0; i < num_samples; i++) xys.push_back(get_xy(i, num_samples));
-    float distance = 0;
-    for (int i = 0; i < num_samples; i++)
-      distance += glm::distance(xys[i], xys[(i + 1) % num_samples]);
-    float distance_between_models = distance / num_models;
-    std::vector<glm::vec2> ret;
-    ret.push_back(xys[0]);
-    float tmp = 0;
-    for (int i = 0, j = 0; i < num_samples; i++) {
-      tmp += glm::distance(xys[i], xys[(i + 1) % num_samples]);
-      if (tmp >= distance_between_models) {
-        tmp = 0;
-        j = (i + 1) % num_samples;
-        if (ret.size() < num_models) ret.push_back(xys[j]);
-      }
-    }
-    return ret;
-  }(kNumModelItems);
+  std::vector<MultiDrawIndirect::RenderTargetParameter>
+      render_target_params_lights;
 
-  for (int i = 0; i < xys.size(); i++) {
-    auto xy = xys[i];
-    double item_animation_time = i + animation_time;
-    double duration = model_ptr->AnimationDurationInSeconds(animation_id);
-    if (duration > 0) {
-      item_animation_time = item_animation_time -
-                            floor(item_animation_time / duration) * duration;
-    }
-    glm::mat4 transform = glm::translate(glm::vec3(xy[0], xy[1], 0)) *
-                          glm::scale(glm::vec3(0.1f)) *
-                          glm::rotate(glm::radians(90.f), glm::vec3(1, 0, 0));
-    param.items.push_back(
-        {animation_id, item_animation_time, transform, glm::vec4(0)});
+  uint32_t size = light_sources_ptr->SizePoint();
+
+  if (size >= 1) {
+    glm::vec3 position = glm::vec3(sin(time) * 10, 10, cos(time) * 10);
+    MultiDrawIndirect::RenderTargetParameter sphere_red_param = {
+        sphere_red_ptr.get(),
+        {{-1, 0, glm::translate(glm::mat4(1), position)}},
+    };
+    light_sources_ptr->GetPoint(0)->set_color(glm::vec3(10, 0, 0));
+    light_sources_ptr->GetPoint(0)->set_position(position);
+    render_target_params_lights.push_back(sphere_red_param);
   }
-  return {param};
+
+  if (size >= 2) {
+    glm::vec3 position =
+        glm::rotate(glm::mat4(1), glm::radians(30.f), glm::vec3(1, 0, 0)) *
+        glm::vec4(sin(-time) * 10, 10, cos(-time) * 10, 1);
+    MultiDrawIndirect::RenderTargetParameter sphere_green_param = {
+        sphere_green_ptr.get(),
+        {{-1, 0, glm::translate(glm::mat4(1), position)}},
+    };
+    light_sources_ptr->GetPoint(1)->set_color(glm::vec3(0, 10, 0));
+    light_sources_ptr->GetPoint(1)->set_position(position);
+    render_target_params_lights.push_back(sphere_green_param);
+  }
+
+  if (size >= 3) {
+    glm::vec3 position = glm::vec4(sin(time) * 5, cos(time) * 5 + 15, 0, 1);
+    MultiDrawIndirect::RenderTargetParameter sphere_blue_param = {
+        sphere_blue_ptr.get(),
+        {{-1, 0, glm::translate(glm::mat4(1), position)}},
+    };
+    light_sources_ptr->GetPoint(2)->set_color(glm::vec3(0, 0, 10));
+    light_sources_ptr->GetPoint(2)->set_position(position);
+    render_target_params_lights.push_back(sphere_blue_param);
+  }
+
+  return {render_target_params, render_target_params_lights};
 }
 
 int main(int argc, char *argv[]) {
@@ -226,7 +234,6 @@ int main(int argc, char *argv[]) {
     double current_time = glfwGetTime();
     double delta_time = current_time - last_time;
     last_time = current_time;
-    animation_time += delta_time;
 
     Keyboard::shared.Elapse(delta_time);
 
@@ -234,7 +241,7 @@ int main(int argc, char *argv[]) {
       fps += 1;
       if (current_time - last_time_for_fps >= 1.0) {
         char buf[1 << 10];
-        sprintf(buf, "Instancing Demo | FPS: %d\n", fps);
+        sprintf(buf, "Multiple Omnidirectional Shadows Demo | FPS: %d\n", fps);
         glfwSetWindowTitle(window, buf);
         fps = 0;
         last_time_for_fps = current_time;
@@ -243,7 +250,8 @@ int main(int argc, char *argv[]) {
 
     glfwPollEvents();
 
-    auto render_target_params = ConstructRenderTargetParameters();
+    auto [render_target_params, render_target_params_lights] =
+        UpdateObjectsAndLights(current_time);
 
     // draw depth map first
     light_sources_ptr->DrawDepthForShadow([&](int32_t directional_index,
@@ -256,17 +264,17 @@ int main(int argc, char *argv[]) {
     deferred_shading_render_quad_ptr->TwoPasses(
         camera_ptr.get(), light_sources_ptr.get(), enable_ssao,
         []() {
-          glEnable(GL_CULL_FACE);
-          glCullFace(GL_BACK);
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-          skybox_ptr->Draw(camera_ptr.get());
         },
         [&]() {
           glDisable(GL_CULL_FACE);
           multi_draw_indirect->Draw(camera_ptr.get(), nullptr, nullptr, true,
                                     default_shading_choice, true,
                                     render_target_params);
+          multi_draw_indirect_lights->Draw(camera_ptr.get(), nullptr, nullptr,
+                                           true, default_shading_choice, true,
+                                           render_target_params_lights);
         },
         enable_smaa ? smaa_ptr->fbo() : nullptr);
 

@@ -13,7 +13,6 @@ in mat3 vTBN;
 flat in int vInstanceID;
 
 #include "light_sources.glsl"
-#include "shadow/shadow_sources.glsl"
 #include "material.glsl"
 
 uniform bool uDefaultShading;
@@ -34,12 +33,13 @@ vec3 ConvertDerivativeMapToNormalMap(vec3 normal) {
 void SampleForGBuffer(
     out vec3 ka, out vec3 kd, out vec3 ks, out float shininess, // for Phong
     out vec3 albedo, out float metallic, out float roughness, out float ao, // for PBR
-    out vec3 normal, out float alpha, out int flag // shared variable
+    out vec3 emission, out vec3 normal, out float alpha, out int flag // shared variable
 ) {
     if (uDefaultShading) {
         ka = vec3(0.2);
         kd = vec3(0, 0, 0.9);
         ks = vec3(0.2);
+        emission = vec3(0);
         shininess = 20;
         normal = vTBN[2];
         alpha = 1;
@@ -56,6 +56,7 @@ void SampleForGBuffer(
         ka = vec3(material.ka);
         kd = vec3(material.kd);
         ks = vec3(material.ks);
+        emission = vec3(material.ke);
 
         if (material.diffuseTexture >= 0) {
             vec4 sampled = texture(textures[material.diffuseTexture], vTexCoord);
@@ -78,10 +79,11 @@ void SampleForGBuffer(
         // for PBR
         alpha = 1.0f;
 
-        albedo = vec3(0.0f);
-        metallic = 0.0f;
-        roughness = 0.25f; // default metallic and roughness
+        albedo = vec3(material.kd);
+        metallic = 0.0;
+        roughness = 0.25; // default metallic and roughness
         ao = 1.0f;
+        emission = vec3(material.ke);
 
         if (material.diffuseTexture >= 0) {
             vec4 sampled = texture(textures[material.diffuseTexture], vTexCoord);
@@ -123,30 +125,28 @@ void SampleForGBuffer(
 vec4 CalcFragColor() {
     vec3 ka; vec3 kd; vec3 ks; float shininess; // for Phong
     vec3 albedo; float metallic; float roughness; float ao; // for PBR
-    vec3 normal; float alpha; int flag; // shared variable
+    vec3 emission; vec3 normal; float alpha; int flag; // shared variable
 
     SampleForGBuffer(
         ka, kd, ks, shininess, // for Phong
         albedo, metallic, roughness, ao, // for PBR
-        normal, alpha, flag // shared variable
+        emission, normal, alpha, flag // shared variable
     );
 
     vec3 position = vPosition;
 
-    float shadow = CalcShadow(position);
     vec3 color;
 
     if (flag == 1) {
         color = CalcPhongLighting(
-            ka, kd, ks,
+            ka, kd, ks, emission,
             normal, uCameraPosition, position,
-            shininess, shadow
+            shininess, uViewMatrix
         );
     } else if (flag == 2) {
         color = CalcPBRLighting(
-            albedo, metallic, roughness, ao,
-            normal, uCameraPosition, position,
-            shadow
+            albedo, metallic, roughness, ao, emission, 
+            normal, uCameraPosition, position, uViewMatrix
         );
     }
 

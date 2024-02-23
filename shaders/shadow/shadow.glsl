@@ -1,9 +1,22 @@
-#ifndef SHADOW_SHADOW_SOURCES_GLSL_
-#define SHADOW_SHADOW_SOURCES_GLSL_
+#ifndef SHADOW_SHADOW_GLSL_
+#define SHADOW_SHADOW_GLSL_
 
-#include "shadow/directional_shadow.glsl"
+struct DirectionalShadow {
+    // Cascaded Shadow Mapping
+    mat4 viewProjectionMatrices[NUM_CASCADES];
+    float cascadePlaneDistances[NUM_CASCADES * 2];
+    sampler2DArray shadowMap;
+    vec3 dir;
+};
 
-float CalcShadowForSingleCascade(DirectionalShadow directionalShadow, uint layer, vec3 position) {
+struct OmnidirectionalShadow {
+    mat4 viewProjectionMatrices[6];
+    samplerCube shadowMap;
+    vec3 pos;
+    float farPlane;
+};
+
+float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow, uint layer, vec3 position) {
     vec4 homoPosition = directionalShadow.viewProjectionMatrices[layer] * vec4(position, 1.0);
 
     position = homoPosition.xyz / homoPosition.w;
@@ -31,14 +44,9 @@ float CalcShadowForSingleCascade(DirectionalShadow directionalShadow, uint layer
     return shadow;
 }
 
-float CalcShadow(vec3 position) {
-    if (uNumDirectionalShadows == 0) {
-        return 0;
-    }
-    DirectionalShadow directionalShadow = directionalShadows[0];
-
+float CalcDirectionalShadow(DirectionalShadow directionalShadow, vec3 position, mat4 cameraViewMatrix) {
     // select cascade layer
-    vec4 viewSpacePosition = uViewMatrix * vec4(position, 1);
+    vec4 viewSpacePosition = cameraViewMatrix * vec4(position, 1);
     float depth = -viewSpacePosition.z;
 
     float num = 0;
@@ -47,7 +55,7 @@ float CalcShadow(vec3 position) {
         float near = directionalShadow.cascadePlaneDistances[i * 2];
         float far = directionalShadow.cascadePlaneDistances[i * 2 + 1]; 
         if (near <= depth && depth < far) {
-            float shadow = CalcShadowForSingleCascade(directionalShadow, i, position);
+            float shadow = CalcDirectionalShadowForSingleCascade(directionalShadow, i, position);
             float ratio = (far - depth) / (far - near);
             num += shadow * ratio;
             denom += ratio;
@@ -55,6 +63,15 @@ float CalcShadow(vec3 position) {
     }
 
     return num / denom;
+}
+
+float CalcOmnidirectionalShadow(OmnidirectionalShadow omnidirectionalShadow, vec3 position) {
+    vec3 dir = position - omnidirectionalShadow.pos;
+    float currentDepth = distance(position, omnidirectionalShadow.pos) / omnidirectionalShadow.farPlane;
+    float closestDepth = texture(omnidirectionalShadow.shadowMap, dir).r;
+    float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
+
+    return shadow;
 }
 
 #endif

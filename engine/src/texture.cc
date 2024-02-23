@@ -268,8 +268,7 @@ Texture::Texture(void *data, uint32_t target, uint32_t width, uint32_t height,
                type, data);
 
   if (wrap == GL_CLAMP_TO_BORDER) {
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR,
-                     border_color.data());
+    glTexParameterfv(target, GL_TEXTURE_BORDER_COLOR, border_color.data());
   }
 
   if (mipmap) {
@@ -277,6 +276,43 @@ Texture::Texture(void *data, uint32_t target, uint32_t width, uint32_t height,
   }
 
   glBindTexture(target, 0);
+}
+
+Texture::Texture(const std::vector<void *> &data, uint32_t width,
+                 uint32_t height, uint32_t internal_format, uint32_t format,
+                 uint32_t type, uint32_t wrap, uint32_t min_filter,
+                 uint32_t mag_filter, const std::vector<float> &border_color,
+                 bool mipmap) {
+  std::vector<void *> data_copyed = data;
+  if (data_copyed.size() == 0) data_copyed.resize(6, nullptr);
+
+  has_ownership_ = true;
+
+  target_ = GL_TEXTURE_CUBE_MAP;
+
+  glGenTextures(1, &id_);
+  glBindTexture(target_, id_);
+
+  glTexParameteri(target_, GL_TEXTURE_WRAP_S, wrap);
+  glTexParameteri(target_, GL_TEXTURE_WRAP_T, wrap);
+  glTexParameteri(target_, GL_TEXTURE_WRAP_R, wrap);
+  glTexParameteri(target_, GL_TEXTURE_MIN_FILTER, min_filter);
+  glTexParameteri(target_, GL_TEXTURE_MAG_FILTER, mag_filter);
+
+  for (int i = 0; i < 6; i++) {
+    glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, internal_format, width,
+                 height, 0, format, type, data_copyed[i]);
+  }
+
+  if (wrap == GL_CLAMP_TO_BORDER) {
+    glTexParameterfv(target_, GL_TEXTURE_BORDER_COLOR, border_color.data());
+  }
+
+  if (mipmap) {
+    glGenerateMipmap(target_);
+  }
+
+  glBindTexture(target_, 0);
 }
 
 void Texture::Clear() {

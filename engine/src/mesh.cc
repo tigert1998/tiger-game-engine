@@ -74,6 +74,10 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
         color = {0, 0, 0};
       }
       material_.ks = glm::vec3(color.r, color.g, color.b) * value;
+      if (material->Get(AI_MATKEY_COLOR_EMISSIVE, color) != AI_SUCCESS) {
+        color = {0, 0, 0};
+      }
+      material_.ke = glm::vec3(color.r, color.g, color.b);
       if (material->Get(AI_MATKEY_SHININESS, value) != AI_SUCCESS) {
         value = 0;
       }

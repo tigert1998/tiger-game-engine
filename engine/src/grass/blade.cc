@@ -33,7 +33,15 @@ f 5/5 6/6 7/7
 )";
 
 Blade::Blade() {
-  shader_.reset(new Shader("grass/grass.vert", "grass/grass.frag", {}));
+  shader_.reset(new Shader(
+      "grass/grass.vert", "grass/grass.frag",
+      {
+          {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
+          {"AMBIENT_LIGHT_BINDING", std::any(AmbientLight::GLSL_BINDING)},
+          {"DIRECTIONAL_LIGHT_BINDING",
+           std::any(DirectionalLight::GLSL_BINDING)},
+          {"POINT_LIGHT_BINDING", std::any(PointLight::GLSL_BINDING)},
+      }));
 
   auto scene = aiImportFileFromMemory(
       Blade::kOBJSource.c_str(), Blade::kOBJSource.size(),

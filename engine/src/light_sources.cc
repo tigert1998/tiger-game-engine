@@ -1,117 +1,192 @@
 #include "light_sources.h"
 
+#include <fmt/core.h>
 #include <imgui.h>
 
 #include "cg_exception.h"
 
-Ambient::Ambient(glm::vec3 color) : color_(color) {}
+AmbientLight::AmbientLight(glm::vec3 color) : color_(color) {}
 
-void Ambient::Set(Shader *shader, bool not_found_ok) {
-  if (!shader->UniformVariableExists("uAmbientLights.n") && not_found_ok)
-    return;
-  int32_t id = shader->GetUniform<int32_t>("uAmbientLights.n");
-  std::string var =
-      std::string("uAmbientLights.l") + "[" + std::to_string(id) + "]";
-  shader->SetUniform<glm::vec3>(var + ".color", color_);
-  shader->SetUniform<int32_t>("uAmbientLights.n", id + 1);
-}
-
-void Ambient::ImGuiWindow(uint32_t index,
-                          const std::function<void()> &erase_callback) {
-  ImGui::Text("Light Source #%d Type: Ambient", index);
-  if (ImGui::Button(("Erase##light_source_" + std::to_string(index)).c_str())) {
+void AmbientLight::ImGuiWindow(uint32_t index,
+                               const std::function<void()> &erase_callback) {
+  ImGui::Text("Ambient Light #%d:", index);
+  std::string suffix = fmt::format("##ambient_light_{}", index);
+  if (ImGui::Button(fmt::format("Erase{}", suffix).c_str())) {
     erase_callback();
+    return;
   }
+
   float c_arr[3] = {color_.r, color_.g, color_.b};
-  ImGui::InputFloat3(("Color##light_source_" + std::to_string(index)).c_str(),
-                     c_arr);
+  ImGui::InputFloat3(fmt::format("Color{}", suffix).c_str(), c_arr);
   color_ = glm::vec3(c_arr[0], c_arr[1], c_arr[2]);
 }
 
-Directional::Directional(glm::vec3 dir, glm::vec3 color)
-    : dir_(dir), color_(color) {}
-
-void Directional::Set(Shader *shader, bool not_found_ok) {
-  if (!shader->UniformVariableExists("uDirectionalLights.n") && not_found_ok)
-    return;
-  int32_t id = shader->GetUniform<int32_t>("uDirectionalLights.n");
-  std::string var =
-      std::string("uDirectionalLights.l") + "[" + std::to_string(id) + "]";
-  shader->SetUniform<glm::vec3>(var + ".dir", dir_);
-  shader->SetUniform<glm::vec3>(var + ".color", color_);
-  shader->SetUniform<int32_t>("uDirectionalLights.n", id + 1);
+AmbientLight::AmbientLightGLSL AmbientLight::ambient_light_glsl() const {
+  AmbientLightGLSL ret;
+  ret.color = color_;
+  return ret;
 }
 
-void Directional::ImGuiWindow(uint32_t index,
-                              const std::function<void()> &erase_callback) {
-  ImGui::Text("Light Source #%d Type: Directional", index);
-  if (ImGui::Button(("Erase##light_source_" + std::to_string(index)).c_str())) {
+DirectionalLight::DirectionalLight(glm::vec3 dir, glm::vec3 color,
+                                   Camera *camera)
+    : dir_(dir), color_(color), camera_(camera) {}
+
+void DirectionalLight::ImGuiWindow(
+    uint32_t index, const std::function<void()> &erase_callback) {
+  ImGui::Text("Directional Light #%d:", index);
+  std::string suffix = fmt::format("##directional_light_{}", index);
+  if (ImGui::Button(fmt::format("Erase{}", suffix).c_str())) {
     erase_callback();
+    return;
   }
+
   float d_arr[3] = {dir_.x, dir_.y, dir_.z};
-  ImGui::InputFloat3(
-      ("Direction##light_source_" + std::to_string(index)).c_str(), d_arr);
+  ImGui::InputFloat3(fmt::format("Direction{}", suffix).c_str(), d_arr);
   dir_ = glm::vec3(d_arr[0], d_arr[1], d_arr[2]);
   float c_arr[3] = {color_.r, color_.g, color_.b};
-  ImGui::InputFloat3(("Color##light_source_" + std::to_string(index)).c_str(),
-                     c_arr);
+  ImGui::InputFloat3(fmt::format("Color{}", suffix).c_str(), c_arr);
   color_ = glm::vec3(c_arr[0], c_arr[1], c_arr[2]);
+
+  if (shadow_ == nullptr) {
+    if (ImGui::Button(fmt::format("Add Shadow{}", suffix).c_str())) {
+      shadow_ = std::unique_ptr<DirectionalShadow>(
+          new DirectionalShadow(dir_, 2048, 2048, camera_));
+    }
+  } else {
+    if (ImGui::Button(fmt::format("Erase Shadow{}", suffix).c_str())) {
+      shadow_ = nullptr;
+    }
+  }
+
+  if (shadow_ != nullptr) {
+    shadow_->set_direction(dir_);
+  }
 }
 
-Point::Point(glm::vec3 pos, glm::vec3 color, glm::vec3 attenuation)
+DirectionalLight::DirectionalLightGLSL
+DirectionalLight::directional_light_glsl() const {
+  DirectionalLightGLSL ret;
+  ret.dir = dir_;
+  ret.color = color_;
+  ret.shadow_enabled = shadow_ != nullptr;
+  if (shadow_ != nullptr) {
+    ret.shadow = shadow_->directional_shadow_glsl();
+  }
+  return ret;
+}
+
+PointLight::PointLight(glm::vec3 pos, glm::vec3 color, glm::vec3 attenuation)
     : pos_(pos), color_(color), attenuation_(attenuation) {}
 
-void Point::Set(Shader *shader, bool not_found_ok) {
-  if (!shader->UniformVariableExists("uPointLights.n") && not_found_ok) return;
-  int32_t id = shader->GetUniform<int32_t>("uPointLights.n");
-  std::string var =
-      std::string("uPointLights.l") + "[" + std::to_string(id) + "]";
-  shader->SetUniform<glm::vec3>(var + ".pos", pos_);
-  shader->SetUniform<glm::vec3>(var + ".color", color_);
-  shader->SetUniform<glm::vec3>(var + ".attenuation", attenuation_);
-  shader->SetUniform<int32_t>("uPointLights.n", id + 1);
-}
+void PointLight::ImGuiWindow(uint32_t index,
+                             const std::function<void()> &erase_callback) {
+  std::string suffix = fmt::format("##point_light_{}", index);
 
-void Point::ImGuiWindow(uint32_t index,
-                        const std::function<void()> &erase_callback) {
-  ImGui::Text("Light Source #%d Type: Point", index);
-  if (ImGui::Button(("Erase##light_source_" + std::to_string(index)).c_str())) {
+  ImGui::Text("Point Light #%d:", index);
+  if (ImGui::Button(fmt::format("Erase{}", suffix).c_str())) {
     erase_callback();
+    return;
   }
+
   float p_arr[3] = {pos_.x, pos_.y, pos_.z};
-  ImGui::InputFloat3(
-      ("Position##light_source_" + std::to_string(index)).c_str(), p_arr);
+  ImGui::InputFloat3(fmt::format("Position{}", suffix).c_str(), p_arr);
   pos_ = glm::vec3(p_arr[0], p_arr[1], p_arr[2]);
   float c_arr[3] = {color_.r, color_.g, color_.b};
-  ImGui::InputFloat3(("Color##light_source_" + std::to_string(index)).c_str(),
-                     c_arr, 0);
+  ImGui::InputFloat3(fmt::format("Color{}", suffix).c_str(), c_arr, 0);
   color_ = glm::vec3(c_arr[0], c_arr[1], c_arr[2]);
   float a_arr[3] = {attenuation_.x, attenuation_.y, attenuation_.z};
-  ImGui::InputFloat3(
-      ("Attenuation##light_source_" + std::to_string(index)).c_str(), a_arr);
+  ImGui::InputFloat3(fmt::format("Attenuation{}", suffix).c_str(), a_arr);
   attenuation_ = glm::vec3(a_arr[0], a_arr[1], a_arr[2]);
-}
 
-void LightSources::Add(std::unique_ptr<Light> light) {
-  lights_.emplace_back(std::move(light));
-}
-
-Light *LightSources::Get(int32_t index) { return lights_[index].get(); }
-
-void LightSources::Set(Shader *shader, bool not_found_ok) {
-  for (auto name :
-       std::vector<std::string>{"Ambient", "Directional", "Point"}) {
-    std::string var = std::string("u") + name + "Lights.n";
-    if (!shader->UniformVariableExists(var) && not_found_ok) continue;
-    shader->SetUniform<int32_t>(var, 0);
+  if (shadow_ == nullptr) {
+    if (ImGui::Button(fmt::format("Add Shadow{}", suffix).c_str())) {
+      shadow_ = std::unique_ptr<OmnidirectionalShadow>(
+          new OmnidirectionalShadow(pos_, 2048, 2048));
+    }
+  } else {
+    if (ImGui::Button(fmt::format("Erase Shadow{}", suffix).c_str())) {
+      shadow_ = nullptr;
+    }
   }
 
-  for (int i = 0; i < lights_.size(); i++) {
-    lights_[i]->Set(shader, not_found_ok);
+  if (shadow_ != nullptr) {
+    shadow_->set_position(pos_);
   }
 }
 
-void LightSources::ImGuiWindow() {
+PointLight::PointLightGLSL PointLight::point_light_glsl() const {
+  PointLightGLSL ret;
+  ret.pos = pos_;
+  ret.color = color_;
+  ret.attenuation = attenuation_;
+  ret.shadow_enabled = shadow_ != nullptr;
+  if (shadow_ != nullptr) {
+    ret.shadow = shadow_->omnidirectional_shadow_glsl();
+  }
+  return ret;
+}
+
+void LightSources::ResizeAmbientSSBO() {
+  ambient_lights_ssbo_.reset(
+      new SSBO(sizeof(AmbientLight::AmbientLightGLSL) * ambient_lights_.size(),
+               nullptr, GL_DYNAMIC_DRAW, AmbientLight::GLSL_BINDING));
+}
+
+void LightSources::ResizeDirectioanlSSBO() {
+  directional_lights_ssbo_.reset(
+      new SSBO(sizeof(DirectionalLight::DirectionalLightGLSL) *
+                   directional_lights_.size(),
+               nullptr, GL_DYNAMIC_DRAW, DirectionalLight::GLSL_BINDING));
+}
+
+void LightSources::ResizePointSSBO() {
+  point_lights_ssbo_.reset(
+      new SSBO(sizeof(PointLight::PointLightGLSL) * point_lights_.size(),
+               nullptr, GL_DYNAMIC_DRAW, PointLight::GLSL_BINDING));
+}
+
+LightSources::LightSources() {
+  ResizeAmbientSSBO();
+  ResizeDirectioanlSSBO();
+  ResizePointSSBO();
+}
+
+uint32_t LightSources::SizeAmbient() const { return ambient_lights_.size(); }
+
+uint32_t LightSources::SizeDirectional() const {
+  return directional_lights_.size();
+}
+
+uint32_t LightSources::SizePoint() const { return point_lights_.size(); }
+
+void LightSources::AddAmbient(std::unique_ptr<AmbientLight> light) {
+  ambient_lights_.emplace_back(std::move(light));
+  ResizeAmbientSSBO();
+}
+
+void LightSources::AddDirectional(std::unique_ptr<DirectionalLight> light) {
+  directional_lights_.emplace_back(std::move(light));
+  ResizeDirectioanlSSBO();
+}
+
+void LightSources::AddPoint(std::unique_ptr<PointLight> light) {
+  point_lights_.emplace_back(std::move(light));
+  ResizePointSSBO();
+}
+
+AmbientLight *LightSources::GetAmbient(uint32_t index) const {
+  return ambient_lights_[index].get();
+}
+
+DirectionalLight *LightSources::GetDirectional(uint32_t index) const {
+  return directional_lights_[index].get();
+}
+
+PointLight *LightSources::GetPoint(uint32_t index) const {
+  return point_lights_[index].get();
+}
+
+void LightSources::ImGuiWindow(Camera *camera) {
   ImGui::Begin("Light Sources:");
 
   const char *light_source_types[] = {"Ambient", "Directional", "Point"};
@@ -121,18 +196,91 @@ void LightSources::ImGuiWindow() {
   ImGui::SameLine();
   if (ImGui::Button("Add##add_light_source")) {
     if (light_source_type == 0) {
-      Add(std::make_unique<Ambient>(glm::vec3(0.1f)));
+      AddAmbient(std::make_unique<AmbientLight>(glm::vec3(0.1f)));
     } else if (light_source_type == 1) {
-      Add(std::make_unique<Directional>(glm::vec3(0, -1, 0), glm::vec3(1)));
+      AddDirectional(std::make_unique<DirectionalLight>(glm::vec3(0, -1, 0),
+                                                        glm::vec3(1), camera));
     } else if (light_source_type == 2) {
-      Add(std::make_unique<Point>(glm::vec3(0), glm::vec3(1),
-                                  glm::vec3(1, 0, 0)));
+      AddPoint(std::make_unique<PointLight>(glm::vec3(0), glm::vec3(1),
+                                            glm::vec3(1, 0, 0)));
     }
   }
 
-  for (int i = 0; i < lights_.size(); i++) {
-    lights_[i]->ImGuiWindow(
-        i, [this, i]() { this->lights_.erase(lights_.begin() + i); });
+  for (int i = 0; i < ambient_lights_.size(); i++) {
+    ambient_lights_[i]->ImGuiWindow(i, [this, i]() {
+      this->ambient_lights_.erase(ambient_lights_.begin() + i);
+      this->ResizeAmbientSSBO();
+    });
   }
+
+  for (int i = 0; i < directional_lights_.size(); i++) {
+    directional_lights_[i]->ImGuiWindow(i, [this, i]() {
+      this->directional_lights_.erase(directional_lights_.begin() + i);
+      this->ResizeDirectioanlSSBO();
+    });
+  }
+
+  for (int i = 0; i < point_lights_.size(); i++) {
+    point_lights_[i]->ImGuiWindow(i, [this, i]() {
+      this->point_lights_.erase(point_lights_.begin() + i);
+      this->ResizePointSSBO();
+    });
+  }
+
   ImGui::End();
+}
+
+void LightSources::Set() {
+  // ambient
+  std::vector<AmbientLight::AmbientLightGLSL> ambient_light_glsl_vec;
+  for (const auto &light : ambient_lights_) {
+    ambient_light_glsl_vec.push_back(light->ambient_light_glsl());
+  }
+  glNamedBufferSubData(
+      ambient_lights_ssbo_->id(), 0,
+      ambient_light_glsl_vec.size() * sizeof(ambient_light_glsl_vec[0]),
+      ambient_light_glsl_vec.data());
+  ambient_lights_ssbo_->BindBufferBase();
+
+  // directional
+  std::vector<DirectionalLight::DirectionalLightGLSL>
+      directional_light_glsl_vec;
+  for (const auto &light : directional_lights_) {
+    directional_light_glsl_vec.push_back(light->directional_light_glsl());
+  }
+  glNamedBufferSubData(
+      directional_lights_ssbo_->id(), 0,
+      directional_light_glsl_vec.size() * sizeof(directional_light_glsl_vec[0]),
+      directional_light_glsl_vec.data());
+  directional_lights_ssbo_->BindBufferBase();
+
+  // point
+  std::vector<PointLight::PointLightGLSL> point_light_glsl_vec;
+  for (const auto &light : point_lights_) {
+    point_light_glsl_vec.push_back(light->point_light_glsl());
+  }
+  glNamedBufferSubData(
+      point_lights_ssbo_->id(), 0,
+      point_light_glsl_vec.size() * sizeof(point_light_glsl_vec[0]),
+      point_light_glsl_vec.data());
+  point_lights_ssbo_->BindBufferBase();
+}
+
+void LightSources::DrawDepthForShadow(
+    const std::function<void(int32_t, int32_t)> &render_pass) {
+  glDisable(GL_CULL_FACE);
+  for (int i = 0; i < directional_lights_.size(); i++) {
+    if (directional_lights_[i]->shadow() == nullptr) continue;
+    directional_lights_[i]->shadow()->Bind();
+    glClear(GL_DEPTH_BUFFER_BIT);
+    render_pass(i, -1);
+    directional_lights_[i]->shadow()->Unbind();
+  }
+  for (int i = 0; i < point_lights_.size(); i++) {
+    if (point_lights_[i]->shadow() == nullptr) continue;
+    point_lights_[i]->shadow()->Bind();
+    glClear(GL_DEPTH_BUFFER_BIT);
+    render_pass(-1, i);
+    point_lights_[i]->shadow()->Unbind();
+  }
 }

@@ -30,3 +30,6 @@ target_link_libraries(px-demo engine)
 
 add_executable(instancing-demo "apps/instancing-demo/src/main.cc")
 target_link_libraries(instancing-demo engine)
+
+add_executable(omnidirectional-shadow-demo "apps/omnidirectional-shadow-demo/src/main.cc")
+target_link_libraries(omnidirectional-shadow-demo engine)

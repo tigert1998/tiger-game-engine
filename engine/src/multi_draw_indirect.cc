@@ -64,7 +64,8 @@ void GPUDrivenWorkloadGeneration::AllocateBuffers(
       new SSBO(1024 * sizeof(uint32_t), nullptr, GL_DYNAMIC_DRAW, 1));
 }
 
-void GPUDrivenWorkloadGeneration::Compute(bool is_shadow_pass) {
+void GPUDrivenWorkloadGeneration::Compute(bool is_directional_shadow_pass,
+                                          bool is_omnidirectional_shadow_pass) {
   // compute frustum culling and lod selection
   frustum_culling_and_lod_selection_shader_->Use();
   aabbs_ssbo_->BindBufferBase(0);
@@ -80,7 +81,9 @@ void GPUDrivenWorkloadGeneration::Compute(bool is_shadow_pass) {
   instance_to_cmd_ssbo_->BindBufferBase(7);
   dynamic_buffers_.shadow_obbs_ssbo->BindBufferBase(8);
   frustum_culling_and_lod_selection_shader_->SetUniform<int32_t>(
-      "uIsShadowPass", is_shadow_pass);
+      "uIsDirectionalShadowPass", is_directional_shadow_pass);
+  frustum_culling_and_lod_selection_shader_->SetUniform<int32_t>(
+      "uIsOmnidirectionalShadowPass", is_omnidirectional_shadow_pass);
   frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
       "uNumCascades", DirectionalShadow::NUM_CASCADES);
   frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
@@ -254,19 +257,35 @@ void MultiDrawIndirect::BindBuffers() {
 }
 
 void MultiDrawIndirect::DrawDepthForShadow(
-    ShadowSources *shadow_sources, int32_t directional_index,
+    LightSources *light_sources, int32_t directional_index, int32_t point_index,
     const std::vector<RenderTargetParameter> &render_target_params) {
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
-  auto obbs = shadow_sources->GetDirectional(directional_index)->cascade_obbs();
-  glNamedBufferSubData(shadow_obbs_ssbo_->id(), 0,
-                       obbs.size() * sizeof(obbs[0]), obbs.data());
-  gpu_driven_->Compute(true);
+  if (directional_index >= 0) {
+    auto obbs = light_sources->GetDirectional(directional_index)
+                    ->shadow()
+                    ->cascade_obbs();
+    glNamedBufferSubData(shadow_obbs_ssbo_->id(), 0,
+                         obbs.size() * sizeof(obbs[0]), obbs.data());
+    gpu_driven_->Compute(true, false);
+  } else if (point_index >= 0) {
+    gpu_driven_->Compute(false, true);
+  }
 
   BindBuffers();
-  Model::kShadowShader->Use();
-  shadow_sources->Set(Model::kShadowShader.get());
+
+  if (directional_index >= 0) {
+    Model::kDirectionalShadowShader->Use();
+    light_sources->Set();
+    Model::kDirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
+                                                          directional_index);
+  } else if (point_index >= 0) {
+    Model::kOmnidirectionalShadowShader->Use();
+    light_sources->Set();
+    Model::kOmnidirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
+                                                              point_index);
+  }
 
   glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                               commands_.size(), 0);
@@ -275,16 +294,15 @@ void MultiDrawIndirect::DrawDepthForShadow(
 }
 
 void MultiDrawIndirect::Draw(
-    Camera *camera, LightSources *light_sources, ShadowSources *shadow_sources,
-    OITRenderQuad *oit_render_quad, bool deferred_shading, bool default_shading,
-    bool force_pbr,
+    Camera *camera, LightSources *light_sources, OITRenderQuad *oit_render_quad,
+    bool deferred_shading, bool default_shading, bool force_pbr,
     const std::vector<RenderTargetParameter> &render_target_params) {
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
   Frustum frustum = camera->frustum();
   glNamedBufferSubData(frustum_ssbo_->id(), 0, sizeof(Frustum), &frustum);
-  gpu_driven_->Compute(false);
+  gpu_driven_->Compute(false, false);
 
   Shader *shader = nullptr;
   if (oit_render_quad != nullptr) {
@@ -301,9 +319,7 @@ void MultiDrawIndirect::Draw(
     oit_render_quad->Set(shader);
   }
   if (!deferred_shading) {
-    light_sources->Set(shader, false);
-    int32_t num_samplers = 0;
-    shadow_sources->Set(shader);
+    light_sources->Set();
     shader->SetUniform<glm::vec3>("uCameraPosition", camera->position());
   }
   shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
@@ -446,6 +462,8 @@ void MultiDrawIndirect::PrepareForDraw() {
   constants.num_instances = num_instances_;
   gpu_driven_.reset(new GPUDrivenWorkloadGeneration(
       fixed_arrays, dynamic_buffers, constants));
+
+  fmt::print(stderr, "[info] # of triangles: {}\n", num_triangles_);
 }
 
 void MultiDrawIndirect::Receive(
@@ -461,6 +479,7 @@ void MultiDrawIndirect::Receive(
   mesh_to_cmd_offset_.push_back(commands_.size());
   mesh_to_num_cmds_.push_back(indices.size());
 
+  num_triangles_ += indices[0].size() / 3;
   for (int i = 0; i < indices.size(); i++) {
     DrawElementsIndirectCommand cmd;
     cmd.count = indices[i].size();
@@ -489,6 +508,7 @@ void MultiDrawIndirect::Receive(
   material.ka = phong_material.ka;
   material.kd = phong_material.kd;
   material.ks = phong_material.ks;
+  material.ke = phong_material.ke;
   material.shininess = phong_material.shininess;
   if (texture_records[4].type != "METALNESS" ||
       texture_records[5].type != "DIFFUSE_ROUGHNESS") {

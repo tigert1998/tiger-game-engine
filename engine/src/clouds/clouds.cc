@@ -31,7 +31,15 @@ void Clouds::Deallocate() { frag_color_texture_.Clear(); }
 
 Clouds::Clouds(uint32_t width, uint32_t height) {
   noise_texture_generator_.reset(new NoiseTextureGenerator(0.8));
-  shader_.reset(new Shader({{GL_COMPUTE_SHADER, "clouds/clouds.comp"}}, {}));
+  shader_.reset(new Shader(
+      {{GL_COMPUTE_SHADER, "clouds/clouds.comp"}},
+      {
+          {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
+          {"AMBIENT_LIGHT_BINDING", std::any(AmbientLight::GLSL_BINDING)},
+          {"DIRECTIONAL_LIGHT_BINDING",
+           std::any(DirectionalLight::GLSL_BINDING)},
+          {"POINT_LIGHT_BINDING", std::any(PointLight::GLSL_BINDING)},
+      }));
   screen_space_shader_ = Shader::ScreenSpaceShader("clouds/clouds.frag", {});
   glGenVertexArrays(1, &vao_);
   Allocate(width, height);
@@ -44,7 +52,7 @@ void Clouds::Resize(uint32_t width, uint32_t height) {
 
 void Clouds::Draw(Camera *camera, LightSources *light_sources, double time) {
   shader_->Use();
-  light_sources->Set(shader_.get(), true);
+  light_sources->Set();
   glBindImageTexture(0, frag_color_texture_.id(), 0, GL_FALSE, 0, GL_WRITE_ONLY,
                      GL_RGBA32F);
   shader_->SetUniform<int32_t>("uFragColor", 0);

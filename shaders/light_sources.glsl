@@ -1,3 +1,8 @@
+#ifndef LIGHT_SOURCES_GLSL_
+#define LIGHT_SOURCES_GLSL_
+
+#include "shadow/shadow.glsl"
+
 struct AmbientLight {
     vec3 color;
 };
@@ -5,32 +10,29 @@ struct AmbientLight {
 struct DirectionalLight {
     vec3 dir;
     vec3 color;
+    bool shadowEnabled;
+    DirectionalShadow shadow;
 };
 
 struct PointLight {
     vec3 pos;
     vec3 color;
     vec3 attenuation;
+    bool shadowEnabled;
+    OmnidirectionalShadow shadow;
 };
 
-struct AmbientLights {
-    int n;
-    AmbientLight l[1];
+layout (std430, binding = AMBIENT_LIGHT_BINDING) buffer ambientLightsBuffer {
+    AmbientLight ambientLights[];
 };
 
-struct DirectionalLights {
-    int n;
-    DirectionalLight l[1];
+layout (std430, binding = DIRECTIONAL_LIGHT_BINDING) buffer directionalLightsBuffer {
+    DirectionalLight directionalLights[];
 };
 
-struct PointLights {
-    int n;
-    PointLight l[8];
+layout (std430, binding = POINT_LIGHT_BINDING) buffer pointLightsBuffer {
+    PointLight pointLights[];
 };
-
-uniform AmbientLights uAmbientLights;
-uniform DirectionalLights uDirectionalLights;
-uniform PointLights uPointLights;
 
 vec3 CalcAmbient(vec3 ka) {
     return ka;
@@ -49,28 +51,34 @@ vec3 CalcSpecular(vec3 lightDirection, vec3 normal, vec3 viewDirection, float sh
 }
 
 vec3 CalcPhongLighting(
-    vec3 ka, vec3 kd, vec3 ks,
+    vec3 ka, vec3 kd, vec3 ks, vec3 emission,
     vec3 normal, vec3 cameraPosition, vec3 position,
-    float shininess, float shadow
+    float shininess, mat4 cameraViewMatrix
 ) {
-    vec3 color = vec3(0);
-    for (int i = 0; i < uAmbientLights.n; i++) {
-        color += CalcAmbient(ka) * uAmbientLights.l[i].color;
+    vec3 color = emission;
+    for (int i = 0; i < ambientLights.length(); i++) {
+        color += CalcAmbient(ka) * ambientLights[i].color;
     }
-    for (int i = 0; i < uDirectionalLights.n; i++) {
-        color += CalcDiffuse(-uDirectionalLights.l[i].dir, normal, kd) *
-            uDirectionalLights.l[i].color * (1 - shadow);
-        color += CalcSpecular(-uDirectionalLights.l[i].dir, normal, cameraPosition - position, shininess, ks) *
-            uDirectionalLights.l[i].color * (1 - shadow);
+    for (int i = 0; i < directionalLights.length(); i++) {
+        float shadow = directionalLights[i].shadowEnabled ? 
+            CalcDirectionalShadow(directionalLights[i].shadow, position, cameraViewMatrix) : 0;
+
+        color += CalcDiffuse(-directionalLights[i].dir, normal, kd) *
+            directionalLights[i].color * (1 - shadow);
+        color += CalcSpecular(-directionalLights[i].dir, normal, cameraPosition - position, shininess, ks) *
+            directionalLights[i].color * (1 - shadow);
     }
-    for (int i = 0; i < uPointLights.n; i++) {
-        vec3 attenuation = uPointLights.l[i].attenuation;
-        float dis = distance(uPointLights.l[i].pos, position);
-        vec3 pointLightColor = uPointLights.l[i].color /
+    for (int i = 0; i < pointLights.length(); i++) {
+        float shadow = pointLights[i].shadowEnabled ? 
+            CalcOmnidirectionalShadow(pointLights[i].shadow, position) : 0;
+
+        vec3 attenuation = pointLights[i].attenuation;
+        float dis = distance(pointLights[i].pos, position);
+        vec3 pointLightColor = pointLights[i].color /
             (attenuation.x + attenuation.y * dis + attenuation.z * pow(dis, 2));
-        color += CalcDiffuse(uPointLights.l[i].pos - position, normal, kd) *
+        color += CalcDiffuse(pointLights[i].pos - position, normal, kd) *
             pointLightColor * (1 - shadow);
-        color += CalcSpecular(uPointLights.l[i].pos - position, normal, cameraPosition - position, shininess, ks) *
+        color += CalcSpecular(pointLights[i].pos - position, normal, cameraPosition - position, shininess, ks) *
             pointLightColor * (1 - shadow);
     }
 
@@ -147,31 +155,36 @@ vec3 CalcPBRLightingForSingleLightSource(
 }
 
 vec3 CalcPBRLighting(
-    vec3 albedo, float metallic, float roughness, float ao,
-    vec3 normal, vec3 cameraPosition, vec3 position,
-    float shadow
+    vec3 albedo, float metallic, float roughness, float ao, vec3 emission,
+    vec3 normal, vec3 cameraPosition, vec3 position, mat4 cameraViewMatrix
 ) {
-    vec3 color = vec3(0);
+    vec3 color = emission;
 
-    for (int i = 0; i < uAmbientLights.n; i++) {
-        color += albedo * uAmbientLights.l[i].color * ao;
+    for (int i = 0; i < ambientLights.length(); i++) {
+        color += albedo * ambientLights[i].color * ao;
     }
 
-    for (int i = 0; i < uDirectionalLights.n; i++) {
+    for (int i = 0; i < directionalLights.length(); i++) {
+        float shadow = directionalLights[i].shadowEnabled ? 
+            CalcDirectionalShadow(directionalLights[i].shadow, position, cameraViewMatrix) : 0;
+
         color += CalcPBRLightingForSingleLightSource(
             albedo, metallic, roughness,
-            normal, cameraPosition - position, -uDirectionalLights.l[i].dir,
-            uDirectionalLights.l[i].color
+            normal, cameraPosition - position, -directionalLights[i].dir,
+            directionalLights[i].color
         ) * (1 - shadow);
     }
-    for (int i = 0; i < uPointLights.n; i++) {
-        vec3 attenuation = uPointLights.l[i].attenuation;
-        float dis = distance(uPointLights.l[i].pos, position);
-        vec3 pointLightColor = uPointLights.l[i].color /
+    for (int i = 0; i < pointLights.length(); i++) {
+        float shadow = pointLights[i].shadowEnabled ? 
+            CalcOmnidirectionalShadow(pointLights[i].shadow, position) : 0;
+
+        vec3 attenuation = pointLights[i].attenuation;
+        float dis = distance(pointLights[i].pos, position);
+        vec3 pointLightColor = pointLights[i].color /
             (attenuation.x + attenuation.y * dis + attenuation.z * pow(dis, 2));
         color += CalcPBRLightingForSingleLightSource(
             albedo, metallic, roughness,
-            normal, cameraPosition - position, uPointLights.l[i].pos - position,
+            normal, cameraPosition - position, pointLights[i].pos - position,
             pointLightColor
         ) * (1 - shadow);
     }
@@ -183,3 +196,5 @@ vec3 CalcPBRLighting(
 
     return color;
 }
+
+#endif

@@ -14,7 +14,7 @@
 #include "mesh.h"
 #include "multi_draw_indirect.h"
 #include "shader.h"
-#include "shadow_sources.h"
+#include "shadows.h"
 
 class Model {
   friend class MultiDrawIndirect;
@@ -55,7 +55,8 @@ class Model {
 
   static std::unique_ptr<Shader> kShader;
   static std::unique_ptr<Shader> kOITShader;
-  static std::unique_ptr<Shader> kShadowShader;
+  static std::unique_ptr<Shader> kDirectionalShadowShader;
+  static std::unique_ptr<Shader> kOmnidirectionalShadowShader;
   static std::unique_ptr<Shader> kDeferredShadingShader;
 };
 

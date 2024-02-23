@@ -5,7 +5,7 @@
 layout (triangles, invocations = NUM_CASCADES) in;
 layout (triangle_strip, max_vertices = 3) out;
 
-#include "shadow/directional_shadow.glsl"
+#include "light_sources.glsl"
 
 in vec2 vTexCoord[3];
 in mat3 vTBN[3];
@@ -14,8 +14,10 @@ out vec2 gTexCoord;
 out mat3 gTBN;
 flat out int gInstanceID;
 
+uniform uint uLightIndex;
+
 void main() {
-    DirectionalShadow directionalShadow = directionalShadows[0];
+    DirectionalShadow directionalShadow = directionalLights[uLightIndex].shadow;
 
     for (int i = 0; i < 3; ++i) {
         gl_Position = directionalShadow.viewProjectionMatrices[gl_InvocationID] * gl_in[i].gl_Position;
