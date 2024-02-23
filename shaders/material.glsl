@@ -6,7 +6,7 @@ struct Material {
     int metalnessTexture;
     int diffuseRoughnessTexture;
     int ambientOcclusionTexture;
-    vec3 ka, kd, ks;
+    vec3 ka, kd, ks, ke;
     float shininess;
     bool bindMetalnessAndDiffuseRoughness;
 };

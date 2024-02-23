@@ -508,6 +508,7 @@ void MultiDrawIndirect::Receive(
   material.ka = phong_material.ka;
   material.kd = phong_material.kd;
   material.ks = phong_material.ks;
+  material.ke = phong_material.ke;
   material.shininess = phong_material.shininess;
   if (texture_records[4].type != "METALNESS" ||
       texture_records[5].type != "DIFFUSE_ROUGHNESS") {

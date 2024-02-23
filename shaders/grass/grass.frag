@@ -24,7 +24,7 @@ vec4 CalcFragColor() {
     vec3 normal = facing > 0 ? vNormal : -vNormal;
 
     vec3 color = CalcPhongLighting(
-        green, green, vec3(zero),
+        green, green, vec3(zero), vec3(zero),
         normal, uCameraPosition, vPosition,
         0, uViewMatrix
     );

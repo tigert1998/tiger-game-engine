@@ -151,6 +151,14 @@ LightSources::LightSources() {
   ResizePointSSBO();
 }
 
+uint32_t LightSources::SizeAmbient() const { return ambient_lights_.size(); }
+
+uint32_t LightSources::SizeDirectional() const {
+  return directional_lights_.size();
+}
+
+uint32_t LightSources::SizePoint() const { return point_lights_.size(); }
+
 void LightSources::AddAmbient(std::unique_ptr<AmbientLight> light) {
   ambient_lights_.emplace_back(std::move(light));
   ResizeAmbientSSBO();

@@ -16,6 +16,7 @@ uniform sampler2D kd;
 uniform sampler2D ksAndShininess;
 uniform sampler2D albedo;
 uniform sampler2D metallicAndRoughnessAndAo;
+uniform sampler2D emission;
 uniform sampler2D normalAndAlpha;
 uniform usampler2D flag;
 uniform sampler2D depth;
@@ -37,6 +38,7 @@ void main() {
             texture(ka, coord).rgb,
             texture(kd, coord).rgb,
             texture(ksAndShininess, coord).rgb,
+            texture(emission, coord).rgb,
             texture(normalAndAlpha, coord).xyz,
             uCameraPosition,
             position,
@@ -54,6 +56,7 @@ void main() {
             texture(metallicAndRoughnessAndAo, coord).x, 
             texture(metallicAndRoughnessAndAo, coord).y,
             ao,
+            texture(emission, coord).rgb,
             texture(normalAndAlpha, coord).xyz,
             uCameraPosition,
             position,

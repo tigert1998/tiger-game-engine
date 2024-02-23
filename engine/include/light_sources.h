@@ -73,6 +73,15 @@ class PointLight : public Light {
 
   explicit PointLight(glm::vec3 pos, glm::vec3 color, glm::vec3 attenuation);
 
+  inline glm::vec3 position() { return pos_; }
+  inline glm::vec3 color() { return color_; }
+  inline glm::vec3 attenuation() { return attenuation_; }
+  inline void set_position(glm::vec3 pos) { pos_ = pos; }
+  inline void set_color(glm::vec3 color) { color_ = color; }
+  inline void set_attenuation(glm::vec3 attenuation) {
+    attenuation_ = attenuation;
+  }
+
   inline OmnidirectionalShadow *shadow() { return shadow_.get(); }
 
   void ImGuiWindow(uint32_t index,
@@ -106,6 +115,9 @@ class LightSources {
  public:
   explicit LightSources();
 
+  uint32_t SizeAmbient() const;
+  uint32_t SizeDirectional() const;
+  uint32_t SizePoint() const;
   void AddAmbient(std::unique_ptr<AmbientLight> light);
   void AddDirectional(std::unique_ptr<DirectionalLight> light);
   void AddPoint(std::unique_ptr<PointLight> light);

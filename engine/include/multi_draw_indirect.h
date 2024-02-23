@@ -52,7 +52,7 @@ struct TextureRecord {
 };
 
 struct PhongMaterial {
-  glm::vec3 ka, kd, ks;
+  glm::vec3 ka, kd, ks, ke;
   float shininess;
 };
 
@@ -198,6 +198,7 @@ class MultiDrawIndirect {
     alignas(16) glm::vec3 ka;
     alignas(16) glm::vec3 kd;
     alignas(16) glm::vec3 ks;
+    alignas(16) glm::vec3 ke;
     alignas(4) float shininess;
     int32_t bind_metalness_and_diffuse_roughness;
   };

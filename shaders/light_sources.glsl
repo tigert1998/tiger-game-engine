@@ -51,11 +51,11 @@ vec3 CalcSpecular(vec3 lightDirection, vec3 normal, vec3 viewDirection, float sh
 }
 
 vec3 CalcPhongLighting(
-    vec3 ka, vec3 kd, vec3 ks,
+    vec3 ka, vec3 kd, vec3 ks, vec3 emission,
     vec3 normal, vec3 cameraPosition, vec3 position,
     float shininess, mat4 cameraViewMatrix
 ) {
-    vec3 color = vec3(0);
+    vec3 color = emission;
     for (int i = 0; i < ambientLights.length(); i++) {
         color += CalcAmbient(ka) * ambientLights[i].color;
     }
@@ -155,10 +155,10 @@ vec3 CalcPBRLightingForSingleLightSource(
 }
 
 vec3 CalcPBRLighting(
-    vec3 albedo, float metallic, float roughness, float ao,
+    vec3 albedo, float metallic, float roughness, float ao, vec3 emission,
     vec3 normal, vec3 cameraPosition, vec3 position, mat4 cameraViewMatrix
 ) {
-    vec3 color = vec3(0);
+    vec3 color = emission;
 
     for (int i = 0; i < ambientLights.length(); i++) {
         color += albedo * ambientLights[i].color * ao;
