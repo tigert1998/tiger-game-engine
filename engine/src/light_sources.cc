@@ -101,7 +101,7 @@ void PointLight::ImGuiWindow(uint32_t index,
   if (shadow_ == nullptr) {
     if (ImGui::Button(fmt::format("Add Shadow{}", suffix).c_str())) {
       shadow_ = std::unique_ptr<OmnidirectionalShadow>(
-          new OmnidirectionalShadow(pos_, 2048, 2048));
+          new OmnidirectionalShadow(pos_, 1, 2048, 2048));
     }
   } else {
     if (ImGui::Button(fmt::format("Erase Shadow{}", suffix).c_str())) {
@@ -111,6 +111,11 @@ void PointLight::ImGuiWindow(uint32_t index,
 
   if (shadow_ != nullptr) {
     shadow_->set_position(pos_);
+
+    float radius = shadow_->radius();
+    ImGui::SliderFloat(fmt::format("Shadow Radius{}", suffix).c_str(), &radius,
+                       0, 10);
+    shadow_->set_radius(radius);
   }
 }
 

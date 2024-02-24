@@ -178,10 +178,13 @@ void DirectionalShadow::Visualize() const {
 
 std::unique_ptr<DirectionalShadowViewer> DirectionalShadow::kViewer = nullptr;
 
-OmnidirectionalShadow::OmnidirectionalShadow(glm::vec3 position,
+OmnidirectionalShadow::OmnidirectionalShadow(glm::vec3 position, float radius,
                                              uint32_t fbo_width,
                                              uint32_t fbo_height)
-    : position_(position), fbo_width_(fbo_width), fbo_height_(fbo_height) {
+    : position_(position),
+      radius_(radius),
+      fbo_width_(fbo_width),
+      fbo_height_(fbo_height) {
   std::vector<Texture> empty;
   Texture depth_texture(std::vector<void *>{}, fbo_width, fbo_height,
                         GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT,
@@ -232,6 +235,7 @@ OmnidirectionalShadow::omnidirectional_shadow_glsl() const {
   std::copy(vpms.begin(), vpms.end(), ret.view_projection_matrices);
   ret.shadow_map = fbo_->depth_texture().handle();
   ret.pos = position_;
+  ret.radius = radius_;
   ret.far_plane = z_far_;
   return ret;
 }

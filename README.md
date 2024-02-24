@@ -34,6 +34,8 @@ and set "OpenGL GDI compatibility" to "Compatibility first".
 - Multi draw call
 - Order Independent Transparency
 - Cascaded shadow mapping
+- Omnidirectional shadow mapping
+- PCF/PCSS
 - Skybox
 - SMAA
 

@@ -1,7 +1,7 @@
 #ifndef LIGHT_SOURCES_GLSL_
 #define LIGHT_SOURCES_GLSL_
 
-#include "shadow/shadow.glsl"
+#include "shadow/shadows.glsl"
 
 struct AmbientLight {
     vec3 color;
