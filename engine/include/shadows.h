@@ -36,10 +36,20 @@ class DirectionalShadow : public Shadow {
   AABB projection_matrix_ortho_param(
       const std::vector<glm::vec3> &frustum_corners) const;
   void CalcFrustumCorners(
-      const std::function<void(const std::vector<glm::vec3> &)> &callback)
-      const;
+      const std::function<void(bool, uint32_t, const std::vector<glm::vec3> &)>
+          &callback) const;
 
   static std::unique_ptr<DirectionalShadowViewer> kViewer;
+
+  struct PreviousBoundingBoxAndMatrices {
+    glm::mat4 view_matrix;
+    glm::mat4 projection_matrix;
+    AABB projection_matrix_ortho_param;
+  };
+  mutable std::vector<PreviousBoundingBoxAndMatrices> previous;
+
+  bool ShouldUsePreviousResult(
+      uint32_t index, const std::vector<glm::vec3> &frustum_corners) const;
 
  public:
   DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
@@ -52,7 +62,8 @@ class DirectionalShadow : public Shadow {
   inline void set_direction(glm::vec3 direction) { direction_ = direction; }
 
   std::vector<OBB> cascade_obbs() const;
-  OBB cascade_obb(const std::vector<glm::vec3> &frustum_corners) const;
+  OBB cascade_obb(bool should_use_previous_result, uint32_t index,
+                  const std::vector<glm::vec3> &frustum_corners) const;
 
   std::vector<glm::mat4> view_projection_matrices() const;
   glm::mat4 view_matrix(const std::vector<glm::vec3> &frustum_corners) const;

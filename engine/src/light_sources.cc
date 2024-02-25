@@ -163,8 +163,7 @@ void LightSources::AllocatePoissonDiskSSBO() {
   auto engine = std::default_random_engine{};
 
   auto generator = PoissonDiskGenerator();
-  std::vector<glm::vec2> poisson_disk_2d_points =
-      generator.Generate2D(128, 16);
+  std::vector<glm::vec2> poisson_disk_2d_points = generator.Generate2D(128, 16);
   std::shuffle(poisson_disk_2d_points.begin(), poisson_disk_2d_points.end(),
                engine);
   poisson_disk_2d_points_ssbo_.reset(new SSBO(
