@@ -103,16 +103,22 @@ class LightSources {
   std::unique_ptr<SSBO> ambient_lights_ssbo_;
   std::unique_ptr<SSBO> directional_lights_ssbo_;
   std::unique_ptr<SSBO> point_lights_ssbo_;
+  std::unique_ptr<SSBO> poisson_disk_2d_points_ssbo_;
 
   void ResizeAmbientSSBO();
   void ResizeDirectioanlSSBO();
   void ResizePointSSBO();
+
+  void AllocatePoissonDiskSSBO();
 
   std::vector<std::unique_ptr<AmbientLight>> ambient_lights_;
   std::vector<std::unique_ptr<DirectionalLight>> directional_lights_;
   std::vector<std::unique_ptr<PointLight>> point_lights_;
 
  public:
+  static constexpr uint32_t POISSON_DISK_2D_BINDING = 19;
+  static constexpr uint32_t POISSON_DISK_3D_BINDING = 20;
+
   explicit LightSources();
 
   uint32_t SizeAmbient() const;

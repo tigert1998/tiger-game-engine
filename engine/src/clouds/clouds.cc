@@ -39,6 +39,8 @@ Clouds::Clouds(uint32_t width, uint32_t height) {
           {"DIRECTIONAL_LIGHT_BINDING",
            std::any(DirectionalLight::GLSL_BINDING)},
           {"POINT_LIGHT_BINDING", std::any(PointLight::GLSL_BINDING)},
+          {"POISSON_DISK_2D_BINDING",
+           std::any(LightSources::POISSON_DISK_2D_BINDING)},
       }));
   screen_space_shader_ = Shader::ScreenSpaceShader("clouds/clouds.frag", {});
   glGenVertexArrays(1, &vao_);

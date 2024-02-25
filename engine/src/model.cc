@@ -233,6 +233,8 @@ void Model::CompileShaders() {
         {"AMBIENT_LIGHT_BINDING", std::any(AmbientLight::GLSL_BINDING)},
         {"DIRECTIONAL_LIGHT_BINDING", std::any(DirectionalLight::GLSL_BINDING)},
         {"POINT_LIGHT_BINDING", std::any(PointLight::GLSL_BINDING)},
+        {"POISSON_DISK_2D_BINDING",
+         std::any(LightSources::POISSON_DISK_2D_BINDING)},
     };
     kShader.reset(new Shader("model/model.vert", "model/model.frag", defines));
     kOITShader.reset(new Shader("model/model.vert", "model/oit.frag", defines));
