@@ -14,10 +14,7 @@
 
 DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
                                      uint32_t fbo_height, const Camera *camera)
-    : direction_(direction),
-      fbo_width_(fbo_width),
-      fbo_height_(fbo_height),
-      camera_(camera) {
+    : fbo_width_(fbo_width), fbo_height_(fbo_height), camera_(camera) {
   std::vector<Texture> empty;
   Texture depth_texture(nullptr, GL_TEXTURE_2D_ARRAY, fbo_width, fbo_height,
                         NUM_CASCADES, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
@@ -27,13 +24,21 @@ DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
   fbo_->depth_texture().MakeResident();
 
   previous.resize(NUM_CASCADES);
-  for (int i = 0; i < NUM_CASCADES; i++) {
-    // placeholder
-    previous[i].projection_matrix_ortho_param.min =
-        glm::vec3(std::numeric_limits<float>::max());
-    previous[i].projection_matrix_ortho_param.max =
-        glm::vec3(std::numeric_limits<float>::lowest());
+  set_direction(direction);
+}
+
+void DirectionalShadow::set_direction(glm::vec3 direction) {
+  if (glm::distance(direction_, direction) > 1e-5) {
+    for (int i = 0; i < NUM_CASCADES; i++) {
+      // erase previous results
+      previous[i].projection_matrix_ortho_param.min =
+          glm::vec3(std::numeric_limits<float>::max());
+      previous[i].projection_matrix_ortho_param.max =
+          glm::vec3(std::numeric_limits<float>::lowest());
+    }
   }
+
+  direction_ = direction;
 }
 
 bool DirectionalShadow::ShouldUsePreviousResult(

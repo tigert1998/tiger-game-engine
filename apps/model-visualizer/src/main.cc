@@ -61,6 +61,7 @@ std::unique_ptr<Controller> controller_ptr;
 int default_shading_choice = 0;
 int enable_ssao = 0;
 int enable_smaa = 0;
+int enable_moving_shadow = 0;
 
 GLFWwindow *window;
 
@@ -93,6 +94,8 @@ void ImGuiWindow() {
                  IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
+  ImGui::ListBox("Enable Moving Shadow", &enable_moving_shadow, choices,
+                 IM_ARRAYSIZE(choices));
   ImGui::End();
 
   camera_ptr->ImGuiWindow();
@@ -146,6 +149,18 @@ void Init(uint32_t width, uint32_t height) {
   ImGuiInit();
 }
 
+void MovingShadow(double time) {
+  if (enable_moving_shadow && light_sources_ptr->SizeDirectional() >= 1) {
+    auto light = light_sources_ptr->GetDirectional(0);
+    if (light->shadow() != nullptr) {
+      float input = time * 1e-2;
+      float x = sin(input);
+      float y = -abs(cos(input));
+      light->set_dir(glm::vec3(x, y, 0));
+    }
+  }
+}
+
 int main(int argc, char *argv[]) {
   try {
     Init(1920, 1080);
@@ -176,6 +191,8 @@ int main(int argc, char *argv[]) {
     }
 
     glfwPollEvents();
+
+    MovingShadow(current_time);
 
     // draw depth map first
     light_sources_ptr->DrawDepthForShadow(

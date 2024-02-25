@@ -59,7 +59,7 @@ class DirectionalShadow : public Shadow {
   inline ~DirectionalShadow() override {}
 
   inline glm::vec3 direction() { return direction_; }
-  inline void set_direction(glm::vec3 direction) { direction_ = direction; }
+  void set_direction(glm::vec3 direction);
 
   std::vector<OBB> cascade_obbs() const;
   OBB cascade_obb(bool should_use_previous_result, uint32_t index,
