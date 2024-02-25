@@ -11,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <memory>
+#include <set>
 
 #include "controller/sightseeing_controller.h"
 #include "deferred_shading_render_quad.h"
@@ -51,17 +52,20 @@ class Controller : public SightseeingController {
 };
 
 std::unique_ptr<MultiDrawIndirect> multi_draw_indirect;
-std::unique_ptr<MultiDrawIndirect> multi_draw_indirect_lights;
 std::unique_ptr<DeferredShadingRenderQuad> deferred_shading_render_quad_ptr;
 std::unique_ptr<SMAA> smaa_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Model> brick_wall_ptr;
-std::unique_ptr<Model> sphere_red_ptr;
-std::unique_ptr<Model> sphere_green_ptr;
-std::unique_ptr<Model> sphere_blue_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<Controller> controller_ptr;
+
+struct PointLightWithSphere {
+  PointLight *light;
+  std::unique_ptr<MultiDrawIndirect> mdi;
+  std::unique_ptr<Model> model;
+};
+std::vector<PointLightWithSphere> point_lights_with_spheres;
 
 int default_shading_choice = 0;
 int enable_ssao = 0;
@@ -80,6 +84,19 @@ void ImGuiInit() {
   ImGui::StyleColorsClassic();
   auto font = io.Fonts->AddFontDefault();
   io.Fonts->Build();
+}
+
+PointLightWithSphere ConstructPointLightWithSphereModel(
+    const std::string &sphere_name) {
+  light_sources_ptr->AddPoint(
+      make_unique<PointLight>(glm::vec3(0), glm::vec3(0), glm::vec3(1, 0, 0)));
+  auto light = light_sources_ptr->GetPoint(light_sources_ptr->SizePoint() - 1);
+  auto mdi = std::unique_ptr<MultiDrawIndirect>(new MultiDrawIndirect());
+  auto sphere = std::unique_ptr<Model>(
+      new Model(fmt::format("resources/sphere/sphere_{}.obj", sphere_name),
+                mdi.get(), 1, false, false));
+  mdi->PrepareForDraw();
+  return {light, std::move(mdi), std::move(sphere)};
 }
 
 void ImGuiWindow() {
@@ -127,12 +144,6 @@ void Init(uint32_t width, uint32_t height) {
   camera_ptr->set_front(-camera_ptr->position());
 
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->AddPoint(
-      make_unique<PointLight>(vec3(0), vec3(0), vec3(1, 0, 0)));
-  light_sources_ptr->AddPoint(
-      make_unique<PointLight>(vec3(0), vec3(0), vec3(1, 0, 0)));
-  light_sources_ptr->AddPoint(
-      make_unique<PointLight>(vec3(0), vec3(0), vec3(1, 0, 0)));
   light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
@@ -142,17 +153,12 @@ void Init(uint32_t width, uint32_t height) {
                                  multi_draw_indirect.get(), 1, false, false));
   multi_draw_indirect->PrepareForDraw();
 
-  multi_draw_indirect_lights.reset(new MultiDrawIndirect());
-  sphere_red_ptr.reset(new Model("resources/sphere/sphere_red.obj",
-                                 multi_draw_indirect_lights.get(), 1, false,
-                                 false));
-  sphere_green_ptr.reset(new Model("resources/sphere/sphere_green.obj",
-                                   multi_draw_indirect_lights.get(), 1, false,
-                                   false));
-  sphere_blue_ptr.reset(new Model("resources/sphere/sphere_blue.obj",
-                                  multi_draw_indirect_lights.get(), 1, false,
-                                  false));
-  multi_draw_indirect_lights->PrepareForDraw();
+  point_lights_with_spheres.push_back(
+      ConstructPointLightWithSphereModel("red"));
+  point_lights_with_spheres.push_back(
+      ConstructPointLightWithSphereModel("green"));
+  point_lights_with_spheres.push_back(
+      ConstructPointLightWithSphereModel("blue"));
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
@@ -161,9 +167,7 @@ void Init(uint32_t width, uint32_t height) {
   ImGuiInit();
 }
 
-std::pair<std::vector<MultiDrawIndirect::RenderTargetParameter>,
-          std::vector<MultiDrawIndirect::RenderTargetParameter>>
-UpdateObjectsAndLights(double time) {
+auto UpdateObjectsAndLights(double time) {
   std::vector<MultiDrawIndirect::RenderTargetParameter> render_target_params = {
       {model_ptr.get(),
        {{-1, 0,
@@ -179,44 +183,49 @@ UpdateObjectsAndLights(double time) {
   std::vector<MultiDrawIndirect::RenderTargetParameter>
       render_target_params_lights;
 
-  uint32_t size = light_sources_ptr->SizePoint();
+  std::set<PointLight *> set;
+  for (int i = 0; i < light_sources_ptr->SizePoint(); i++)
+    set.insert(light_sources_ptr->GetPoint(i));
 
-  if (size >= 1) {
+  std::vector<
+      std::pair<MultiDrawIndirect *, MultiDrawIndirect::RenderTargetParameter>>
+      params;
+  if (auto light = point_lights_with_spheres[0].light; set.count(light)) {
     glm::vec3 position = glm::vec3(sin(time) * 10, 10, cos(time) * 10);
-    MultiDrawIndirect::RenderTargetParameter sphere_red_param = {
-        sphere_red_ptr.get(),
+    MultiDrawIndirect::RenderTargetParameter param = {
+        point_lights_with_spheres[0].model.get(),
         {{-1, 0, glm::translate(glm::mat4(1), position)}},
     };
-    light_sources_ptr->GetPoint(0)->set_color(glm::vec3(10, 0, 0));
-    light_sources_ptr->GetPoint(0)->set_position(position);
-    render_target_params_lights.push_back(sphere_red_param);
+    light->set_color(glm::vec3(10, 0, 0));
+    light->set_position(position);
+    params.push_back({point_lights_with_spheres[0].mdi.get(), param});
   }
 
-  if (size >= 2) {
+  if (auto light = point_lights_with_spheres[1].light; set.count(light)) {
     glm::vec3 position =
         glm::rotate(glm::mat4(1), glm::radians(30.f), glm::vec3(1, 0, 0)) *
         glm::vec4(sin(-time) * 10, 10, cos(-time) * 10, 1);
-    MultiDrawIndirect::RenderTargetParameter sphere_green_param = {
-        sphere_green_ptr.get(),
+    MultiDrawIndirect::RenderTargetParameter param = {
+        point_lights_with_spheres[1].model.get(),
         {{-1, 0, glm::translate(glm::mat4(1), position)}},
     };
-    light_sources_ptr->GetPoint(1)->set_color(glm::vec3(0, 10, 0));
-    light_sources_ptr->GetPoint(1)->set_position(position);
-    render_target_params_lights.push_back(sphere_green_param);
+    light->set_color(glm::vec3(0, 10, 0));
+    light->set_position(position);
+    params.push_back({point_lights_with_spheres[1].mdi.get(), param});
   }
 
-  if (size >= 3) {
+  if (auto light = point_lights_with_spheres[2].light; set.count(light)) {
     glm::vec3 position = glm::vec4(sin(time) * 5, cos(time) * 5 + 15, 0, 1);
-    MultiDrawIndirect::RenderTargetParameter sphere_blue_param = {
-        sphere_blue_ptr.get(),
+    MultiDrawIndirect::RenderTargetParameter param = {
+        point_lights_with_spheres[2].model.get(),
         {{-1, 0, glm::translate(glm::mat4(1), position)}},
     };
-    light_sources_ptr->GetPoint(2)->set_color(glm::vec3(0, 0, 10));
-    light_sources_ptr->GetPoint(2)->set_position(position);
-    render_target_params_lights.push_back(sphere_blue_param);
+    light->set_color(glm::vec3(0, 0, 10));
+    light->set_position(position);
+    params.push_back({point_lights_with_spheres[2].mdi.get(), param});
   }
 
-  return {render_target_params, render_target_params_lights};
+  return std::pair{render_target_params, params};
 }
 
 int main(int argc, char *argv[]) {
@@ -272,9 +281,10 @@ int main(int argc, char *argv[]) {
           multi_draw_indirect->Draw(camera_ptr.get(), nullptr, nullptr, true,
                                     default_shading_choice, true,
                                     render_target_params);
-          multi_draw_indirect_lights->Draw(camera_ptr.get(), nullptr, nullptr,
-                                           true, default_shading_choice, true,
-                                           render_target_params_lights);
+          for (const auto &kv : render_target_params_lights) {
+            kv.first->Draw(camera_ptr.get(), nullptr, nullptr, true,
+                           default_shading_choice, true, {kv.second});
+          }
         },
         enable_smaa ? smaa_ptr->fbo() : nullptr);
 

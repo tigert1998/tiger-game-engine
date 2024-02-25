@@ -4,6 +4,7 @@
 #include <imgui.h>
 
 #include "cg_exception.h"
+#include "random/poisson_disk_generator.h"
 
 AmbientLight::AmbientLight(glm::vec3 color) : color_(color) {}
 
@@ -154,6 +155,20 @@ LightSources::LightSources() {
   ResizeAmbientSSBO();
   ResizeDirectioanlSSBO();
   ResizePointSSBO();
+
+  AllocatePoissonDiskSSBO();
+}
+
+void LightSources::AllocatePoissonDiskSSBO() {
+  auto engine = std::default_random_engine{};
+
+  auto generator = PoissonDiskGenerator();
+  std::vector<glm::vec2> poisson_disk_2d_points =
+      generator.Generate2D(128, 16);
+  std::shuffle(poisson_disk_2d_points.begin(), poisson_disk_2d_points.end(),
+               engine);
+  poisson_disk_2d_points_ssbo_.reset(new SSBO(
+      poisson_disk_2d_points, GL_STATIC_DRAW, POISSON_DISK_2D_BINDING));
 }
 
 uint32_t LightSources::SizeAmbient() const { return ambient_lights_.size(); }
@@ -269,6 +284,9 @@ void LightSources::Set() {
       point_light_glsl_vec.size() * sizeof(point_light_glsl_vec[0]),
       point_light_glsl_vec.data());
   point_lights_ssbo_->BindBufferBase();
+
+  // poisson disk
+  poisson_disk_2d_points_ssbo_->BindBufferBase();
 }
 
 void LightSources::DrawDepthForShadow(

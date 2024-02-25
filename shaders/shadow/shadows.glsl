@@ -1,6 +1,8 @@
 #ifndef SHADOW_SHADOW_GLSL_
 #define SHADOW_SHADOW_GLSL_
 
+#include "common/rand.glsl"
+
 struct DirectionalShadow {
     // Cascaded Shadow Mapping
     mat4 viewProjectionMatrices[NUM_CASCADES];
@@ -17,6 +19,10 @@ struct OmnidirectionalShadow {
     float farPlane;
 };
 
+layout (std430, binding = POISSON_DISK_2D_BINDING) buffer poissonDisk2DPointsBuffer {
+    vec2 poissonDisk2DPoints[];
+};
+
 float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow, uint layer, vec3 position) {
     vec4 homoPosition = directionalShadow.viewProjectionMatrices[layer] * vec4(position, 1.0);
 
@@ -28,20 +34,19 @@ float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow,
     // Otherwise, the fragment's depth must be between [0, 1].
 
     float shadow = 0;
-    vec2 texelSize = 1.0 / vec2(textureSize(directionalShadow.shadowMap, 0));
-    const int numSamples = 5;
+    const int numSamples = 25;
     const float offset = 0.001;
-    for (int x = 0; x < numSamples; x++) {
-        for (int y = 0; y < numSamples; y++) {
-            vec2 delta = vec2(x, y) / numSamples * (2 * offset) - offset;
-            float closestDepth = texture(
-                directionalShadow.shadowMap,
-                vec3(position.xy + delta, layer)
-            ).r;
-            shadow += currentDepth > closestDepth ? 1.0 : 0.0;
-        }
+
+    int sampleStart = int(rand(position.xy) * (poissonDisk2DPoints.length() - numSamples));
+    for (int i = sampleStart; i < sampleStart + numSamples; i++) {
+        vec2 delta = poissonDisk2DPoints[i] * (2 * offset) - offset;
+        float closestDepth = texture(
+            directionalShadow.shadowMap,
+            vec3(position.xy + delta, layer)
+        ).r;
+        shadow += currentDepth > closestDepth ? 1.0 : 0.0;
     }
-    shadow /= pow(numSamples, 2);
+    shadow /= numSamples;
 
     return shadow;
 }
