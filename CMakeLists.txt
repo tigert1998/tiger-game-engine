@@ -33,3 +33,6 @@ target_link_libraries(instancing-demo engine)
 
 add_executable(omnidirectional-shadow-demo "apps/omnidirectional-shadow-demo/src/main.cc")
 target_link_libraries(omnidirectional-shadow-demo engine)
+
+add_executable(ibl-demo "apps/ibl-demo/src/main.cc")
+target_link_libraries(ibl-demo engine)

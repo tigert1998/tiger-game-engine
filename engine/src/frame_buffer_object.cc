@@ -7,7 +7,12 @@
 
 void FrameBufferObject::AttachTexture(uint32_t attachment,
                                       const Texture &texture) {
-  glFramebufferTexture(GL_FRAMEBUFFER, attachment, texture.id(), 0);
+  if (texture.target() == GL_TEXTURE_CUBE_MAP) {
+    // set to layer 0 as default
+    glFramebufferTextureLayer(GL_FRAMEBUFFER, attachment, texture.id(), 0, 0);
+  } else {
+    glFramebufferTexture(GL_FRAMEBUFFER, attachment, texture.id(), 0);
+  }
 }
 
 void FrameBufferObject::AttachColorTextures(
@@ -67,3 +72,12 @@ FrameBufferObject::~FrameBufferObject() { glDeleteFramebuffers(1, &id_); }
 void FrameBufferObject::Bind() const { glBindFramebuffer(GL_FRAMEBUFFER, id_); }
 
 void FrameBufferObject::Unbind() const { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
+
+void FrameBufferObject::SwitchAttachmentLayer(bool is_color_attachment,
+                                              int32_t index, uint32_t layer) {
+  uint32_t attachment =
+      is_color_attachment ? GL_COLOR_ATTACHMENT0 + index : GL_DEPTH_ATTACHMENT;
+  const Texture &texture =
+      is_color_attachment ? color_textures_[index] : depth_texture();
+  glFramebufferTextureLayer(GL_FRAMEBUFFER, attachment, texture.id(), 0, layer);
+}

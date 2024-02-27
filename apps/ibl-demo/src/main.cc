@@ -13,6 +13,7 @@
 
 #include "controller/sightseeing_controller.h"
 #include "deferred_shading_render_quad.h"
+#include "equirectangular_map.h"
 #include "model.h"
 #include "mouse.h"
 #include "multi_draw_indirect.h"
@@ -56,12 +57,11 @@ std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
+std::unique_ptr<EquirectangularMap> equirectangular_map_ptr;
 std::unique_ptr<Controller> controller_ptr;
 
-int default_shading_choice = 0;
 int enable_ssao = 0;
 int enable_smaa = 0;
-int enable_moving_shadow = 0;
 
 GLFWwindow *window;
 
@@ -90,12 +90,8 @@ void ImGuiWindow() {
     model_ptr.reset(new Model(buf, multi_draw_indirect.get(), 1, true, true));
     multi_draw_indirect->PrepareForDraw();
   }
-  ImGui::ListBox("Default shading", &default_shading_choice, choices,
-                 IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
-  ImGui::ListBox("Enable Moving Shadow", &enable_moving_shadow, choices,
-                 IM_ARRAYSIZE(choices));
   ImGui::End();
 
   camera_ptr->ImGuiWindow();
@@ -131,34 +127,16 @@ void Init(uint32_t width, uint32_t height) {
   camera_ptr->set_front(-camera_ptr->position());
 
   light_sources_ptr = make_unique<LightSources>();
-  light_sources_ptr->AddDirectional(make_unique<DirectionalLight>(
-      vec3(0, -1, 0.5), vec3(10), camera_ptr.get()));
-  light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
 
-  multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model("resources/Bistro_v5_2/BistroExterior.fbx",
-                            multi_draw_indirect.get(), 1, true, true));
-  multi_draw_indirect->PrepareForDraw();
-
-  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", false);
+  equirectangular_map_ptr.reset(
+      new EquirectangularMap("resources/poly_haven_studio_8k.hdr", 2048));
+  skybox_ptr = make_unique<Skybox>(&equirectangular_map_ptr->cubemap(), true);
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
       width, height, window);
 
   ImGuiInit();
-}
-
-void MovingShadow(double time) {
-  if (enable_moving_shadow && light_sources_ptr->SizeDirectional() >= 1) {
-    auto light = light_sources_ptr->GetDirectional(0);
-    if (light->shadow() != nullptr) {
-      float input = time * 1e-2;
-      float x = sin(input);
-      float y = -abs(cos(input));
-      light->set_dir(glm::vec3(x, y, 0));
-    }
-  }
 }
 
 int main(int argc, char *argv[]) {
@@ -192,16 +170,6 @@ int main(int argc, char *argv[]) {
 
     glfwPollEvents();
 
-    MovingShadow(current_time);
-
-    // draw depth map first
-    light_sources_ptr->DrawDepthForShadow(
-        [](int32_t directional_index, int32_t point_index) {
-          multi_draw_indirect->DrawDepthForShadow(
-              light_sources_ptr.get(), directional_index, point_index,
-              {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
-        });
-
     deferred_shading_render_quad_ptr->TwoPasses(
         camera_ptr.get(), light_sources_ptr.get(), enable_ssao,
         []() {
@@ -211,13 +179,7 @@ int main(int argc, char *argv[]) {
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
           skybox_ptr->Draw(camera_ptr.get());
         },
-        []() {
-          glDisable(GL_CULL_FACE);
-          multi_draw_indirect->Draw(
-              camera_ptr.get(), nullptr, nullptr, true, default_shading_choice,
-              true, {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
-        },
-        enable_smaa ? smaa_ptr->fbo() : nullptr);
+        []() {}, enable_smaa ? smaa_ptr->fbo() : nullptr);
 
     if (enable_smaa) {
       smaa_ptr->Draw();

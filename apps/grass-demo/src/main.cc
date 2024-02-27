@@ -64,7 +64,7 @@ void Init(uint32_t width, uint32_t height) {
       glm::vec3(0, -1, -1), glm::vec3(1, 1, 1), camera_ptr.get()));
   light_sources_ptr->AddAmbient(std::make_unique<AmbientLight>(glm::vec3(0.4)));
 
-  skybox_ptr = std::make_unique<Skybox>("resources/skyboxes/cloud");
+  skybox_ptr = std::make_unique<Skybox>("resources/skyboxes/cloud", false);
   grassland_ptr = std::make_unique<Grassland>("resources/terrain/sample.obj",
                                               "resources/distortion.png");
 

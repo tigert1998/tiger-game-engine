@@ -65,6 +65,23 @@ void Texture::Load2DTextureFromPath(const fs::path &path, uint32_t wrap,
                         gli_texture.data(0, 0, level));
       }
     }
+  } else if (ToLower(path.extension().string()) == ".hdr") {
+    stbi_set_flip_vertically_on_load(flip_y);
+    int32_t width, height, comp;
+    float *image = stbi_loadf(path.string().c_str(), &width, &height, &comp, 0);
+    if (image == nullptr) throw LoadPictureError(path, "");
+
+    if (srgb) {
+      fmt::print(stderr, "[error] sRGB cannot be set for hdr texture\n");
+      exit(1);
+    }
+
+    glGenTextures(1, &id_);
+    glBindTexture(GL_TEXTURE_2D, id_);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, width, height, 0, GL_RGB,
+                 GL_FLOAT, image);
+
+    stbi_image_free(image);
   } else {
     stbi_set_flip_vertically_on_load(flip_y);
     int32_t width, height, comp;
@@ -90,6 +107,8 @@ void Texture::Load2DTextureFromPath(const fs::path &path, uint32_t wrap,
       glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, GL_RGBA,
                    GL_UNSIGNED_BYTE, image);
     }
+
+    stbi_image_free(image);
   }
 
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);

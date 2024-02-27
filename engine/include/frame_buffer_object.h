@@ -32,6 +32,9 @@ class FrameBufferObject {
   }
   inline const Texture &depth_texture() const { return depth_texture_.value(); }
 
+  void SwitchAttachmentLayer(bool is_color_attachment, int32_t index,
+                             uint32_t layer);
+
   void Bind() const;
   void Unbind() const;
 
