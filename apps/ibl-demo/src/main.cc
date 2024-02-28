@@ -129,8 +129,9 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr = make_unique<LightSources>();
 
   equirectangular_map_ptr.reset(
-      new EquirectangularMap("resources/poly_haven_studio_8k.hdr", 2048));
-  skybox_ptr = make_unique<Skybox>(&equirectangular_map_ptr->cubemap(), true);
+      new EquirectangularMap("resources/newport_loft.hdr", 2048));
+  skybox_ptr =
+      make_unique<Skybox>(&equirectangular_map_ptr->convoluted_cubemap(), true);
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
