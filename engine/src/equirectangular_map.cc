@@ -20,8 +20,8 @@ EquirectangularMap::EquirectangularMap(const std::filesystem::path &path,
   // create FBOs
   {
     Texture cubemap(std::vector<void *>{}, width, width, GL_RGB16F, GL_RGB,
-                    GL_FLOAT, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {},
-                    false);
+                    GL_FLOAT, GL_CLAMP_TO_EDGE, GL_LINEAR_MIPMAP_LINEAR,
+                    GL_LINEAR, {}, true);
     std::vector<Texture> color_textures;
     color_textures.push_back(std::move(cubemap));
     fbo_.reset(new FrameBufferObject(color_textures));
@@ -133,6 +133,7 @@ void EquirectangularMap::Draw() {
   }
   convoluted_fbo_->Unbind();
 
+  // perform pre-filter
   kPrefilterShader->Use();
   kPrefilterShader->SetUniform<glm::mat4>("uProjectionMatrix",
                                           projection_matrix);

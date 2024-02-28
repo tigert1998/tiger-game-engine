@@ -9,6 +9,8 @@ out vec4 fragColor;
 
 const float PI = radians(180);
 
+#include "pbr.glsl"
+
 float RadicalInverseVdC(uint bits) {
     bits = (bits << 16u) | (bits >> 16u);
     bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
@@ -45,6 +47,9 @@ vec3 ImportanceSampleGGX(vec2 xi, vec3 normal, float roughness) {
 }
 
 void main() {
+    float resolution = float(textureSize(uTexture, 0).x);
+    float saTexel  = 4.0 * PI / (6.0 * resolution * resolution);
+
     vec3 normal = normalize(vLocalPosition);    
     vec3 viewDirection = normal;
 
@@ -58,7 +63,17 @@ void main() {
 
         float nDotL = max(dot(normal, lightDirection), 0.0);
         if(nDotL > 0.0) {
-            prefilteredColor += texture(uTexture, lightDirection).rgb * nDotL;
+            float nDotH = max(dot(normal, halfway), 0);
+            float hDotV = max(dot(halfway, viewDirection), 0);
+
+            float D = DistributionGGX(normal, halfway, uRoughness);
+            float pdf = (D * nDotH / (4.0 * hDotV)) + 1e-4; 
+
+            float saSample = 1.0 / (float(SAMPLE_COUNT) * pdf + 1e-4);
+
+            float mipLevel = uRoughness == 0.0 ? 0.0 : 0.5 * log2(saSample / saTexel); 
+
+            prefilteredColor += textureLod(uTexture, lightDirection, mipLevel).rgb * nDotL;
             totalWeight += nDotL;
         }
     }
