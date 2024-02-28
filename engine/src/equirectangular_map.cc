@@ -12,6 +12,7 @@ namespace fs = std::filesystem;
 
 std::unique_ptr<Shader> EquirectangularMap::kConvertShader = nullptr;
 std::unique_ptr<Shader> EquirectangularMap::kConvolutionShader = nullptr;
+std::unique_ptr<Shader> EquirectangularMap::kPrefilterShader = nullptr;
 
 EquirectangularMap::EquirectangularMap(const std::filesystem::path &path,
                                        uint32_t width)
@@ -33,15 +34,28 @@ EquirectangularMap::EquirectangularMap(const std::filesystem::path &path,
     color_textures.push_back(std::move(cubemap));
     convoluted_fbo_.reset(new FrameBufferObject(color_textures));
   }
+  {
+    Texture cubemap(std::vector<void *>{}, kPrefilterResolution,
+                    kPrefilterResolution, GL_RGB16F, GL_RGB, GL_FLOAT,
+                    GL_CLAMP_TO_EDGE, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, {},
+                    true);
+    std::vector<Texture> color_textures;
+    color_textures.push_back(std::move(cubemap));
+    prefiltered_fbo_.reset(new FrameBufferObject(color_textures));
+  }
 
   // compile the shader
-  if (kConvertShader == nullptr && kConvolutionShader == nullptr) {
+  if (kConvertShader == nullptr && kConvolutionShader == nullptr &&
+      kPrefilterShader == nullptr) {
     kConvertShader.reset(
         new Shader("equirectangular_map/convert_to_cubemap.vert",
                    "equirectangular_map/convert_to_cubemap.frag", {}));
     kConvolutionShader.reset(
         new Shader("equirectangular_map/convert_to_cubemap.vert",
                    "equirectangular_map/convolution.frag", {}));
+    kPrefilterShader.reset(
+        new Shader("equirectangular_map/convert_to_cubemap.vert",
+                   "equirectangular_map/prefilter.frag", {}));
   }
 
   // load texture
@@ -97,7 +111,7 @@ void EquirectangularMap::Draw() {
   fbo_->Bind();
   for (int i = 0; i < 6; i++) {
     kConvertShader->SetUniform<glm::mat4>("uViewMatrix", view_matrices[i]);
-    fbo_->SwitchAttachmentLayer(true, 0, i);
+    fbo_->SwitchAttachmentLevelAndLayer(true, 0, 0, i);
     glClear(GL_COLOR_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, 36);
   }
@@ -107,17 +121,38 @@ void EquirectangularMap::Draw() {
   kConvolutionShader->Use();
   kConvolutionShader->SetUniform<glm::mat4>("uProjectionMatrix",
                                             projection_matrix);
-  kConvolutionShader->SetUniformSampler("uTexture", cubemap(), 0);
+  kConvolutionShader->SetUniformSampler("uTexture", environment_map(), 0);
 
   glViewport(0, 0, kConvolutionResolution, kConvolutionResolution);
   convoluted_fbo_->Bind();
   for (int i = 0; i < 6; i++) {
     kConvolutionShader->SetUniform<glm::mat4>("uViewMatrix", view_matrices[i]);
-    convoluted_fbo_->SwitchAttachmentLayer(true, 0, i);
+    convoluted_fbo_->SwitchAttachmentLevelAndLayer(true, 0, 0, i);
     glClear(GL_COLOR_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, 36);
   }
-  fbo_->Unbind();
+  convoluted_fbo_->Unbind();
+
+  kPrefilterShader->Use();
+  kPrefilterShader->SetUniform<glm::mat4>("uProjectionMatrix",
+                                          projection_matrix);
+  kPrefilterShader->SetUniformSampler("uTexture", environment_map(), 0);
+  prefiltered_fbo_->Bind();
+  for (int layer = 0; layer < 6; layer++) {
+    kPrefilterShader->SetUniform<glm::mat4>("uViewMatrix",
+                                            view_matrices[layer]);
+    uint32_t width = kPrefilterResolution;
+    for (int level = 0; level < kPrefilterNumMipLevels; level++) {
+      float roughness = (float)level / (kPrefilterNumMipLevels - 1);
+      kPrefilterShader->SetUniform<float>("uRoughness", roughness);
+      prefiltered_fbo_->SwitchAttachmentLevelAndLayer(true, 0, level, layer);
+      glViewport(0, 0, width, width);
+      glClear(GL_COLOR_BUFFER_BIT);
+      glDrawArrays(GL_TRIANGLES, 0, 36);
+      width /= 2;
+    }
+  }
+  prefiltered_fbo_->Unbind();
 
   glBindVertexArray(0);
 }
