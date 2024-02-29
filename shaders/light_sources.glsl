@@ -23,6 +23,13 @@ struct PointLight {
     OmnidirectionalShadow shadow;
 };
 
+struct ImageBasedLight {
+    samplerCube irradianceMap;
+    samplerCube prefilteredMap;
+    uint num_levels;
+    sampler2D lut;
+};
+
 layout (std430, binding = AMBIENT_LIGHT_BINDING) buffer ambientLightsBuffer {
     AmbientLight ambientLights[];
 };
@@ -33,6 +40,10 @@ layout (std430, binding = DIRECTIONAL_LIGHT_BINDING) buffer directionalLightsBuf
 
 layout (std430, binding = POINT_LIGHT_BINDING) buffer pointLightsBuffer {
     PointLight pointLights[];
+};
+
+layout (std430, binding = IMAGE_BASED_LIGHT_BINDING) buffer imageBasedLightsBuffer {
+    ImageBasedLight imageBasedLights[];
 };
 
 vec3 CalcAmbient(vec3 ka) {
@@ -119,6 +130,28 @@ vec3 CalcPBRLightingForSingleLightSource(
     return (kd * albedo / PI + specular) * lightColor * nDotL;
 }
 
+vec3 CalcImageBasedLight(
+    vec3 albedo, float metallic, float roughness,
+    vec3 normal, vec3 viewDirection, ImageBasedLight light
+) {
+    normal = normalize(normal);
+    viewDirection = normalize(viewDirection);
+
+    vec3 reflected = reflect(-viewDirection, normal);
+    vec3 prefilteredColor = textureLod(
+        light.prefilteredMap, reflected, roughness * (light.num_levels - 1)).rgb;
+    vec3 f0 = mix(vec3(0.04), albedo, metallic);
+    vec3 F = FresnelSchlickRoughness(normal, viewDirection, f0, roughness);
+    vec2 scaleAndBias = texture(light.lut, vec2(max(dot(normal, viewDirection), 0.0), roughness)).rg;
+    vec3 specular = prefilteredColor * (F * scaleAndBias.x + scaleAndBias.y);
+
+    vec3 kD = (1.0 - F) * (1.0 - metallic);
+    vec3 irradiance = texture(light.irradianceMap, normal).rgb;
+    vec3 diffuse = irradiance * albedo;
+
+    return diffuse * kD + specular;
+}
+
 vec3 CalcPBRLighting(
     vec3 albedo, float metallic, float roughness, float ao, vec3 emission,
     vec3 normal, vec3 cameraPosition, vec3 position, mat4 cameraViewMatrix
@@ -127,6 +160,12 @@ vec3 CalcPBRLighting(
 
     for (int i = 0; i < ambientLights.length(); i++) {
         color += albedo * ambientLights[i].color * ao;
+    }
+    if (imageBasedLights.length() >= 1) {
+        color += CalcImageBasedLight(
+            albedo, metallic, roughness, 
+            normal, cameraPosition - position, imageBasedLights[0]
+        ) * ao;
     }
 
     for (int i = 0; i < directionalLights.length(); i++) {

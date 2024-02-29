@@ -15,7 +15,6 @@ class EquirectangularMap {
   static std::unique_ptr<Shader> kLUTShader;
   constexpr static uint32_t kConvolutionResolution = 32;
   constexpr static uint32_t kPrefilterResolution = 128;
-  constexpr static uint32_t kPrefilterNumMipLevels = 5;
   constexpr static uint32_t kLUTResolution = 512;
 
   uint32_t vao_, vbo_;
@@ -27,6 +26,8 @@ class EquirectangularMap {
   void Draw();
 
  public:
+  constexpr static uint32_t kPrefilterNumMipLevels = 5;
+
   explicit EquirectangularMap(const std::filesystem::path& path,
                               uint32_t width);
 

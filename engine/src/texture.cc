@@ -358,6 +358,12 @@ void Texture::MakeNonResident() const {
   glMakeTextureHandleNonResidentARB(handle());
 }
 
+void Texture::GenerateMipmap() const {
+  glBindTexture(target_, id_);
+  glGenerateMipmap(target_);
+  glBindTexture(target_, 0);
+}
+
 Texture Texture::Empty(uint32_t target) {
   Texture empty;
   empty.target_ = target;

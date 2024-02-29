@@ -80,7 +80,7 @@ void ImGuiInit() {
 
 void ImGuiWindow() {
   // model
-  char buf[1 << 10] = {0};
+  static char buf[1 << 10] = {0};
   const char *choices[] = {"off", "on"};
 
   ImGui::Begin("Panel");

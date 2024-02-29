@@ -84,6 +84,7 @@ class Texture {
   uint64_t handle() const;
   void MakeResident() const;
   void MakeNonResident() const;
+  void GenerateMipmap() const;
 
   void Clear();
 

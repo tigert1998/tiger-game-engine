@@ -56,8 +56,6 @@ std::unique_ptr<SMAA> smaa_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
-std::unique_ptr<Skybox> skybox_ptr;
-std::unique_ptr<EquirectangularMap> equirectangular_map_ptr;
 std::unique_ptr<Controller> controller_ptr;
 
 int enable_ssao = 0;
@@ -80,7 +78,7 @@ void ImGuiInit() {
 
 void ImGuiWindow() {
   // model
-  char buf[1 << 10] = {0};
+  static char buf[1 << 10] = {0};
   const char *choices[] = {"off", "on"};
 
   ImGui::Begin("Panel");
@@ -128,10 +126,13 @@ void Init(uint32_t width, uint32_t height) {
   camera_ptr->set_front(-camera_ptr->position());
 
   light_sources_ptr = make_unique<LightSources>();
+  light_sources_ptr->AddImageBased(std::unique_ptr<ImageBasedLight>(
+      new ImageBasedLight("resources/newport_loft.hdr")));
 
-  equirectangular_map_ptr.reset(
-      new EquirectangularMap("resources/newport_loft.hdr", 2048));
-  skybox_ptr = make_unique<Skybox>(&equirectangular_map_ptr->lut(), true);
+  multi_draw_indirect.reset(new MultiDrawIndirect());
+  model_ptr = make_unique<Model>("resources/sphere/sphere.obj",
+                                 multi_draw_indirect.get(), 1, true, true);
+  multi_draw_indirect->PrepareForDraw();
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
@@ -171,6 +172,13 @@ int main(int argc, char *argv[]) {
 
     glfwPollEvents();
 
+    light_sources_ptr->DrawDepthForShadow(
+        [](int32_t directional_index, int32_t point_index) {
+          multi_draw_indirect->DrawDepthForShadow(
+              light_sources_ptr.get(), directional_index, point_index,
+              {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
+        });
+
     deferred_shading_render_quad_ptr->TwoPasses(
         camera_ptr.get(), light_sources_ptr.get(), enable_ssao,
         []() {
@@ -178,9 +186,17 @@ int main(int argc, char *argv[]) {
           glCullFace(GL_BACK);
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-          skybox_ptr->Draw(camera_ptr.get());
+          if (light_sources_ptr->SizeImageBased() >= 1) {
+            light_sources_ptr->GetImageBased(0)->skybox()->Draw(
+                camera_ptr.get());
+          }
         },
-        []() {}, enable_smaa ? smaa_ptr->fbo() : nullptr);
+        []() {
+          multi_draw_indirect->Draw(
+              camera_ptr.get(), nullptr, nullptr, true, false, true,
+              {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
+        },
+        enable_smaa ? smaa_ptr->fbo() : nullptr);
 
     if (enable_smaa) {
       smaa_ptr->Draw();

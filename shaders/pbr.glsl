@@ -54,4 +54,9 @@ vec3 FresnelSchlick(vec3 halfway, vec3 viewDirection, vec3 f0) {
     return f0 + (1.0 - f0) * pow(clamp(1.0 - hDotV, 0.0, 1.0), 5.0);
 }
 
+vec3 FresnelSchlickRoughness(vec3 halfway, vec3 viewDirection, vec3 f0, float roughness) {
+    float hDotV = max(dot(halfway, viewDirection), 0);
+    return f0 + max(vec3(1.0 - roughness - f0), 0) * pow(clamp(1.0 - hDotV, 0.0, 1.0), 5.0);
+}
+
 #endif
