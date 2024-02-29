@@ -216,16 +216,17 @@ Texture::Texture(const fs::path &path, uint32_t wrap, uint32_t min_filter,
   }
 }
 
-Texture Texture::LoadFromFS(const fs::path &path, uint32_t wrap,
+Texture Texture::LoadFromFS(std::map<fs::path, Texture> *textures_cache,
+                            const fs::path &path, uint32_t wrap,
                             uint32_t min_filter, uint32_t mag_filter,
                             const std::vector<float> &border_color, bool mipmap,
                             bool flip_y, bool srgb) {
-  static std::map<fs::path, Texture> textures;
-
-  if (textures.count(path)) return textures[path];
+  if (textures_cache != nullptr && textures_cache->count(path))
+    return textures_cache->at(path);
   Texture texture(path, wrap, min_filter, mag_filter, border_color, mipmap,
                   flip_y, srgb);
-  textures[path] = texture.Reference();
+  if (textures_cache != nullptr)
+    textures_cache->insert({path, texture.Reference()});
   return texture;
 }
 
@@ -358,8 +359,10 @@ void Texture::MakeNonResident() const {
   glMakeTextureHandleNonResidentARB(handle());
 }
 
-void Texture::GenerateMipmap() const {
+void Texture::GenerateMipmap(uint32_t base_level, uint32_t max_level) const {
   glBindTexture(target_, id_);
+  glTexParameteri(target_, GL_TEXTURE_BASE_LEVEL, base_level);
+  glTexParameteri(target_, GL_TEXTURE_MAX_LEVEL, max_level);
   glGenerateMipmap(target_);
   glBindTexture(target_, 0);
 }

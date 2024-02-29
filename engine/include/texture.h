@@ -2,6 +2,7 @@
 #define TEXTURE_H_
 
 #include <filesystem>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -52,10 +53,11 @@ class Texture {
                    bool flip_y, bool srgb);
 
   // Load from image/images with deduplication
-  static Texture LoadFromFS(const std::filesystem::path &path, uint32_t wrap,
-                            uint32_t min_filter, uint32_t mag_filter,
-                            const std::vector<float> &border_color, bool mipmap,
-                            bool flip_y, bool srgb);
+  static Texture LoadFromFS(
+      std::map<std::filesystem::path, Texture> *textures_cache,
+      const std::filesystem::path &path, uint32_t wrap, uint32_t min_filter,
+      uint32_t mag_filter, const std::vector<float> &border_color, bool mipmap,
+      bool flip_y, bool srgb);
 
   static Texture Empty(uint32_t target);
 
@@ -81,10 +83,11 @@ class Texture {
 
   inline uint32_t target() const { return target_; }
   inline uint32_t id() const { return id_; }
+  inline bool has_ownership() const { return has_ownership_; }
   uint64_t handle() const;
   void MakeResident() const;
   void MakeNonResident() const;
-  void GenerateMipmap() const;
+  void GenerateMipmap(uint32_t base_level, uint32_t max_level) const;
 
   void Clear();
 

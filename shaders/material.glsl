@@ -1,3 +1,6 @@
+#ifndef MATERIAL_GLSL_
+#define MATERIAL_GLSL_
+
 struct Material {
     int ambientTexture;
     int diffuseTexture;
@@ -10,3 +13,5 @@ struct Material {
     float shininess;
     bool bindMetalnessAndDiffuseRoughness;
 };
+
+#endif

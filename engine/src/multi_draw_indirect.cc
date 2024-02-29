@@ -158,7 +158,7 @@ std::unique_ptr<Shader> GPUDrivenWorkloadGeneration::remap_shader_ = nullptr;
 
 MultiDrawIndirect::~MultiDrawIndirect() {
   glDeleteBuffers(1, &commands_buffer_);
-  glDeleteBuffers(1, &vao_);
+  glDeleteVertexArrays(1, &vao_);
   glDeleteBuffers(1, &ebo_);
   glDeleteBuffers(1, &vbo_);
 }
@@ -424,14 +424,6 @@ void MultiDrawIndirect::PrepareForDraw() {
   animated_.resize(num_instances_);
   model_matrices_.resize(num_instances_);
   clip_planes_.resize(num_instances_);
-  std::set<uint32_t> ids;
-  for (int i = 0; i < textures_.size(); i++) {
-    if (ids.count(textures_[i].id()) == 0) {
-      textures_[i].MakeResident();
-    }
-    ids.insert(textures_[i].id());
-  }
-  CHECK_OPENGL_ERROR();
 
   GPUDrivenWorkloadGeneration::FixedArrays fixed_arrays;
   fixed_arrays.aabbs = &aabbs_;

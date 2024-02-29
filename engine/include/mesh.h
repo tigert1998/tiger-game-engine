@@ -30,9 +30,12 @@ class Mesh {
  public:
   explicit Mesh(const std::filesystem::path &directory_path, aiMesh *mesh,
                 const aiScene *scene, Namer *bone_namer,
-                std::vector<glm::mat4> *bone_offsets, bool flip_y,
-                glm::mat4 transform, MultiDrawIndirect *multi_draw_indirect);
+                std::vector<glm::mat4> *bone_offsets,
+                std::map<std::filesystem::path, Texture> *textures_cache,
+                bool flip_y, glm::mat4 transform,
+                MultiDrawIndirect *multi_draw_indirect);
   void SubmitToMultiDrawIndirect();
+  ~Mesh();
 
  private:
   AABB aabb_;
@@ -48,6 +51,8 @@ class Mesh {
 
   void AddVerticesIndicesAndBones(aiMesh *mesh, Namer *bone_namer,
                                   std::vector<glm::mat4> *bone_offsets);
+
+  void MakeTexturesResidentOrNot(bool resident);
 };
 
 #endif

@@ -39,7 +39,8 @@ EquirectangularMap::EquirectangularMap(const std::filesystem::path &path,
     Texture cubemap(std::vector<void *>{}, kPrefilterResolution,
                     kPrefilterResolution, GL_RGB16F, GL_RGB, GL_FLOAT,
                     GL_CLAMP_TO_EDGE, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, {},
-                    true);
+                    false);
+    cubemap.GenerateMipmap(0, kPrefilterNumMipLevels - 1);
     std::vector<Texture> color_textures;
     color_textures.push_back(std::move(cubemap));
     prefiltered_fbo_.reset(new FrameBufferObject(color_textures));
@@ -126,7 +127,7 @@ void EquirectangularMap::Draw() {
     glDrawArrays(GL_TRIANGLES, 0, 36);
   }
   fbo_->Unbind();
-  fbo_->color_texture(0).GenerateMipmap();
+  fbo_->color_texture(0).GenerateMipmap(0, 1000);
 
   // perform convolution to cubemap
   kConvolutionShader->Use();

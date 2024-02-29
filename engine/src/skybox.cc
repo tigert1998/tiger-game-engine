@@ -25,8 +25,8 @@ void Skybox::Init() {
 }
 
 Skybox::Skybox(const fs::path &path, bool tone_map) : tone_map_(tone_map) {
-  texture_ = Texture::LoadFromFS(path, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR,
-                                 {}, false, false, true);
+  texture_ = Texture(path, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false,
+                     false, true);
   Init();
 }
 

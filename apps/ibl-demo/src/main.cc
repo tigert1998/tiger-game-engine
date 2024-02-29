@@ -103,8 +103,7 @@ void Init(uint32_t width, uint32_t height) {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-  window =
-      glfwCreateWindow(width, height, "Model Visualizer", nullptr, nullptr);
+  window = glfwCreateWindow(width, height, "IBL Demo", nullptr, nullptr);
   glfwMakeContextCurrent(window);
   gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
@@ -130,8 +129,8 @@ void Init(uint32_t width, uint32_t height) {
       new ImageBasedLight("resources/newport_loft.hdr")));
 
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr = make_unique<Model>("resources/sphere/sphere.obj",
-                                 multi_draw_indirect.get(), 1, true, true);
+  model_ptr.reset(new Model("resources/DamagedHelmet/DamagedHelmet.gltf",
+                            multi_draw_indirect.get(), 1, true, true));
   multi_draw_indirect->PrepareForDraw();
 
   controller_ptr = make_unique<Controller>(
@@ -163,7 +162,7 @@ int main(int argc, char *argv[]) {
       fps += 1;
       if (current_time - last_time_for_fps >= 1.0) {
         char buf[1 << 10];
-        sprintf(buf, "Model Visualizer | FPS: %d\n", fps);
+        sprintf(buf, "IBL Demo | FPS: %d\n", fps);
         glfwSetWindowTitle(window, buf);
         fps = 0;
         last_time_for_fps = current_time;

@@ -125,7 +125,8 @@ std::string Shader::InsertDefines(
   }
   auto version_str = sm[1].str();
 
-  new_source = std::regex_replace(new_source, std::regex(regex_str), "");
+  new_source =
+      new_source.replace(new_source.find(version_str), version_str.size(), "");
   new_source = version_str + new_source;
 
   return new_source;
