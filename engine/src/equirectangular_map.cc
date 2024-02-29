@@ -13,6 +13,7 @@ namespace fs = std::filesystem;
 std::unique_ptr<Shader> EquirectangularMap::kConvertShader = nullptr;
 std::unique_ptr<Shader> EquirectangularMap::kConvolutionShader = nullptr;
 std::unique_ptr<Shader> EquirectangularMap::kPrefilterShader = nullptr;
+std::unique_ptr<Shader> EquirectangularMap::kLUTShader = nullptr;
 
 EquirectangularMap::EquirectangularMap(const std::filesystem::path &path,
                                        uint32_t width)
@@ -43,10 +44,18 @@ EquirectangularMap::EquirectangularMap(const std::filesystem::path &path,
     color_textures.push_back(std::move(cubemap));
     prefiltered_fbo_.reset(new FrameBufferObject(color_textures));
   }
+  {
+    Texture texture(nullptr, kLUTResolution, kLUTResolution, GL_RG16F, GL_RG,
+                    GL_FLOAT, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {},
+                    false);
+    std::vector<Texture> color_textures;
+    color_textures.push_back(std::move(texture));
+    lut_fbo_.reset(new FrameBufferObject(color_textures));
+  }
 
   // compile the shader
   if (kConvertShader == nullptr && kConvolutionShader == nullptr &&
-      kPrefilterShader == nullptr) {
+      kPrefilterShader == nullptr && kLUTShader == nullptr) {
     kConvertShader.reset(
         new Shader("equirectangular_map/convert_to_cubemap.vert",
                    "equirectangular_map/convert_to_cubemap.frag", {}));
@@ -56,6 +65,7 @@ EquirectangularMap::EquirectangularMap(const std::filesystem::path &path,
     kPrefilterShader.reset(
         new Shader("equirectangular_map/convert_to_cubemap.vert",
                    "equirectangular_map/prefilter.frag", {}));
+    kLUTShader = Shader::ScreenSpaceShader("equirectangular_map/lut.frag", {});
   }
 
   // load texture
@@ -154,6 +164,17 @@ void EquirectangularMap::Draw() {
     }
   }
   prefiltered_fbo_->Unbind();
+
+  kLUTShader->Use();
+  kLUTShader->SetUniform<glm::vec4>(
+      "uViewport", glm::vec4(0, 0, kLUTResolution, kLUTResolution));
+  glDisable(GL_BLEND);
+  lut_fbo_->Bind();
+  glViewport(0, 0, kLUTResolution, kLUTResolution);
+  glClear(GL_COLOR_BUFFER_BIT);
+  glDrawArrays(GL_POINTS, 0, 1);
+  lut_fbo_->Unbind();
+  glEnable(GL_BLEND);
 
   glBindVertexArray(0);
 }

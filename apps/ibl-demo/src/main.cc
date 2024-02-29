@@ -131,8 +131,7 @@ void Init(uint32_t width, uint32_t height) {
 
   equirectangular_map_ptr.reset(
       new EquirectangularMap("resources/newport_loft.hdr", 2048));
-  skybox_ptr =
-      make_unique<Skybox>(&equirectangular_map_ptr->prefiltered_map(), true);
+  skybox_ptr = make_unique<Skybox>(&equirectangular_map_ptr->lut(), true);
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
