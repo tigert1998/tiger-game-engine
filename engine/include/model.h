@@ -37,6 +37,7 @@ class Model {
   const aiScene *scene_;
   std::map<std::pair<uint32_t, std::string>, uint32_t> animation_channel_map_;
   MultiDrawIndirect *multi_draw_indirect_;
+  std::map<std::filesystem::path, Texture> textures_cache_;
   std::vector<std::unique_ptr<Mesh>> meshes_;
   Namer bone_namer_;
   std::vector<glm::mat4> bone_matrices_, bone_offsets_;

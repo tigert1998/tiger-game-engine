@@ -74,8 +74,8 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
       auto mesh = scene_->mMeshes[id];
       try {
         meshes_[id].reset(new Mesh(directory_path_, mesh, scene_, &bone_namer_,
-                                   &bone_offsets_, flip_y_, transform,
-                                   multi_draw_indirect_));
+                                   &bone_offsets_, &textures_cache_, flip_y_,
+                                   transform, multi_draw_indirect_));
       } catch (std::exception &e) {
         fmt::print(
             stderr,
@@ -233,6 +233,7 @@ void Model::CompileShaders() {
         {"AMBIENT_LIGHT_BINDING", std::any(AmbientLight::GLSL_BINDING)},
         {"DIRECTIONAL_LIGHT_BINDING", std::any(DirectionalLight::GLSL_BINDING)},
         {"POINT_LIGHT_BINDING", std::any(PointLight::GLSL_BINDING)},
+        {"IMAGE_BASED_LIGHT_BINDING", std::any(ImageBasedLight::GLSL_BINDING)},
         {"POISSON_DISK_2D_BINDING",
          std::any(LightSources::POISSON_DISK_2D_BINDING)},
     };

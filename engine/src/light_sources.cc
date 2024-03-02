@@ -4,12 +4,16 @@
 #include <imgui.h>
 
 #include "cg_exception.h"
+#include "equirectangular_map.h"
 #include "random/poisson_disk_generator.h"
+
+namespace fs = std::filesystem;
 
 AmbientLight::AmbientLight(glm::vec3 color) : color_(color) {}
 
 void AmbientLight::ImGuiWindow(uint32_t index,
                                const std::function<void()> &erase_callback) {
+  ImGui::Separator();
   ImGui::Text("Ambient Light #%d:", index);
   std::string suffix = fmt::format("##ambient_light_{}", index);
   if (ImGui::Button(fmt::format("Erase{}", suffix).c_str())) {
@@ -34,6 +38,7 @@ DirectionalLight::DirectionalLight(glm::vec3 dir, glm::vec3 color,
 
 void DirectionalLight::ImGuiWindow(
     uint32_t index, const std::function<void()> &erase_callback) {
+  ImGui::Separator();
   ImGui::Text("Directional Light #%d:", index);
   std::string suffix = fmt::format("##directional_light_{}", index);
   if (ImGui::Button(fmt::format("Erase{}", suffix).c_str())) {
@@ -81,6 +86,7 @@ PointLight::PointLight(glm::vec3 pos, glm::vec3 color, glm::vec3 attenuation)
 
 void PointLight::ImGuiWindow(uint32_t index,
                              const std::function<void()> &erase_callback) {
+  ImGui::Separator();
   std::string suffix = fmt::format("##point_light_{}", index);
 
   ImGui::Text("Point Light #%d:", index);
@@ -132,6 +138,45 @@ PointLight::PointLightGLSL PointLight::point_light_glsl() const {
   return ret;
 }
 
+ImageBasedLight::ImageBasedLight(const fs::path &path) { Load(path); }
+
+void ImageBasedLight::Load(const fs::path &path) {
+  equirectangular_map_.reset(new EquirectangularMap(path, 2048));
+  equirectangular_map_->irradiance_map().MakeResident();
+  equirectangular_map_->prefiltered_map().MakeResident();
+  equirectangular_map_->lut().MakeResident();
+  skybox_.reset(new Skybox(&equirectangular_map_->environment_map(), true));
+}
+
+void ImageBasedLight::ImGuiWindow(uint32_t index,
+                                  const std::function<void()> &erase_callback) {
+  ImGui::Separator();
+  std::string suffix = fmt::format("##image_based_light_{}", index);
+
+  ImGui::Text("Image Based Light #%d:", index);
+  if (ImGui::Button(fmt::format("Erase{}", suffix).c_str())) {
+    erase_callback();
+    return;
+  }
+
+  if (ImGui::InputText(fmt::format("HDR map path{}", suffix).c_str(),
+                       imgui_window_vars_.hdr_map_path,
+                       sizeof(imgui_window_vars_.hdr_map_path),
+                       ImGuiInputTextFlags_EnterReturnsTrue)) {
+    Load(imgui_window_vars_.hdr_map_path);
+  }
+}
+
+ImageBasedLight::ImageBasedLightGLSL ImageBasedLight::image_based_light_glsl()
+    const {
+  ImageBasedLightGLSL ret;
+  ret.irradiance_map = equirectangular_map_->irradiance_map().handle();
+  ret.prefiltered_map = equirectangular_map_->prefiltered_map().handle();
+  ret.num_levels = EquirectangularMap::kPrefilterNumMipLevels;
+  ret.lut = equirectangular_map_->lut().handle();
+  return ret;
+}
+
 void LightSources::ResizeAmbientSSBO() {
   ambient_lights_ssbo_.reset(
       new SSBO(sizeof(AmbientLight::AmbientLightGLSL) * ambient_lights_.size(),
@@ -151,10 +196,17 @@ void LightSources::ResizePointSSBO() {
                nullptr, GL_DYNAMIC_DRAW, PointLight::GLSL_BINDING));
 }
 
+void LightSources::ResizeImageBasedSSBO() {
+  image_based_lights_ssbo_.reset(new SSBO(
+      sizeof(ImageBasedLight::ImageBasedLightGLSL) * image_based_lights_.size(),
+      nullptr, GL_DYNAMIC_DRAW, ImageBasedLight::GLSL_BINDING));
+}
+
 LightSources::LightSources() {
   ResizeAmbientSSBO();
   ResizeDirectioanlSSBO();
   ResizePointSSBO();
+  ResizeImageBasedSSBO();
 
   AllocatePoissonDiskSSBO();
 }
@@ -178,6 +230,10 @@ uint32_t LightSources::SizeDirectional() const {
 
 uint32_t LightSources::SizePoint() const { return point_lights_.size(); }
 
+uint32_t LightSources::SizeImageBased() const {
+  return image_based_lights_.size();
+}
+
 void LightSources::AddAmbient(std::unique_ptr<AmbientLight> light) {
   ambient_lights_.emplace_back(std::move(light));
   ResizeAmbientSSBO();
@@ -193,6 +249,11 @@ void LightSources::AddPoint(std::unique_ptr<PointLight> light) {
   ResizePointSSBO();
 }
 
+void LightSources::AddImageBased(std::unique_ptr<ImageBasedLight> light) {
+  image_based_lights_.emplace_back(std::move(light));
+  ResizeImageBasedSSBO();
+}
+
 AmbientLight *LightSources::GetAmbient(uint32_t index) const {
   return ambient_lights_[index].get();
 }
@@ -205,24 +266,38 @@ PointLight *LightSources::GetPoint(uint32_t index) const {
   return point_lights_[index].get();
 }
 
+ImageBasedLight *LightSources::GetImageBased(uint32_t index) const {
+  return image_based_lights_[index].get();
+}
+
 void LightSources::ImGuiWindow(Camera *camera) {
   ImGui::Begin("Light Sources:");
 
-  const char *light_source_types[] = {"Ambient", "Directional", "Point"};
-  static int light_source_type = 0;
-  ImGui::ListBox("##add_light_source", &light_source_type, light_source_types,
-                 IM_ARRAYSIZE(light_source_types));
+  const char *light_source_types[] = {"Ambient", "Directional", "Point",
+                                      "Image Based"};
+  std::string suffix = "##add_light_source";
+  ImGui::ListBox(suffix.c_str(), &imgui_window_vars_.light_source_type,
+                 light_source_types, IM_ARRAYSIZE(light_source_types));
   ImGui::SameLine();
-  if (ImGui::Button("Add##add_light_source")) {
-    if (light_source_type == 0) {
+  if (ImGui::Button(fmt::format("Add{}", suffix).c_str())) {
+    if (imgui_window_vars_.light_source_type == 0) {
       AddAmbient(std::make_unique<AmbientLight>(glm::vec3(0.1f)));
-    } else if (light_source_type == 1) {
+    } else if (imgui_window_vars_.light_source_type == 1) {
       AddDirectional(std::make_unique<DirectionalLight>(glm::vec3(0, -1, 0),
                                                         glm::vec3(1), camera));
-    } else if (light_source_type == 2) {
+    } else if (imgui_window_vars_.light_source_type == 2) {
       AddPoint(std::make_unique<PointLight>(glm::vec3(0), glm::vec3(1),
                                             glm::vec3(1, 0, 0)));
+    } else if (imgui_window_vars_.light_source_type == 3) {
+      AddImageBased(
+          std::make_unique<ImageBasedLight>(imgui_window_vars_.hdr_map_path));
     }
+  }
+  if (imgui_window_vars_.light_source_type == 3) {
+    ImGui::InputText(fmt::format("HDR map path{}", suffix).c_str(),
+                     imgui_window_vars_.hdr_map_path,
+                     sizeof(imgui_window_vars_.hdr_map_path),
+                     ImGuiInputTextFlags_None);
   }
 
   for (int i = 0; i < ambient_lights_.size(); i++) {
@@ -243,6 +318,13 @@ void LightSources::ImGuiWindow(Camera *camera) {
     point_lights_[i]->ImGuiWindow(i, [this, i]() {
       this->point_lights_.erase(point_lights_.begin() + i);
       this->ResizePointSSBO();
+    });
+  }
+
+  for (int i = 0; i < image_based_lights_.size(); i++) {
+    image_based_lights_[i]->ImGuiWindow(i, [this, i]() {
+      this->image_based_lights_.erase(image_based_lights_.begin() + i);
+      this->ResizeImageBasedSSBO();
     });
   }
 
@@ -283,6 +365,17 @@ void LightSources::Set() {
       point_light_glsl_vec.size() * sizeof(point_light_glsl_vec[0]),
       point_light_glsl_vec.data());
   point_lights_ssbo_->BindBufferBase();
+
+  // image based
+  std::vector<ImageBasedLight::ImageBasedLightGLSL> image_based_light_glsl_vec;
+  for (const auto &light : image_based_lights_) {
+    image_based_light_glsl_vec.push_back(light->image_based_light_glsl());
+  }
+  glNamedBufferSubData(
+      image_based_lights_ssbo_->id(), 0,
+      image_based_light_glsl_vec.size() * sizeof(image_based_light_glsl_vec[0]),
+      image_based_light_glsl_vec.data());
+  image_based_lights_ssbo_->BindBufferBase();
 
   // poisson disk
   poisson_disk_2d_points_ssbo_->BindBufferBase();

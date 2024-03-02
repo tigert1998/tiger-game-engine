@@ -36,12 +36,10 @@ void SMAA::Resize(uint32_t width, uint32_t height) {
 
 void SMAA::PrepareAreaAndSearchTexture(const fs::path &smaa_repo_path) {
   // sRGB can be any value since they are DDS images
-  area_ = Texture::LoadFromFS(smaa_repo_path / "Textures/AreaTexDX10.dds",
-                              GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false,
-                              false, false);
-  search_ = Texture::LoadFromFS(smaa_repo_path / "Textures/SearchTex.dds",
-                                GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {},
-                                false, false, false);
+  area_ = Texture(smaa_repo_path / "Textures/AreaTexDX10.dds", GL_CLAMP_TO_EDGE,
+                  GL_LINEAR, GL_LINEAR, {}, false, false, false);
+  search_ = Texture(smaa_repo_path / "Textures/SearchTex.dds", GL_CLAMP_TO_EDGE,
+                    GL_LINEAR, GL_LINEAR, {}, false, false, false);
 }
 
 void SMAA::PrepareVertexData() {

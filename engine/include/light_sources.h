@@ -6,8 +6,10 @@
 #include <memory>
 #include <vector>
 
+#include "equirectangular_map.h"
 #include "shader.h"
 #include "shadows.h"
+#include "skybox.h"
 #include "ssbo.h"
 
 class Light {
@@ -98,38 +100,79 @@ class PointLight : public Light {
   PointLightGLSL point_light_glsl() const;
 };
 
+class ImageBasedLight : public Light {
+ private:
+  std::unique_ptr<EquirectangularMap> equirectangular_map_;
+  std::unique_ptr<Skybox> skybox_;
+
+  void Load(const std::filesystem::path &path);
+
+  struct ImGuiWindowVars {
+    char hdr_map_path[1 << 10] = {};
+  } imgui_window_vars_;
+
+ public:
+  static constexpr uint32_t GLSL_BINDING = 19;
+
+  explicit ImageBasedLight(const std::filesystem::path &path);
+
+  void ImGuiWindow(uint32_t index,
+                   const std::function<void()> &erase_callback) override;
+
+  inline Skybox *skybox() { return skybox_.get(); }
+
+  struct ImageBasedLightGLSL {
+    uint64_t irradiance_map;
+    uint64_t prefiltered_map;
+    uint32_t num_levels;
+    uint64_t lut;
+  };
+  ImageBasedLightGLSL image_based_light_glsl() const;
+};
+
 class LightSources {
  private:
   std::unique_ptr<SSBO> ambient_lights_ssbo_;
   std::unique_ptr<SSBO> directional_lights_ssbo_;
   std::unique_ptr<SSBO> point_lights_ssbo_;
+  std::unique_ptr<SSBO> image_based_lights_ssbo_;
   std::unique_ptr<SSBO> poisson_disk_2d_points_ssbo_;
 
   void ResizeAmbientSSBO();
   void ResizeDirectioanlSSBO();
   void ResizePointSSBO();
+  void ResizeImageBasedSSBO();
 
   void AllocatePoissonDiskSSBO();
 
   std::vector<std::unique_ptr<AmbientLight>> ambient_lights_;
   std::vector<std::unique_ptr<DirectionalLight>> directional_lights_;
   std::vector<std::unique_ptr<PointLight>> point_lights_;
+  std::vector<std::unique_ptr<ImageBasedLight>> image_based_lights_;
+
+  struct ImGuiWindowVars {
+    char hdr_map_path[1 << 10] = {};
+    int light_source_type = 0;
+  } imgui_window_vars_;
 
  public:
-  static constexpr uint32_t POISSON_DISK_2D_BINDING = 19;
-  static constexpr uint32_t POISSON_DISK_3D_BINDING = 20;
+  static constexpr uint32_t POISSON_DISK_2D_BINDING = 20;
+  static constexpr uint32_t POISSON_DISK_3D_BINDING = 21;
 
   explicit LightSources();
 
   uint32_t SizeAmbient() const;
   uint32_t SizeDirectional() const;
   uint32_t SizePoint() const;
+  uint32_t SizeImageBased() const;
   void AddAmbient(std::unique_ptr<AmbientLight> light);
   void AddDirectional(std::unique_ptr<DirectionalLight> light);
   void AddPoint(std::unique_ptr<PointLight> light);
+  void AddImageBased(std::unique_ptr<ImageBasedLight> light);
   AmbientLight *GetAmbient(uint32_t index) const;
   DirectionalLight *GetDirectional(uint32_t index) const;
   PointLight *GetPoint(uint32_t index) const;
+  ImageBasedLight *GetImageBased(uint32_t index) const;
 
   void Set();
   void DrawDepthForShadow(

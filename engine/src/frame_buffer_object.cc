@@ -67,3 +67,15 @@ FrameBufferObject::~FrameBufferObject() { glDeleteFramebuffers(1, &id_); }
 void FrameBufferObject::Bind() const { glBindFramebuffer(GL_FRAMEBUFFER, id_); }
 
 void FrameBufferObject::Unbind() const { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
+
+void FrameBufferObject::SwitchAttachmentLevelAndLayer(bool is_color_attachment,
+                                                      int32_t index,
+                                                      uint32_t level,
+                                                      uint32_t layer) {
+  uint32_t attachment =
+      is_color_attachment ? GL_COLOR_ATTACHMENT0 + index : GL_DEPTH_ATTACHMENT;
+  const Texture &texture =
+      is_color_attachment ? color_textures_[index] : depth_texture();
+  glFramebufferTextureLayer(GL_FRAMEBUFFER, attachment, texture.id(), level,
+                            layer);
+}

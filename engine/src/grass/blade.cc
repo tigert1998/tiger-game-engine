@@ -41,6 +41,8 @@ Blade::Blade() {
           {"DIRECTIONAL_LIGHT_BINDING",
            std::any(DirectionalLight::GLSL_BINDING)},
           {"POINT_LIGHT_BINDING", std::any(PointLight::GLSL_BINDING)},
+          {"IMAGE_BASED_LIGHT_BINDING",
+           std::any(ImageBasedLight::GLSL_BINDING)},
           {"POISSON_DISK_2D_BINDING",
            std::any(LightSources::POISSON_DISK_2D_BINDING)},
       }));

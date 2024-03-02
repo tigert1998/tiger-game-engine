@@ -151,7 +151,7 @@ void Init(uint32_t width, uint32_t height) {
       multi_draw_indirect.get(), kNumModelItems, true, false));
   multi_draw_indirect->PrepareForDraw();
 
-  skybox_ptr = make_unique<Skybox>("resources/skyboxes/learnopengl");
+  skybox_ptr = make_unique<Skybox>("resources/skyboxes/learnopengl", false);
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),

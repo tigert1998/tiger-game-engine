@@ -2,6 +2,7 @@
 #define LIGHT_SOURCES_GLSL_
 
 #include "shadow/shadows.glsl"
+#include "pbr.glsl"
 
 struct AmbientLight {
     vec3 color;
@@ -22,6 +23,13 @@ struct PointLight {
     OmnidirectionalShadow shadow;
 };
 
+struct ImageBasedLight {
+    samplerCube irradianceMap;
+    samplerCube prefilteredMap;
+    uint num_levels;
+    sampler2D lut;
+};
+
 layout (std430, binding = AMBIENT_LIGHT_BINDING) buffer ambientLightsBuffer {
     AmbientLight ambientLights[];
 };
@@ -32,6 +40,10 @@ layout (std430, binding = DIRECTIONAL_LIGHT_BINDING) buffer directionalLightsBuf
 
 layout (std430, binding = POINT_LIGHT_BINDING) buffer pointLightsBuffer {
     PointLight pointLights[];
+};
+
+layout (std430, binding = IMAGE_BASED_LIGHT_BINDING) buffer imageBasedLightsBuffer {
+    ImageBasedLight imageBasedLights[];
 };
 
 vec3 CalcAmbient(vec3 ka) {
@@ -90,42 +102,6 @@ vec3 CalcPhongLighting(
     return color;
 }
 
-float DistributionGGX(vec3 normal, vec3 halfway, float roughness) {
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float nDotH = max(dot(normal, halfway), 0.0);
-    float nDotH2 = nDotH * nDotH;
-
-    float num = a2;
-    float denom = (nDotH2 * (a2 - 1.0) + 1.0);
-    const float PI = radians(180);
-    denom = PI * denom * denom;
-
-    return num / denom;
-}
-
-float GeometrySchlickGGX(vec3 normal, vec3 viewDirection, float roughness) {
-    float k = pow(roughness + 1.0, 2) / 8.0;
-
-    float nDotV = max(dot(normal, viewDirection), 0.0);
-    float num = nDotV;
-    float denom = nDotV * (1.0 - k) + k;
-
-    return num / denom;
-}
-
-float GeometrySmith(vec3 normal, vec3 viewDirection, vec3 lightDirection, float roughness) {
-    float ggx2  = GeometrySchlickGGX(normal, viewDirection, roughness);
-    float ggx1  = GeometrySchlickGGX(normal, lightDirection, roughness);
-
-    return ggx1 * ggx2;
-}
-
-vec3 FresnelSchlick(vec3 halfway, vec3 viewDirection, vec3 f0) {
-    float hDotV = max(dot(halfway, viewDirection), 0.0);
-    return f0 + (1.0 - f0) * pow(clamp(1.0 - hDotV, 0.0, 1.0), 5.0);
-}
-
 vec3 CalcPBRLightingForSingleLightSource(
     vec3 albedo, float metallic, float roughness,
     vec3 normal, vec3 viewDirection, vec3 lightDirection,
@@ -154,6 +130,28 @@ vec3 CalcPBRLightingForSingleLightSource(
     return (kd * albedo / PI + specular) * lightColor * nDotL;
 }
 
+vec3 CalcImageBasedLight(
+    vec3 albedo, float metallic, float roughness,
+    vec3 normal, vec3 viewDirection, ImageBasedLight light
+) {
+    normal = normalize(normal);
+    viewDirection = normalize(viewDirection);
+
+    vec3 reflected = reflect(-viewDirection, normal);
+    vec3 prefilteredColor = textureLod(
+        light.prefilteredMap, reflected, roughness * (light.num_levels - 1)).rgb;
+    vec3 f0 = mix(vec3(0.04), albedo, metallic);
+    vec3 F = FresnelSchlickRoughness(normal, viewDirection, f0, roughness);
+    vec2 scaleAndBias = texture(light.lut, vec2(max(dot(normal, viewDirection), 0.0), roughness)).rg;
+    vec3 specular = prefilteredColor * (F * scaleAndBias.x + scaleAndBias.y);
+
+    vec3 kD = (1.0 - F) * (1.0 - metallic);
+    vec3 irradiance = texture(light.irradianceMap, normal).rgb;
+    vec3 diffuse = irradiance * albedo;
+
+    return diffuse * kD + specular;
+}
+
 vec3 CalcPBRLighting(
     vec3 albedo, float metallic, float roughness, float ao, vec3 emission,
     vec3 normal, vec3 cameraPosition, vec3 position, mat4 cameraViewMatrix
@@ -162,6 +160,12 @@ vec3 CalcPBRLighting(
 
     for (int i = 0; i < ambientLights.length(); i++) {
         color += albedo * ambientLights[i].color * ao;
+    }
+    if (imageBasedLights.length() >= 1) {
+        color += CalcImageBasedLight(
+            albedo, metallic, roughness, 
+            normal, cameraPosition - position, imageBasedLights[0]
+        ) * ao;
     }
 
     for (int i = 0; i < directionalLights.length(); i++) {

@@ -83,7 +83,7 @@ void SampleForGBuffer(
         metallic = 0.0;
         roughness = 0.25; // default metallic and roughness
         ao = 1.0f;
-        emission = vec3(material.ke);
+        emission = vec3(0);
 
         if (material.diffuseTexture >= 0) {
             vec4 sampled = texture(textures[material.diffuseTexture], vTexCoord);

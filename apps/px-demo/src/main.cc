@@ -219,7 +219,7 @@ void Init(uint32_t width, uint32_t height) {
       vec3(0, -1, 0.1), vec3(10), camera_ptr.get()));
   light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
 
-  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
+  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", false);
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), oit_render_quad_ptr.get(), character_controller.get(),

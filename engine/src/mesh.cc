@@ -31,7 +31,8 @@ uint32_t Namer::total() const { return total_; }
 std::map<std::string, uint32_t> &Namer::map() { return map_; }
 
 Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
-           Namer *bone_namer, std::vector<glm::mat4> *bone_offsets, bool flip_y,
+           Namer *bone_namer, std::vector<glm::mat4> *bone_offsets,
+           std::map<fs::path, Texture> *textures_cache, bool flip_y,
            glm::mat4 transform, MultiDrawIndirect *multi_draw_indirect)
     : transform_(transform), multi_draw_indirect_(multi_draw_indirect) {
 #define REGISTER(name) \
@@ -84,18 +85,18 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
       material_.shininess = value;
     }
     aiString material_texture_path;
-#define INTERNAL_ADD_TEXTURE(i, name, srgb)                                \
-  do {                                                                     \
-    if (textures_[i].type != #name) {                                      \
-      fmt::print(stderr, "[error] textures_[{}].type != " #name "\n", i);  \
-      exit(1);                                                             \
-    }                                                                      \
-    textures_[i].enabled = true;                                           \
-    material->GetTexture(aiTextureType_##name, 0, &material_texture_path); \
-    fs::path item = path / ToU8string(material_texture_path);              \
-    textures_[i].texture =                                                 \
-        Texture::LoadFromFS(item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR,      \
-                            GL_LINEAR, {}, true, !flip_y, srgb);           \
+#define INTERNAL_ADD_TEXTURE(i, name, srgb)                                  \
+  do {                                                                       \
+    if (textures_[i].type != #name) {                                        \
+      fmt::print(stderr, "[error] textures_[{}].type != " #name "\n", i);    \
+      exit(1);                                                               \
+    }                                                                        \
+    textures_[i].enabled = true;                                             \
+    material->GetTexture(aiTextureType_##name, 0, &material_texture_path);   \
+    fs::path item = path / ToU8string(material_texture_path);                \
+    textures_[i].texture = Texture::LoadFromFS(                              \
+        textures_cache, item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, \
+        {}, true, !flip_y, srgb);                                            \
   } while (0)
 #define TRY_ADD_TEXTURE(i, name, srgb)                                    \
   if (material->GetTextureCount(aiTextureType_##name) >= 1) {             \
@@ -133,6 +134,8 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
 #undef TRY_ADD_TEXTURE
 #undef TRY_ADD_TEXTURE_WITH_BASE_COLOR
   }
+
+  MakeTexturesResidentOrNot(true);
 
   AddVerticesIndicesAndBones(mesh, bone_namer, bone_offsets);
 
@@ -184,6 +187,8 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
       name_, mesh->mNumVertices, mesh->mNumFaces, lod_log_str,
       mesh->HasTextureCoords(0), mesh->HasNormals());
 }
+
+Mesh::~Mesh() { MakeTexturesResidentOrNot(false); }
 
 void Mesh::AddVerticesIndicesAndBones(aiMesh *mesh, Namer *bone_namer,
                                       std::vector<glm::mat4> *bone_offsets) {
@@ -269,4 +274,17 @@ void Mesh::AddVerticesIndicesAndBones(aiMesh *mesh, Namer *bone_namer,
 void Mesh::SubmitToMultiDrawIndirect() {
   multi_draw_indirect_->Receive(vertices_, indices_, textures_, material_,
                                 has_bone_, transform_, aabb_);
+}
+
+void Mesh::MakeTexturesResidentOrNot(bool resident) {
+  for (int i = 0; i < textures_.size(); i++) {
+    if (!textures_[i].enabled) continue;
+    if (textures_[i].texture.has_ownership()) {
+      if (resident)
+        textures_[i].texture.MakeResident();
+      else
+        textures_[i].texture.MakeNonResident();
+    }
+  }
+  CHECK_OPENGL_ERROR();
 }
