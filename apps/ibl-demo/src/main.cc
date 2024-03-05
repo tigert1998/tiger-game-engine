@@ -84,8 +84,9 @@ void ImGuiWindow() {
   ImGui::Begin("Panel");
   if (ImGui::InputText("Model path", buf, sizeof(buf),
                        ImGuiInputTextFlags_EnterReturnsTrue)) {
+    model_ptr.reset(new Model(buf, true, true));
     multi_draw_indirect.reset(new MultiDrawIndirect());
-    model_ptr.reset(new Model(buf, multi_draw_indirect.get(), 1, true, true));
+    model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
     multi_draw_indirect->PrepareForDraw();
   }
   ImGui::ListBox("Enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
@@ -128,9 +129,10 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr->AddImageBased(std::unique_ptr<ImageBasedLight>(
       new ImageBasedLight("resources/newport_loft.hdr")));
 
+  model_ptr.reset(
+      new Model("resources/DamagedHelmet/DamagedHelmet.gltf", true, true));
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model("resources/DamagedHelmet/DamagedHelmet.gltf",
-                            multi_draw_indirect.get(), 1, true, true));
+  model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
   multi_draw_indirect->PrepareForDraw();
 
   controller_ptr = make_unique<Controller>(
