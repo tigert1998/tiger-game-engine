@@ -86,8 +86,9 @@ void ImGuiWindow() {
   ImGui::Begin("Panel");
   if (ImGui::InputText("Model path", buf, sizeof(buf),
                        ImGuiInputTextFlags_EnterReturnsTrue)) {
+    model_ptr.reset(new Model(buf, true, true));
     multi_draw_indirect.reset(new MultiDrawIndirect());
-    model_ptr.reset(new Model(buf, multi_draw_indirect.get(), 1, true, true));
+    model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
     multi_draw_indirect->PrepareForDraw();
   }
   ImGui::ListBox("Default shading", &default_shading_choice, choices,
@@ -135,9 +136,10 @@ void Init(uint32_t width, uint32_t height) {
       vec3(0, -1, 0.5), vec3(10), camera_ptr.get()));
   light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
 
+  model_ptr.reset(
+      new Model("resources/Bistro_v5_2/BistroExterior.fbx", true, true));
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model("resources/Bistro_v5_2/BistroExterior.fbx",
-                            multi_draw_indirect.get(), 1, true, true));
+  model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
   multi_draw_indirect->PrepareForDraw();
 
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", false);

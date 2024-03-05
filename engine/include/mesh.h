@@ -32,22 +32,21 @@ class Mesh {
                 const aiScene *scene, Namer *bone_namer,
                 std::vector<glm::mat4> *bone_offsets,
                 std::map<std::filesystem::path, Texture> *textures_cache,
-                bool flip_y, glm::mat4 transform,
-                MultiDrawIndirect *multi_draw_indirect);
-  void SubmitToMultiDrawIndirect();
+                bool flip_y, glm::mat4 transform);
+  void SubmitToMultiDrawIndirect(MultiDrawIndirect *multi_draw_indirect);
   ~Mesh();
+  MaterialParameters *material_params();
 
  private:
   AABB aabb_;
   glm::mat4 transform_;
   std::string name_;
   bool has_bone_ = false;
-  MultiDrawIndirect *multi_draw_indirect_;
 
   std::vector<TextureRecord> textures_;
   std::vector<VertexWithBones> vertices_;
   std::vector<std::vector<uint32_t>> indices_;  // LODs
-  PhongMaterial material_;
+  MaterialParameters material_params_;
 
   void AddVerticesIndicesAndBones(aiMesh *mesh, Namer *bone_namer,
                                   std::vector<glm::mat4> *bone_offsets);

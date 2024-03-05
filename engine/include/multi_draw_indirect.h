@@ -51,9 +51,14 @@ struct TextureRecord {
         base_color(record.base_color) {}
 };
 
-struct PhongMaterial {
+struct MaterialParameters {
+  // for Phong
   glm::vec3 ka, kd, ks, ke;
   float shininess;
+  // for PBR
+  glm::vec3 albedo;
+  float metallic, roughness;
+  glm::vec3 emission;
 };
 
 struct DrawElementsIndirectCommand {
@@ -144,7 +149,7 @@ class MultiDrawIndirect {
   void Receive(const std::vector<VertexWithBones> &vertices,
                const std::vector<std::vector<uint32_t>> &indices,
                const std::vector<TextureRecord> &textures,
-               const PhongMaterial &phong_material, bool has_bone,
+               const MaterialParameters &material_params, bool has_bone,
                glm::mat4 transform, AABB aabb);
 
   inline void ModelBeginSubmission(Model *model, uint32_t item_count,
@@ -195,12 +200,17 @@ class MultiDrawIndirect {
 
   struct Material {
     int32_t textures[7];
+
     alignas(16) glm::vec3 ka;
     alignas(16) glm::vec3 kd;
     alignas(16) glm::vec3 ks;
     alignas(16) glm::vec3 ke;
-    alignas(4) float shininess;
-    int32_t bind_metalness_and_diffuse_roughness;
+
+    alignas(16) glm::vec3 albedo;
+    alignas(16) glm::vec3 emission;
+
+    alignas(4) float shininess, metallic, roughness;
+    alignas(4) int32_t bind_metalness_and_diffuse_roughness;
   };
 
   // counter to print

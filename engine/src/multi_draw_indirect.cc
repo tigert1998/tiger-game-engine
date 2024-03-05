@@ -462,8 +462,8 @@ void MultiDrawIndirect::Receive(
     const std::vector<VertexWithBones> &vertices,
     const std::vector<std::vector<uint32_t>> &indices,
     const std::vector<TextureRecord> &texture_records,
-    const PhongMaterial &phong_material, bool has_bone, glm::mat4 transform,
-    AABB aabb) {
+    const MaterialParameters &material_params, bool has_bone,
+    glm::mat4 transform, AABB aabb) {
   aabbs_.push_back(aabb);
   for (int i = 0; i < submission_cache_.item_count; i++) {
     instance_to_mesh_.push_back(num_meshes_);
@@ -497,11 +497,16 @@ void MultiDrawIndirect::Receive(
       material.textures[i] = textures_.size() - 1;
     }
   }
-  material.ka = phong_material.ka;
-  material.kd = phong_material.kd;
-  material.ks = phong_material.ks;
-  material.ke = phong_material.ke;
-  material.shininess = phong_material.shininess;
+  material.ka = material_params.ka;
+  material.kd = material_params.kd;
+  material.ks = material_params.ks;
+  material.ke = material_params.ke;
+  material.albedo = material_params.albedo;
+  material.emission = material_params.emission;
+
+  material.shininess = material_params.shininess;
+  material.metallic = material_params.metallic;
+  material.roughness = material_params.roughness;
   if (texture_records[4].type != "METALNESS" ||
       texture_records[5].type != "DIFFUSE_ROUGHNESS") {
     fmt::print(

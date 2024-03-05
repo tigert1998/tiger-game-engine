@@ -33,8 +33,8 @@ std::map<std::string, uint32_t> &Namer::map() { return map_; }
 Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
            Namer *bone_namer, std::vector<glm::mat4> *bone_offsets,
            std::map<fs::path, Texture> *textures_cache, bool flip_y,
-           glm::mat4 transform, MultiDrawIndirect *multi_draw_indirect)
-    : transform_(transform), multi_draw_indirect_(multi_draw_indirect) {
+           glm::mat4 transform)
+    : transform_(transform) {
 #define REGISTER(name) \
   textures_.push_back( \
       TextureRecord(#name, false, Texture(), -1, -1, glm::vec3(0)))
@@ -63,26 +63,31 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
       if (material->Get(AI_MATKEY_COLOR_AMBIENT, color) != AI_SUCCESS) {
         color = {0, 0, 0};
       }
-      material_.ka = glm::vec3(color.r, color.g, color.b);
+      material_params_.ka = glm::vec3(color.r, color.g, color.b);
       if (material->Get(AI_MATKEY_COLOR_DIFFUSE, color) != AI_SUCCESS) {
         color = {0, 0, 0};
       }
-      material_.kd = glm::vec3(color.r, color.g, color.b);
+      material_params_.kd = glm::vec3(color.r, color.g, color.b);
       if (material->Get(AI_MATKEY_SHININESS_STRENGTH, value) != AI_SUCCESS) {
         value = 1;
       }
       if (material->Get(AI_MATKEY_COLOR_SPECULAR, color) != AI_SUCCESS) {
         color = {0, 0, 0};
       }
-      material_.ks = glm::vec3(color.r, color.g, color.b) * value;
+      material_params_.ks = glm::vec3(color.r, color.g, color.b) * value;
       if (material->Get(AI_MATKEY_COLOR_EMISSIVE, color) != AI_SUCCESS) {
         color = {0, 0, 0};
       }
-      material_.ke = glm::vec3(color.r, color.g, color.b);
+      material_params_.ke = glm::vec3(color.r, color.g, color.b);
       if (material->Get(AI_MATKEY_SHININESS, value) != AI_SUCCESS) {
         value = 0;
       }
-      material_.shininess = value;
+      material_params_.shininess = value;
+
+      material_params_.albedo = material_params_.kd;
+      material_params_.metallic = 0;
+      material_params_.roughness = 0.25;
+      material_params_.emission = glm::vec3(0);
     }
     aiString material_texture_path;
 #define INTERNAL_ADD_TEXTURE(i, name, srgb)                                  \
@@ -188,6 +193,8 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
       mesh->HasTextureCoords(0), mesh->HasNormals());
 }
 
+MaterialParameters *Mesh::material_params() { return &material_params_; }
+
 Mesh::~Mesh() { MakeTexturesResidentOrNot(false); }
 
 void Mesh::AddVerticesIndicesAndBones(aiMesh *mesh, Namer *bone_namer,
@@ -271,9 +278,9 @@ void Mesh::AddVerticesIndicesAndBones(aiMesh *mesh, Namer *bone_namer,
   }
 }
 
-void Mesh::SubmitToMultiDrawIndirect() {
-  multi_draw_indirect_->Receive(vertices_, indices_, textures_, material_,
-                                has_bone_, transform_, aabb_);
+void Mesh::SubmitToMultiDrawIndirect(MultiDrawIndirect *multi_draw_indirect) {
+  multi_draw_indirect->Receive(vertices_, indices_, textures_, material_params_,
+                               has_bone_, transform_, aabb_);
 }
 
 void Mesh::MakeTexturesResidentOrNot(bool resident) {
