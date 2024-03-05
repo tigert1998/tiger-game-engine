@@ -204,10 +204,10 @@ void Init(uint32_t width, uint32_t height) {
 
   oit_render_quad_ptr = make_unique<OITRenderQuad>(width, height);
 
-  multi_draw_indirect.reset(new MultiDrawIndirect());
   scene_model_ptr =
-      make_unique<Model>("resources/sponza/Sponza.gltf",
-                         multi_draw_indirect.get(), 1, false, true);
+      make_unique<Model>("resources/sponza/Sponza.gltf", false, true);
+  multi_draw_indirect.reset(new MultiDrawIndirect());
+  scene_model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
   multi_draw_indirect->PrepareForDraw();
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,

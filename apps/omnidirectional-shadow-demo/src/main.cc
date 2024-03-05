@@ -63,7 +63,7 @@ std::unique_ptr<Controller> controller_ptr;
 struct PointLightWithSphere {
   PointLight *light;
   std::unique_ptr<MultiDrawIndirect> mdi;
-  std::unique_ptr<Model> model;
+  Model *model;
 };
 std::vector<PointLightWithSphere> point_lights_with_spheres;
 
@@ -86,17 +86,23 @@ void ImGuiInit() {
   io.Fonts->Build();
 }
 
-PointLightWithSphere ConstructPointLightWithSphereModel(
-    const std::string &sphere_name) {
+PointLightWithSphere ConstructPointLightWithSphereModel(glm::vec3 emission) {
+  static auto sphere = std::unique_ptr<Model>(
+      new Model("resources/sphere/sphere_no_material.obj", false, false));
+
   light_sources_ptr->AddPoint(
       make_unique<PointLight>(glm::vec3(0), glm::vec3(0), glm::vec3(1, 0, 0)));
   auto light = light_sources_ptr->GetPoint(light_sources_ptr->SizePoint() - 1);
+  auto material_params = sphere->mesh(0)->material_params();
+  material_params->albedo = glm::vec3(0);
+  material_params->metallic = 1;
+  material_params->roughness = 0;
+  material_params->emission = emission;
+
   auto mdi = std::unique_ptr<MultiDrawIndirect>(new MultiDrawIndirect());
-  auto sphere = std::unique_ptr<Model>(
-      new Model(fmt::format("resources/sphere/sphere_{}.obj", sphere_name),
-                mdi.get(), 1, false, false));
+  sphere->SubmitToMultiDrawIndirect(mdi.get(), 1);
   mdi->PrepareForDraw();
-  return {light, std::move(mdi), std::move(sphere)};
+  return {light, std::move(mdi), sphere.get()};
 }
 
 void ImGuiWindow() {
@@ -146,19 +152,20 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr = make_unique<LightSources>();
   light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
 
+  model_ptr.reset(new Model("resources/dragon/dragon.obj", false, true));
+  brick_wall_ptr.reset(
+      new Model("resources/brickwall/brickwall.obj", false, false));
   multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr.reset(new Model("resources/dragon/dragon.obj",
-                            multi_draw_indirect.get(), 1, false, true));
-  brick_wall_ptr.reset(new Model("resources/brickwall/brickwall.obj",
-                                 multi_draw_indirect.get(), 1, false, false));
+  model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
+  brick_wall_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
   multi_draw_indirect->PrepareForDraw();
 
   point_lights_with_spheres.push_back(
-      ConstructPointLightWithSphereModel("red"));
+      ConstructPointLightWithSphereModel(glm::vec3(10, 0, 0)));
   point_lights_with_spheres.push_back(
-      ConstructPointLightWithSphereModel("green"));
+      ConstructPointLightWithSphereModel(glm::vec3(0, 10, 0)));
   point_lights_with_spheres.push_back(
-      ConstructPointLightWithSphereModel("blue"));
+      ConstructPointLightWithSphereModel(glm::vec3(0, 0, 10)));
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
@@ -193,7 +200,7 @@ auto UpdateObjectsAndLights(double time) {
   if (auto light = point_lights_with_spheres[0].light; set.count(light)) {
     glm::vec3 position = glm::vec3(sin(time) * 10, 10, cos(time) * 10);
     MultiDrawIndirect::RenderTargetParameter param = {
-        point_lights_with_spheres[0].model.get(),
+        point_lights_with_spheres[0].model,
         {{-1, 0, glm::translate(glm::mat4(1), position)}},
     };
     light->set_color(glm::vec3(10, 0, 0));
@@ -206,7 +213,7 @@ auto UpdateObjectsAndLights(double time) {
         glm::rotate(glm::mat4(1), glm::radians(30.f), glm::vec3(1, 0, 0)) *
         glm::vec4(sin(-time) * 10, 10, cos(-time) * 10, 1);
     MultiDrawIndirect::RenderTargetParameter param = {
-        point_lights_with_spheres[1].model.get(),
+        point_lights_with_spheres[1].model,
         {{-1, 0, glm::translate(glm::mat4(1), position)}},
     };
     light->set_color(glm::vec3(0, 10, 0));
@@ -217,7 +224,7 @@ auto UpdateObjectsAndLights(double time) {
   if (auto light = point_lights_with_spheres[2].light; set.count(light)) {
     glm::vec3 position = glm::vec4(sin(time) * 5, cos(time) * 5 + 15, 0, 1);
     MultiDrawIndirect::RenderTargetParameter param = {
-        point_lights_with_spheres[2].model.get(),
+        point_lights_with_spheres[2].model,
         {{-1, 0, glm::translate(glm::mat4(1), position)}},
     };
     light->set_color(glm::vec3(0, 0, 10));

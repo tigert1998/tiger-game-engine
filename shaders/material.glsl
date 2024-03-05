@@ -9,8 +9,8 @@ struct Material {
     int metalnessTexture;
     int diffuseRoughnessTexture;
     int ambientOcclusionTexture;
-    vec3 ka, kd, ks, ke;
-    float shininess;
+    vec3 ka, kd, ks, ke, albedo, emission;
+    float shininess, metallic, roughness;
     bool bindMetalnessAndDiffuseRoughness;
 };
 

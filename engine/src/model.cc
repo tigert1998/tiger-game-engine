@@ -13,11 +13,8 @@
 
 namespace fs = std::filesystem;
 
-Model::Model(const fs::path &path, MultiDrawIndirect *multi_draw_indirect,
-             uint32_t item_count, bool flip_y, bool split_large_meshes)
-    : directory_path_(path.parent_path()),
-      flip_y_(flip_y),
-      multi_draw_indirect_(multi_draw_indirect) {
+Model::Model(const fs::path &path, bool flip_y, bool split_large_meshes)
+    : directory_path_(path.parent_path()), flip_y_(flip_y) {
   CompileShaders();
 
   fmt::print(stderr, "[info] loading model at: \"{}\"\n",
@@ -45,15 +42,22 @@ Model::Model(const fs::path &path, MultiDrawIndirect *multi_draw_indirect,
   RecursivelyInitNodes(scene_->mRootNode, glm::mat4(1));
 
   bone_matrices_.resize(bone_namer_.total());
+}
 
-  multi_draw_indirect_->ModelBeginSubmission(this, item_count,
-                                             bone_matrices_.size());
+void Model::SubmitToMultiDrawIndirect(MultiDrawIndirect *multi_draw_indirect,
+                                      uint32_t item_count) {
+  multi_draw_indirect->ModelBeginSubmission(this, item_count,
+                                            bone_matrices_.size());
   for (int i = 0; i < meshes_.size(); i++) {
     if (meshes_[i] == nullptr) continue;
-    meshes_[i]->SubmitToMultiDrawIndirect();
+    meshes_[i]->SubmitToMultiDrawIndirect(multi_draw_indirect);
   }
-  multi_draw_indirect_->ModelEndSubmission();
+  multi_draw_indirect->ModelEndSubmission();
 }
+
+uint32_t Model::NumMeshes() const { return meshes_.size(); }
+
+Mesh *Model::mesh(uint32_t index) { return meshes_[index].get(); }
 
 Model::~Model() {}
 
@@ -75,7 +79,7 @@ void Model::RecursivelyInitNodes(aiNode *node, glm::mat4 parent_transform) {
       try {
         meshes_[id].reset(new Mesh(directory_path_, mesh, scene_, &bone_namer_,
                                    &bone_offsets_, &textures_cache_, flip_y_,
-                                   transform, multi_draw_indirect_));
+                                   transform));
       } catch (std::exception &e) {
         fmt::print(
             stderr,

@@ -145,10 +145,12 @@ void Init(uint32_t width, uint32_t height) {
       make_unique<DirectionalLight>(vec3(0, 0, -1), vec3(2), camera_ptr.get()));
   light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
 
-  multi_draw_indirect.reset(new MultiDrawIndirect());
   model_ptr.reset(new Model(
       "resources/Tarisland - Dragon/source/M_B_44_Qishilong_skin_Skeleton.FBX",
-      multi_draw_indirect.get(), kNumModelItems, true, false));
+      true, false));
+  multi_draw_indirect.reset(new MultiDrawIndirect());
+  model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(),
+                                       kNumModelItems);
   multi_draw_indirect->PrepareForDraw();
 
   skybox_ptr = make_unique<Skybox>("resources/skyboxes/learnopengl", false);

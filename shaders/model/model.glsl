@@ -51,16 +51,16 @@ void SampleForGBuffer(
 
     if (material.metalnessTexture < 0 && !uForcePBR) {
         // for Phong
-        alpha = 1.0f;
+        alpha = 1;
 
-        ka = vec3(material.ka);
-        kd = vec3(material.kd);
-        ks = vec3(material.ks);
-        emission = vec3(material.ke);
+        ka = material.ka;
+        kd = material.kd;
+        ks = material.ks;
+        emission = material.ke;
 
         if (material.diffuseTexture >= 0) {
             vec4 sampled = texture(textures[material.diffuseTexture], vTexCoord);
-            kd = sampled.rgb;
+            kd = pow(sampled.rgb, vec3(2.2));
             alpha = sampled.a;
         }
 
@@ -77,17 +77,16 @@ void SampleForGBuffer(
         flag = 1;
     } else {
         // for PBR
-        alpha = 1.0f;
+        alpha = 1;
 
-        albedo = vec3(material.kd);
-        metallic = 0.0;
-        roughness = 0.25; // default metallic and roughness
-        ao = 1.0f;
-        emission = vec3(0);
+        albedo = material.albedo;
+        metallic = material.metallic;
+        roughness = material.roughness;
+        ao = 1;
+        emission = material.emission;
 
         if (material.diffuseTexture >= 0) {
             vec4 sampled = texture(textures[material.diffuseTexture], vTexCoord);
-            // convert from sRGB to linear space
             albedo = pow(sampled.rgb, vec3(2.2));
             alpha = sampled.a;
         }

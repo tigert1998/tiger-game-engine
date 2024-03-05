@@ -170,25 +170,13 @@ AABB DirectionalShadow::projection_matrix_ortho_param(
     max_z = std::max(max_z, corner_view_space.z);
   }
 
-  // tune this parameter according to the scene
-  constexpr float MULT = 10.0f;
-  if (min_z < 0) {
-    min_z *= MULT;
-  } else {
-    min_z /= MULT;
-  }
-  if (max_z < 0) {
-    max_z /= MULT;
-  } else {
-    max_z *= MULT;
-  }
-
   AABB aabb;
   aabb.min = glm::vec3(min_x, min_y, min_z);
   aabb.max = glm::vec3(max_x, max_y, max_z);
 
   // enlarge AABB
   auto extent = aabb.extents() * 1.5f;
+  extent.z = extent.z * 6;
   auto center = aabb.center();
   aabb.min = center - extent;
   aabb.max = center + extent;

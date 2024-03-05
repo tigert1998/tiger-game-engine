@@ -23,12 +23,15 @@ class Model {
   using TextureConfig = std::map<std::string, bool>;
 
   Model() = delete;
-  Model(const std::filesystem::path &path,
-        MultiDrawIndirect *multi_draw_indirect, uint32_t item_count,
-        bool flip_y, bool split_large_meshes);
+  Model(const std::filesystem::path &path, bool flip_y,
+        bool split_large_meshes);
   int NumAnimations() const;
   double AnimationDurationInSeconds(int animation_id) const;
+  void SubmitToMultiDrawIndirect(MultiDrawIndirect *multi_draw_indirect,
+                                 uint32_t item_count);
   ~Model();
+  uint32_t NumMeshes() const;
+  Mesh *mesh(uint32_t index);
 
  private:
   Assimp::Importer importer_;
@@ -36,7 +39,6 @@ class Model {
   bool flip_y_;
   const aiScene *scene_;
   std::map<std::pair<uint32_t, std::string>, uint32_t> animation_channel_map_;
-  MultiDrawIndirect *multi_draw_indirect_;
   std::map<std::filesystem::path, Texture> textures_cache_;
   std::vector<std::unique_ptr<Mesh>> meshes_;
   Namer bone_namer_;
