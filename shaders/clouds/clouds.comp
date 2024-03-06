@@ -65,7 +65,7 @@ float Powder(float d) {
 
 bool RaySphereIntersection(
     vec3 rayOrigin, vec3 rayDirection,
-    vec3 sphereCenter, float radius, out vec3 position
+    vec3 sphereCenter, float radius, out float t, out vec3 position
 ) {
     float a = dot(rayDirection, rayDirection);
     float b = 2 * dot(rayDirection, rayOrigin - sphereCenter);
@@ -76,11 +76,13 @@ bool RaySphereIntersection(
     float t0 = (-b - sqrt(discr)) / (2 * a);
     if (t0 > 0) {
         position = rayOrigin + t0 * rayDirection;
+		t = t0;
         return true;
     }
     float t1 = (-b + sqrt(discr)) / (2 * a);
     if (t1 > 0) {
         position = rayOrigin + t1 * rayDirection;
+		t = t1;
         return true;
     }
     return false;
@@ -150,10 +152,9 @@ float RayMarchToLight(vec3 o, float stepSize) {
 	vec3 rayStep = normalize(-GetSunLight().dir) * ds;
 	const float CONE_STEP = 1.0 / 6.0;
 	float coneRadius = 1.0; 
-	float density = 0.0;
 	float coneDensity = 0.0;
 	float invDepth = 1.0 / ds;
-	float sigma_ds = -ds * uAbsorption;
+	float sigmaDs = -ds * uAbsorption;
 	vec3 pos;
 
 	float T = 1.0;
@@ -165,9 +166,8 @@ float RayMarchToLight(vec3 o, float stepSize) {
 		if (heightFraction >= 0) {
 			float cloudDensity = SampleCloudDensity(pos, false, i / 16);
 			if (cloudDensity > 0.0) {
-				float Ti = exp(cloudDensity*sigma_ds);
+				float Ti = exp(cloudDensity * sigmaDs);
 				T *= Ti;
-				density += cloudDensity;
 			}
 		}
 		startPos += rayStep;
@@ -193,40 +193,35 @@ vec4 RayMarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
 	startPos += dir * BAYER_FILTER[a * 4 + b];
 	vec3 pos = startPos;
 
-	float density = 0.0;
-
 	float lightDotEye = dot(normalize(-GetSunLight().dir), normalize(dir));
 
 	float T = 1.0;
-	float sigma_ds = -ds * uDensityFactor;
+	float sigmaDs = -ds * uDensityFactor;
 	bool expensive = true;
 	bool entered = false;
 
-	int zero_density_sample = 0;
-
 	for (int i = 0; i < nSteps; ++i) {	
-		float density_sample = SampleCloudDensity(pos, false, i / 16);
-		if (density_sample > 0.) {
+		float densitySample = SampleCloudDensity(pos, false, i / 16);
+		if (densitySample > 0.) {
 			if (!entered){
 				cloudPos = vec4(pos,1.0);
 				entered = true;	
 			}
 			float height = GetHeightFractionForPoint(pos);
 			vec3 ambientLight = uCloudBottomColor;
-			float light_density = RayMarchToLight(pos, ds * 0.1);
-			float scattering = mix(HG(lightDotEye, -0.08), HG(lightDotEye, 0.08), clamp(lightDotEye*0.5 + 0.5, 0.0, 1.0));
+			float lightDensity = RayMarchToLight(pos, ds * 0.1);
+			float scattering = mix(HG(lightDotEye, -0.08), HG(lightDotEye, 0.08), clamp(lightDotEye * 0.5 + 0.5, 0.0, 1.0));
 			scattering = max(scattering, 1.0);
-			float powderTerm = Powder(density_sample);
-            if (!uEnablePowder) powderTerm = 1.0;
+			float powderTerm = uEnablePowder ? Powder(densitySample) : 1;
 
 			vec3 S = 0.6 * (mix(
-                mix(ambientLight * 1.8, bg, 0.2), 
+                mix(ambientLight * 1.8, bg, 0.2),
                 scattering * GetSunLight().color,
-                powderTerm * light_density
-            )) * density_sample;
-			float dTrans = exp(density_sample * sigma_ds);
-			vec3 Sint = (S - S * dTrans) * (1. / density_sample);
-			col.rgb += T * Sint;
+                powderTerm * lightDensity
+            )) * densitySample;
+			float dTrans = exp(densitySample * sigmaDs);
+			vec3 sInt = (S - S * dTrans) * (1. / densitySample);
+			col.rgb += T * sInt;
 			T *= dTrans;
 		}
 
@@ -241,9 +236,9 @@ vec4 RayMarchToCloud(vec3 startPos, vec3 endPos, vec3 bg, out vec4 cloudPos) {
 
 float ComputeFogAmount(vec3 startPosition, float factor) {
 	float dist = length(startPosition - uCameraPosition);
-	float radius = (uCameraPosition.y - uSphereCenter.y) * 0.3;
-	float alpha = dist / radius;
-	return 1. - exp(-dist * alpha * factor);
+	float radius = length(uCameraPosition - uSphereCenter);
+	float fogAmount = 1. - exp(-pow(dist, 2) / radius * factor);
+	return clamp(fogAmount, 0, 1);
 }
 
 vec3 ComputeSkyColor(vec3 rayDirection) {
@@ -253,10 +248,8 @@ vec3 ComputeSkyColor(vec3 rayDirection) {
 
 vec4 PostProcess(vec4 color, vec4 background, vec3 rayDirection, float fogAmount) {
 	color.rgb = color.rgb * 1.8 - 0.1;
-    color.rgb = mix(color.rgb, background.rgb * color.a, clamp(fogAmount, 0., 1.));
-    background.rgb = background.rgb * (1.0 - color.a) + color.rgb;
-	background.a = 1.0;
-    return background;
+    color.rgb = mix(color.rgb, background.rgb * color.a, fogAmount);
+    return vec4(background.rgb * (1.0 - color.a) + color.rgb, 1);
 }
 
 void main() {
@@ -269,20 +262,21 @@ void main() {
     vec3 rayDirection = normalize(vec3(worldCoord) - uCameraPosition);
 
     vec3 startPosition, endPosition;
+	float notUsedT;
     RaySphereIntersection(
-        uCameraPosition, rayDirection, 
-        uSphereCenter, uSphereRadius + uInnerHeight, 
-        startPosition
+        uCameraPosition, rayDirection,
+        uSphereCenter, uSphereRadius + uInnerHeight,
+        notUsedT, startPosition
     );
 	RaySphereIntersection(
         uCameraPosition, rayDirection,
         uSphereCenter, uSphereRadius + uInnerHeight + uOuterHeight,
-        endPosition
-    );	
+        notUsedT, endPosition
+    );
 
     vec4 background = vec4(ComputeSkyColor(rayDirection), 1);
-    float fogAmount = ComputeFogAmount(startPosition, 0.00006);
-    if (fogAmount > 0.965){
+    float fogAmount = ComputeFogAmount(startPosition, 0.0002);
+    if (fogAmount > 0.965) {
 		imageStore(uFragColor, ivec2(gl_GlobalInvocationID.xy), background);
 		return;
 	}
@@ -291,7 +285,7 @@ void main() {
     vec4 color = RayMarchToCloud(startPosition, endPosition, background.rgb, cloudPosition);
 
     imageStore(
-        uFragColor, ivec2(gl_GlobalInvocationID), 
+        uFragColor, ivec2(gl_GlobalInvocationID),
         PostProcess(color, background, rayDirection, fogAmount)
     );
 }

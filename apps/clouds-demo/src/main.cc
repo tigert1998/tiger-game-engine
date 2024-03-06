@@ -64,7 +64,10 @@ void ImGuiInit(uint32_t width, uint32_t height) {
   io.Fonts->Build();
 }
 
-void ImGuiWindow() { camera_ptr->ImGuiWindow(); }
+void ImGuiWindow() {
+  camera_ptr->ImGuiWindow();
+  light_sources_ptr->ImGuiWindow(camera_ptr.get());
+}
 
 void Init(uint32_t width, uint32_t height) {
   glfwInit();
