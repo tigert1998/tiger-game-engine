@@ -10,7 +10,7 @@ float DistributionGGX(vec3 normal, vec3 halfway, float roughness) {
     float num = a2;
     float denom = (nDotH2 * (a2 - 1.0) + 1.0);
     const float PI = radians(180);
-    denom = PI * denom * denom;
+    denom = PI * denom * denom + 1e-6;
 
     return num / denom;
 }

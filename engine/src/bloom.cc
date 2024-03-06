@@ -46,9 +46,8 @@ void Bloom::CreateMipChain() {
 
     BloomMip mip;
     mip.size = size;
-    auto texture =
-        Texture(nullptr, size.x, size.y, GL_R11F_G11F_B10F, GL_RGB, GL_FLOAT,
-                GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false);
+    auto texture = Texture(nullptr, size.x, size.y, GL_RGB16F, GL_RGB, GL_FLOAT,
+                           GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false);
     std::vector<Texture> color_textures;
     color_textures.push_back(std::move(texture));
     mip.fbo.reset(new FrameBufferObject(color_textures));

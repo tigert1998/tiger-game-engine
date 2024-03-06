@@ -11,6 +11,7 @@
 #include <iostream>
 #include <memory>
 
+#include "bloom.h"
 #include "controller/sightseeing_controller.h"
 #include "deferred_shading_render_quad.h"
 #include "model.h"
@@ -63,6 +64,7 @@ std::unique_ptr<Controller> controller_ptr;
 int default_shading_choice = 0;
 int enable_ssao = 0;
 int enable_smaa = 0;
+int enable_bloom = 0;
 int enable_moving_shadow = 0;
 
 GLFWwindow *window;
@@ -97,6 +99,7 @@ void ImGuiWindow() {
                  IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
+  ImGui::ListBox("Enable Bloom", &enable_bloom, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable Moving Shadow", &enable_moving_shadow, choices,
                  IM_ARRAYSIZE(choices));
   ImGui::End();
@@ -105,7 +108,8 @@ void ImGuiWindow() {
   light_sources_ptr->ImGuiWindow(camera_ptr.get());
   post_processes_ptr->ImGuiWindow();
 
-  post_processes_ptr->Enable(1, enable_smaa);
+  post_processes_ptr->Enable(0, enable_bloom);
+  post_processes_ptr->Enable(2, enable_smaa);
 }
 
 void Init(uint32_t width, uint32_t height) {
@@ -130,6 +134,7 @@ void Init(uint32_t width, uint32_t height) {
       new DeferredShadingRenderQuad(width, height));
 
   post_processes_ptr.reset(new PostProcesses());
+  post_processes_ptr->Add(std::unique_ptr<Bloom>(new Bloom(width, height, 6)));
   post_processes_ptr->Add(std::unique_ptr<ToneMappingAndGammaCorrection>(
       new ToneMappingAndGammaCorrection(width, height)));
   post_processes_ptr->Add(
