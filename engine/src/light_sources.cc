@@ -145,7 +145,7 @@ void ImageBasedLight::Load(const fs::path &path) {
   equirectangular_map_->irradiance_map().MakeResident();
   equirectangular_map_->prefiltered_map().MakeResident();
   equirectangular_map_->lut().MakeResident();
-  skybox_.reset(new Skybox(&equirectangular_map_->environment_map(), true));
+  skybox_.reset(new Skybox(&equirectangular_map_->environment_map()));
 }
 
 void ImageBasedLight::ImGuiWindow(uint32_t index,
@@ -331,7 +331,7 @@ void LightSources::ImGuiWindow(Camera *camera) {
   ImGui::End();
 }
 
-void LightSources::Set() {
+void LightSources::Set(Shader *shader) {
   // ambient
   std::vector<AmbientLight::AmbientLightGLSL> ambient_light_glsl_vec;
   for (const auto &light : ambient_lights_) {

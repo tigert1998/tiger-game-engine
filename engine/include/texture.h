@@ -43,6 +43,7 @@ class Texture {
     MoveOwnership(std::move(texture));
     return *this;
   }
+  Texture &operator=(const Texture &texture) = delete;
 
   Texture Reference() const;
 

@@ -18,6 +18,7 @@
 #include "multi_draw_indirect.h"
 #include "physics/character_controller.h"
 #include "physics/collision_model.h"
+#include "post_processes.h"
 #include "skybox.h"
 
 using namespace glm;
@@ -26,19 +27,23 @@ using namespace std;
 class Controller : public SightseeingController {
  private:
   OITRenderQuad *oit_render_quad_;
+  PostProcess *post_processes_;
   CharacterController *character_controller_;
 
   void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
     SightseeingController::FramebufferSizeCallback(window, width, height);
     oit_render_quad_->Resize(width, height);
+    post_processes_->Resize(width, height);
   }
 
  public:
   Controller(Camera *camera, OITRenderQuad *oit_render_quad,
+             PostProcess *post_processes,
              CharacterController *character_controller, uint32_t width,
              uint32_t height, GLFWwindow *window)
       : SightseeingController(camera, width, height, window),
         oit_render_quad_(oit_render_quad),
+        post_processes_(post_processes),
         character_controller_(character_controller) {
     glfwSetFramebufferSizeCallback(
         window, [](GLFWwindow *window, int width, int height) {
@@ -80,6 +85,7 @@ class Controller : public SightseeingController {
 std::unique_ptr<MultiDrawIndirect> multi_draw_indirect;
 std::unique_ptr<OITRenderQuad> oit_render_quad_ptr;
 std::unique_ptr<Model> scene_model_ptr;
+std::unique_ptr<PostProcesses> post_processes_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
@@ -181,6 +187,7 @@ void ImGuiWindow() {
   // shadow
   camera_ptr->ImGuiWindow();
   light_sources_ptr->ImGuiWindow(camera_ptr.get());
+  post_processes_ptr->ImGuiWindow();
 }
 
 void Init(uint32_t width, uint32_t height) {
@@ -202,6 +209,10 @@ void Init(uint32_t width, uint32_t height) {
 
   Shader::include_directories = {"./shaders"};
 
+  post_processes_ptr.reset(new PostProcesses());
+  post_processes_ptr->Add(std::unique_ptr<ToneMappingAndGammaCorrection>(
+      new ToneMappingAndGammaCorrection(width, height)));
+
   oit_render_quad_ptr = make_unique<OITRenderQuad>(width, height);
 
   scene_model_ptr =
@@ -216,14 +227,14 @@ void Init(uint32_t width, uint32_t height) {
 
   light_sources_ptr = make_unique<LightSources>();
   light_sources_ptr->AddDirectional(make_unique<DirectionalLight>(
-      vec3(0, -1, 0.1), vec3(10), camera_ptr.get()));
+      vec3(0, -1, 0.1), vec3(5), camera_ptr.get()));
   light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
 
-  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", false);
+  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
 
   controller_ptr = make_unique<Controller>(
-      camera_ptr.get(), oit_render_quad_ptr.get(), character_controller.get(),
-      width, height, window);
+      camera_ptr.get(), oit_render_quad_ptr.get(), post_processes_ptr.get(),
+      character_controller.get(), width, height, window);
 
   ImGuiInit();
 }
@@ -286,7 +297,9 @@ int main(int argc, char *argv[]) {
               oit_render_quad_ptr.get(), false, false, true,
               {{scene_model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
         },
-        nullptr);
+        post_processes_ptr->fbo());
+
+    post_processes_ptr->Draw(nullptr);
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

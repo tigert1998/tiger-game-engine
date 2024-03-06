@@ -13,11 +13,13 @@
 #include <memory>
 #include <set>
 
+#include "bloom.h"
 #include "controller/sightseeing_controller.h"
 #include "deferred_shading_render_quad.h"
 #include "model.h"
 #include "mouse.h"
 #include "multi_draw_indirect.h"
+#include "post_processes.h"
 #include "skybox.h"
 #include "smaa.h"
 #include "utils.h"
@@ -28,21 +30,22 @@ using namespace std;
 class Controller : public SightseeingController {
  private:
   DeferredShadingRenderQuad *deferred_shading_render_quad_;
-  SMAA *smaa_;
+  PostProcesses *post_processes_;
 
   void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
     SightseeingController::FramebufferSizeCallback(window, width, height);
     deferred_shading_render_quad_->Resize(width, height);
-    smaa_->Resize(width, height);
+    post_processes_->Resize(width, height);
   }
 
  public:
   Controller(Camera *camera,
              DeferredShadingRenderQuad *deferred_shading_render_quad,
-             SMAA *smaa, uint32_t width, uint32_t height, GLFWwindow *window)
+             PostProcesses *post_processes, uint32_t width, uint32_t height,
+             GLFWwindow *window)
       : SightseeingController(camera, width, height, window),
         deferred_shading_render_quad_(deferred_shading_render_quad),
-        smaa_(smaa) {
+        post_processes_(post_processes) {
     glfwSetFramebufferSizeCallback(
         window, [](GLFWwindow *window, int width, int height) {
           Controller *self = (Controller *)glfwGetWindowUserPointer(window);
@@ -53,12 +56,12 @@ class Controller : public SightseeingController {
 
 std::unique_ptr<MultiDrawIndirect> multi_draw_indirect;
 std::unique_ptr<DeferredShadingRenderQuad> deferred_shading_render_quad_ptr;
-std::unique_ptr<SMAA> smaa_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Model> brick_wall_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<Controller> controller_ptr;
+std::unique_ptr<PostProcesses> post_processes_ptr;
 
 struct PointLightWithSphere {
   PointLight *light;
@@ -70,6 +73,7 @@ std::vector<PointLightWithSphere> point_lights_with_spheres;
 int default_shading_choice = 0;
 int enable_ssao = 0;
 int enable_smaa = 0;
+int enable_bloom = 0;
 
 GLFWwindow *window;
 
@@ -115,10 +119,15 @@ void ImGuiWindow() {
                  IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
+  ImGui::ListBox("Enable Bloom", &enable_bloom, choices, IM_ARRAYSIZE(choices));
   ImGui::End();
 
   camera_ptr->ImGuiWindow();
   light_sources_ptr->ImGuiWindow(camera_ptr.get());
+  post_processes_ptr->ImGuiWindow();
+
+  post_processes_ptr->Enable(0, enable_bloom);
+  post_processes_ptr->Enable(2, enable_smaa);
 }
 
 void Init(uint32_t width, uint32_t height) {
@@ -142,7 +151,12 @@ void Init(uint32_t width, uint32_t height) {
   deferred_shading_render_quad_ptr.reset(
       new DeferredShadingRenderQuad(width, height));
 
-  smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
+  post_processes_ptr.reset(new PostProcesses());
+  post_processes_ptr->Add(std::unique_ptr<Bloom>(new Bloom(width, height, 6)));
+  post_processes_ptr->Add(std::unique_ptr<ToneMappingAndGammaCorrection>(
+      new ToneMappingAndGammaCorrection(width, height)));
+  post_processes_ptr->Add(
+      std::unique_ptr<SMAA>(new SMAA("./third_party/smaa", width, height)));
 
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
@@ -168,8 +182,8 @@ void Init(uint32_t width, uint32_t height) {
       ConstructPointLightWithSphereModel(glm::vec3(0, 0, 10)));
 
   controller_ptr = make_unique<Controller>(
-      camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
-      width, height, window);
+      camera_ptr.get(), deferred_shading_render_quad_ptr.get(),
+      post_processes_ptr.get(), width, height, window);
 
   ImGuiInit();
 }
@@ -293,11 +307,9 @@ int main(int argc, char *argv[]) {
                            default_shading_choice, true, {kv.second});
           }
         },
-        enable_smaa ? smaa_ptr->fbo() : nullptr);
+        post_processes_ptr->fbo());
 
-    if (enable_smaa) {
-      smaa_ptr->Draw();
-    }
+    post_processes_ptr->Draw(nullptr);
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

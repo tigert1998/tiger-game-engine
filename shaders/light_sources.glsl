@@ -94,11 +94,6 @@ vec3 CalcPhongLighting(
             pointLightColor * (1 - shadow);
     }
 
-    // tone mapping
-    color = color / (color + vec3(1.0));
-    // gamma correction
-    color = pow(color, vec3(1.0 / 2.2));
-
     return color;
 }
 
@@ -192,11 +187,6 @@ vec3 CalcPBRLighting(
             pointLightColor
         ) * (1 - shadow);
     }
-
-    // tone mapping
-    color = color / (color + vec3(1.0));
-    // gamma correction
-    color = pow(color, vec3(1.0 / 2.2));
 
     return color;
 }
