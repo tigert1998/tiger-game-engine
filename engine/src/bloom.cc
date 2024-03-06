@@ -31,7 +31,10 @@ void Bloom::Resize(uint32_t width, uint32_t height) {
                 GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false);
     std::vector<Texture> color_textures;
     color_textures.push_back(std::move(texture));
-    input_fbo_.reset(new FrameBufferObject(color_textures));
+    Texture depth_texture(nullptr, width, height, GL_DEPTH_COMPONENT,
+                          GL_DEPTH_COMPONENT, GL_FLOAT, GL_REPEAT, GL_LINEAR,
+                          GL_LINEAR, {}, false);
+    input_fbo_.reset(new FrameBufferObject(color_textures, depth_texture));
   }
   CreateMipChain();
 }
