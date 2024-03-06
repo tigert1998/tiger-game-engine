@@ -30,8 +30,6 @@ struct ImageBasedLight {
     sampler2D lut;
 };
 
-uniform bool uToneMapAndGammaCorrection = true;
-
 layout (std430, binding = AMBIENT_LIGHT_BINDING) buffer ambientLightsBuffer {
     AmbientLight ambientLights[];
 };
@@ -94,13 +92,6 @@ vec3 CalcPhongLighting(
             pointLightColor * (1 - shadow);
         color += CalcSpecular(pointLights[i].pos - position, normal, cameraPosition - position, shininess, ks) *
             pointLightColor * (1 - shadow);
-    }
-
-    if (uToneMapAndGammaCorrection) {
-        // tone mapping
-        color = color / (color + vec3(1.0));
-        // gamma correction
-        color = pow(color, vec3(1.0 / 2.2));
     }
 
     return color;
@@ -195,13 +186,6 @@ vec3 CalcPBRLighting(
             normal, cameraPosition - position, pointLights[i].pos - position,
             pointLightColor
         ) * (1 - shadow);
-    }
-
-    if (uToneMapAndGammaCorrection) {
-        // tone mapping
-        color = color / (color + vec3(1.0));
-        // gamma correction
-        color = pow(color, vec3(1.0 / 2.2));
     }
 
     return color;

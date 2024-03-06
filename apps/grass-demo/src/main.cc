@@ -13,11 +13,13 @@
 
 #include "controller/sightseeing_controller.h"
 #include "grass/grassland.h"
+#include "post_processes.h"
 #include "skybox.h"
 
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<Grassland> grassland_ptr;
+std::unique_ptr<PostProcesses> post_processes_ptr;
 std::unique_ptr<Skybox> skybox_ptr;
 std::unique_ptr<SightseeingController> controller;
 
@@ -36,7 +38,10 @@ void ImGuiInit(uint32_t width, uint32_t height) {
   io.Fonts->Build();
 }
 
-void ImGuiWindow() { camera_ptr->ImGuiWindow(); }
+void ImGuiWindow() {
+  camera_ptr->ImGuiWindow();
+  post_processes_ptr->ImGuiWindow();
+}
 
 void Init(uint32_t width, uint32_t height) {
   glfwInit();
@@ -55,6 +60,10 @@ void Init(uint32_t width, uint32_t height) {
 
   Shader::include_directories = {"./shaders"};
 
+  post_processes_ptr.reset(new PostProcesses());
+  post_processes_ptr->Add(std::unique_ptr<ToneMappingAndGammaCorrection>(
+      new ToneMappingAndGammaCorrection(width, height)));
+
   camera_ptr = std::make_unique<Camera>(
       glm::vec3(0, 10, 0), static_cast<double>(width) / height,
       -0.5 * glm::pi<float>(), 0, glm::radians(60.0f), 0.1, 5000);
@@ -64,7 +73,7 @@ void Init(uint32_t width, uint32_t height) {
       glm::vec3(0, -1, -1), glm::vec3(1, 1, 1), camera_ptr.get()));
   light_sources_ptr->AddAmbient(std::make_unique<AmbientLight>(glm::vec3(0.4)));
 
-  skybox_ptr = std::make_unique<Skybox>("resources/skyboxes/cloud", false);
+  skybox_ptr = std::make_unique<Skybox>("resources/skyboxes/cloud");
   grassland_ptr = std::make_unique<Grassland>("resources/terrain/sample.obj",
                                               "resources/distortion.png");
 
@@ -105,13 +114,14 @@ int main(int argc, char *argv[]) {
 
     glfwPollEvents();
 
+    post_processes_ptr->fbo()->Bind();
     glClearColor(0, 0, 0, 1);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     skybox_ptr->Draw(camera_ptr.get());
-
     grassland_ptr->Draw(camera_ptr.get(), light_sources_ptr.get(),
                         current_time);
+    post_processes_ptr->fbo()->Unbind();
+    post_processes_ptr->Draw(nullptr);
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

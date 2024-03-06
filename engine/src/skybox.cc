@@ -24,14 +24,14 @@ void Skybox::Init() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-Skybox::Skybox(const fs::path &path, bool tone_map) : tone_map_(tone_map) {
+Skybox::Skybox(const fs::path &path) {
   texture_ = Texture(path, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false,
                      false, true);
   Init();
 }
 
-Skybox::Skybox(const Texture *outside_texture, bool tone_map)
-    : outside_texture_(outside_texture), tone_map_(tone_map) {
+Skybox::Skybox(const Texture *outside_texture)
+    : outside_texture_(outside_texture) {
   Init();
 }
 
@@ -47,7 +47,6 @@ void Skybox::Draw(Camera *camera) {
   shader_ptr_->SetUniformSampler(
       "uSkyboxTexture",
       outside_texture_ != nullptr ? *outside_texture_ : texture_, 0);
-  shader_ptr_->SetUniform<glm::int32_t>("uToneMap", tone_map_);
 
   glBindVertexArray(vao_);
   glDrawArrays(GL_TRIANGLES, 0, 36);

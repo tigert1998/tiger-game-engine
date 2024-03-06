@@ -145,7 +145,7 @@ void ImageBasedLight::Load(const fs::path &path) {
   equirectangular_map_->irradiance_map().MakeResident();
   equirectangular_map_->prefiltered_map().MakeResident();
   equirectangular_map_->lut().MakeResident();
-  skybox_.reset(new Skybox(&equirectangular_map_->environment_map(), true));
+  skybox_.reset(new Skybox(&equirectangular_map_->environment_map()));
 }
 
 void ImageBasedLight::ImGuiWindow(uint32_t index,
@@ -379,16 +379,6 @@ void LightSources::Set(Shader *shader) {
 
   // poisson disk
   poisson_disk_2d_points_ssbo_->BindBufferBase();
-
-  // tone map and gamma correction
-  if (shader->UniformVariableExists("uToneMapAndGammaCorrection")) {
-    shader->SetUniform<int32_t>("uToneMapAndGammaCorrection",
-                                tone_map_and_gamma_correction_);
-  }
-}
-
-void LightSources::set_tone_map_and_gamma_correction(bool value) {
-  tone_map_and_gamma_correction_ = value;
 }
 
 void LightSources::DrawDepthForShadow(

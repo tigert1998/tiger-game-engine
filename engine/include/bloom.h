@@ -7,10 +7,11 @@
 #include <vector>
 
 #include "frame_buffer_object.h"
+#include "post_processes.h"
 #include "shader.h"
 #include "texture.h"
 
-class Bloom {
+class Bloom : public PostProcess {
  private:
   static std::unique_ptr<Shader> kDownsampleShader, kUpsampleShader,
       kRenderShader;
@@ -25,7 +26,7 @@ class Bloom {
 
   uint32_t width_, height_, mip_chain_length_;
   uint32_t vao_;
-  float filter_radius_ = 0.005, exposure_ = 1;
+  float filter_radius_ = 0.005f;
 
   void CreateMipChain();
   void RenderDownsamples();
@@ -34,15 +35,15 @@ class Bloom {
  public:
   Bloom(uint32_t width, uint32_t height, uint32_t mip_chain_length);
 
-  void Resize(uint32_t width, uint32_t height);
+  void Resize(uint32_t width, uint32_t height) override;
 
-  const FrameBufferObject* fbo() const { return input_fbo_.get(); }
+  const FrameBufferObject* fbo() const override { return input_fbo_.get(); }
 
-  void Draw(const FrameBufferObject* dest_fbo);
+  void Draw(const FrameBufferObject* dest_fbo) override;
 
   ~Bloom();
 
-  void ImGuiWindow();
+  void ImGuiWindow() override;
 };
 
 #endif

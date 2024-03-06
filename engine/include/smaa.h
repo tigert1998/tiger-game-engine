@@ -6,9 +6,10 @@
 #include <string>
 
 #include "frame_buffer_object.h"
+#include "post_processes.h"
 #include "shader.h"
 
-class SMAA {
+class SMAA : public PostProcess {
  private:
   std::unique_ptr<FrameBufferObject> input_fbo_;
   std::unique_ptr<FrameBufferObject> edges_fbo_;
@@ -31,11 +32,13 @@ class SMAA {
   SMAA(const std::filesystem::path &smaa_repo_path, uint32_t width,
        uint32_t height);
 
-  void Resize(uint32_t width, uint32_t height);
+  void Resize(uint32_t width, uint32_t height) override;
 
-  const FrameBufferObject *fbo() const { return input_fbo_.get(); }
+  const FrameBufferObject *fbo() const override { return input_fbo_.get(); }
 
-  void Draw();
+  void Draw(const FrameBufferObject *dest_fbo) override;
+
+  inline void ImGuiWindow() override {}
 
   ~SMAA();
 };

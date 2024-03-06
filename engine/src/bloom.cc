@@ -120,7 +120,6 @@ void Bloom::Draw(const FrameBufferObject* dest_fbo) {
   kRenderShader->SetUniformSampler("uScene", input_fbo_->color_texture(0), 0);
   kRenderShader->SetUniformSampler("uBloomBlur",
                                    mip_chain_[0].fbo->color_texture(0), 1);
-  kRenderShader->SetUniform<float>("uExposure", exposure_);
   kRenderShader->SetUniform<glm::vec4>("uViewport",
                                        glm::vec4(0, 0, width_, height_));
   glClearColor(0, 0, 0, 1);
@@ -135,6 +134,5 @@ void Bloom::Draw(const FrameBufferObject* dest_fbo) {
 void Bloom::ImGuiWindow() {
   ImGui::Begin("Bloom:");
   ImGui::InputFloat("Filter Radius", &filter_radius_);
-  ImGui::InputFloat("Exposure", &exposure_);
   ImGui::End();
 }

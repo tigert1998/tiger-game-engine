@@ -132,8 +132,6 @@ class ImageBasedLight : public Light {
 
 class LightSources {
  private:
-  bool tone_map_and_gamma_correction_ = true;
-
   std::unique_ptr<SSBO> ambient_lights_ssbo_;
   std::unique_ptr<SSBO> directional_lights_ssbo_;
   std::unique_ptr<SSBO> point_lights_ssbo_;
@@ -176,7 +174,6 @@ class LightSources {
   PointLight *GetPoint(uint32_t index) const;
   ImageBasedLight *GetImageBased(uint32_t index) const;
 
-  void set_tone_map_and_gamma_correction(bool value);
   void Set(Shader *shader);
   void DrawDepthForShadow(
       const std::function<void(int32_t, int32_t)> &render_pass);

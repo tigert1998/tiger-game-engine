@@ -16,6 +16,7 @@
 #include "model.h"
 #include "mouse.h"
 #include "multi_draw_indirect.h"
+#include "post_processes.h"
 #include "skybox.h"
 #include "smaa.h"
 #include "utils.h"
@@ -26,21 +27,22 @@ using namespace std;
 class Controller : public SightseeingController {
  private:
   DeferredShadingRenderQuad *deferred_shading_render_quad_;
-  SMAA *smaa_;
+  PostProcesses *post_processes_;
 
   void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
     SightseeingController::FramebufferSizeCallback(window, width, height);
     deferred_shading_render_quad_->Resize(width, height);
-    smaa_->Resize(width, height);
+    post_processes_->Resize(width, height);
   }
 
  public:
   Controller(Camera *camera,
              DeferredShadingRenderQuad *deferred_shading_render_quad,
-             SMAA *smaa, uint32_t width, uint32_t height, GLFWwindow *window)
+             PostProcesses *post_processes, uint32_t width, uint32_t height,
+             GLFWwindow *window)
       : SightseeingController(camera, width, height, window),
         deferred_shading_render_quad_(deferred_shading_render_quad),
-        smaa_(smaa) {
+        post_processes_(post_processes) {
     glfwSetFramebufferSizeCallback(
         window, [](GLFWwindow *window, int width, int height) {
           Controller *self = (Controller *)glfwGetWindowUserPointer(window);
@@ -51,7 +53,7 @@ class Controller : public SightseeingController {
 
 std::unique_ptr<MultiDrawIndirect> multi_draw_indirect;
 std::unique_ptr<DeferredShadingRenderQuad> deferred_shading_render_quad_ptr;
-std::unique_ptr<SMAA> smaa_ptr;
+std::unique_ptr<PostProcesses> post_processes_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
@@ -101,6 +103,9 @@ void ImGuiWindow() {
 
   camera_ptr->ImGuiWindow();
   light_sources_ptr->ImGuiWindow(camera_ptr.get());
+  post_processes_ptr->ImGuiWindow();
+
+  post_processes_ptr->Enable(1, enable_smaa);
 }
 
 void Init(uint32_t width, uint32_t height) {
@@ -124,7 +129,11 @@ void Init(uint32_t width, uint32_t height) {
   deferred_shading_render_quad_ptr.reset(
       new DeferredShadingRenderQuad(width, height));
 
-  smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
+  post_processes_ptr.reset(new PostProcesses());
+  post_processes_ptr->Add(std::unique_ptr<ToneMappingAndGammaCorrection>(
+      new ToneMappingAndGammaCorrection(width, height)));
+  post_processes_ptr->Add(
+      std::unique_ptr<SMAA>(new SMAA("./third_party/smaa", width, height)));
 
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
@@ -142,11 +151,11 @@ void Init(uint32_t width, uint32_t height) {
   model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
   multi_draw_indirect->PrepareForDraw();
 
-  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud", false);
+  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
 
   controller_ptr = make_unique<Controller>(
-      camera_ptr.get(), deferred_shading_render_quad_ptr.get(), smaa_ptr.get(),
-      width, height, window);
+      camera_ptr.get(), deferred_shading_render_quad_ptr.get(),
+      post_processes_ptr.get(), width, height, window);
 
   ImGuiInit();
 }
@@ -219,11 +228,9 @@ int main(int argc, char *argv[]) {
               camera_ptr.get(), nullptr, nullptr, true, default_shading_choice,
               true, {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
         },
-        enable_smaa ? smaa_ptr->fbo() : nullptr);
+        post_processes_ptr->fbo());
 
-    if (enable_smaa) {
-      smaa_ptr->Draw();
-    }
+    post_processes_ptr->Draw(nullptr);
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

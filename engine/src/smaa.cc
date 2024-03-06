@@ -101,7 +101,7 @@ SMAA::SMAA(const fs::path &smaa_repo_path, uint32_t width, uint32_t height) {
                  "smaa/neighborhood_blending.frag", {}));
 }
 
-void SMAA::Draw() {
+void SMAA::Draw(const FrameBufferObject *dest_fbo) {
   glDisable(GL_CULL_FACE);
   glDisable(GL_BLEND);
 
@@ -135,6 +135,8 @@ void SMAA::Draw() {
   glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
   blend_fbo_->Unbind();
 
+  if (dest_fbo != nullptr) dest_fbo->Bind();
+
   // run neighborhood blending
   glViewport(0, 0, width_, height_);
   glBindVertexArray(vao_);
@@ -148,6 +150,8 @@ void SMAA::Draw() {
   glClearColor(0, 0, 0, 1);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+
+  if (dest_fbo != nullptr) dest_fbo->Unbind();
 
   glEnable(GL_BLEND);
 }
