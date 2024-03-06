@@ -214,7 +214,7 @@ void DeferredShadingRenderQuad::TwoPasses(
 
   int num_samplers = 10;
 
-  light_sources->Set();
+  light_sources->Set(kShader.get());
 
   if (dest_fbo != nullptr) {
     dest_fbo->Bind();

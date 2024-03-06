@@ -277,12 +277,12 @@ void MultiDrawIndirect::DrawDepthForShadow(
 
   if (directional_index >= 0) {
     Model::kDirectionalShadowShader->Use();
-    light_sources->Set();
+    light_sources->Set(Model::kDirectionalShadowShader.get());
     Model::kDirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
                                                           directional_index);
   } else if (point_index >= 0) {
     Model::kOmnidirectionalShadowShader->Use();
-    light_sources->Set();
+    light_sources->Set(Model::kOmnidirectionalShadowShader.get());
     Model::kOmnidirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
                                                               point_index);
   }
@@ -319,7 +319,7 @@ void MultiDrawIndirect::Draw(
     oit_render_quad->Set(shader);
   }
   if (!deferred_shading) {
-    light_sources->Set();
+    light_sources->Set(shader);
     shader->SetUniform<glm::vec3>("uCameraPosition", camera->position());
   }
   shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());

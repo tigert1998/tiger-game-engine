@@ -13,6 +13,7 @@
 #include <memory>
 #include <set>
 
+#include "bloom.h"
 #include "controller/sightseeing_controller.h"
 #include "deferred_shading_render_quad.h"
 #include "model.h"
@@ -59,6 +60,7 @@ std::unique_ptr<Model> brick_wall_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<Controller> controller_ptr;
+std::unique_ptr<Bloom> bloom_ptr;
 
 struct PointLightWithSphere {
   PointLight *light;
@@ -119,6 +121,7 @@ void ImGuiWindow() {
 
   camera_ptr->ImGuiWindow();
   light_sources_ptr->ImGuiWindow(camera_ptr.get());
+  bloom_ptr->ImGuiWindow();
 }
 
 void Init(uint32_t width, uint32_t height) {
@@ -143,6 +146,7 @@ void Init(uint32_t width, uint32_t height) {
       new DeferredShadingRenderQuad(width, height));
 
   smaa_ptr.reset(new SMAA("./third_party/smaa", width, height));
+  bloom_ptr.reset(new Bloom(width, height, 6));
 
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
@@ -150,6 +154,7 @@ void Init(uint32_t width, uint32_t height) {
   camera_ptr->set_front(-camera_ptr->position());
 
   light_sources_ptr = make_unique<LightSources>();
+  light_sources_ptr->set_tone_map_and_gamma_correction(false);
   light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
 
   model_ptr.reset(new Model("resources/dragon/dragon.obj", false, true));
@@ -293,11 +298,10 @@ int main(int argc, char *argv[]) {
                            default_shading_choice, true, {kv.second});
           }
         },
-        enable_smaa ? smaa_ptr->fbo() : nullptr);
+        bloom_ptr->fbo());
 
-    if (enable_smaa) {
-      smaa_ptr->Draw();
-    }
+    bloom_ptr->Draw(enable_smaa ? smaa_ptr->fbo() : nullptr);
+    if (enable_smaa) smaa_ptr->Draw();
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();

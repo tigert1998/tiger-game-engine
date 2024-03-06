@@ -331,7 +331,7 @@ void LightSources::ImGuiWindow(Camera *camera) {
   ImGui::End();
 }
 
-void LightSources::Set() {
+void LightSources::Set(Shader *shader) {
   // ambient
   std::vector<AmbientLight::AmbientLightGLSL> ambient_light_glsl_vec;
   for (const auto &light : ambient_lights_) {
@@ -379,6 +379,16 @@ void LightSources::Set() {
 
   // poisson disk
   poisson_disk_2d_points_ssbo_->BindBufferBase();
+
+  // tone map and gamma correction
+  if (shader->UniformVariableExists("uToneMapAndGammaCorrection")) {
+    shader->SetUniform<int32_t>("uToneMapAndGammaCorrection",
+                                tone_map_and_gamma_correction_);
+  }
+}
+
+void LightSources::set_tone_map_and_gamma_correction(bool value) {
+  tone_map_and_gamma_correction_ = value;
 }
 
 void LightSources::DrawDepthForShadow(
