@@ -14,11 +14,11 @@
 #include "bloom.h"
 #include "controller/sightseeing_controller.h"
 #include "deferred_shading_render_quad.h"
+#include "equirectangular_map.h"
 #include "model.h"
 #include "mouse.h"
 #include "multi_draw_indirect.h"
 #include "post_processes.h"
-#include "skybox.h"
 #include "smaa.h"
 #include "utils.h"
 
@@ -58,7 +58,7 @@ std::unique_ptr<PostProcesses> post_processes_ptr;
 std::unique_ptr<Model> model_ptr;
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
-std::unique_ptr<Skybox> skybox_ptr;
+std::unique_ptr<EquirectangularMap> equirectangular_map_ptr;
 std::unique_ptr<Controller> controller_ptr;
 
 int default_shading_choice = 0;
@@ -156,7 +156,8 @@ void Init(uint32_t width, uint32_t height) {
   model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
   multi_draw_indirect->PrepareForDraw();
 
-  skybox_ptr = make_unique<Skybox>("resources/skyboxes/cloud");
+  equirectangular_map_ptr.reset(new EquirectangularMap(
+      "resources/kloofendal_48d_partly_cloudy_puresky_4k.hdr", 2048));
 
   controller_ptr = make_unique<Controller>(
       camera_ptr.get(), deferred_shading_render_quad_ptr.get(),
@@ -225,7 +226,7 @@ int main(int argc, char *argv[]) {
           glCullFace(GL_BACK);
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-          skybox_ptr->Draw(camera_ptr.get());
+          equirectangular_map_ptr->skybox()->Draw(camera_ptr.get());
         },
         []() {
           glDisable(GL_CULL_FACE);

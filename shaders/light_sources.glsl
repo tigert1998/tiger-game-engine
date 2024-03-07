@@ -140,11 +140,11 @@ vec3 CalcImageBasedLight(
     vec2 scaleAndBias = texture(light.lut, vec2(max(dot(normal, viewDirection), 0.0), roughness)).rg;
     vec3 specular = prefilteredColor * (F * scaleAndBias.x + scaleAndBias.y);
 
-    vec3 kD = (1.0 - F) * (1.0 - metallic);
+    vec3 kd = (1.0 - F) * (1.0 - metallic);
     vec3 irradiance = texture(light.irradianceMap, normal).rgb;
     vec3 diffuse = irradiance * albedo;
 
-    return diffuse * kD + specular;
+    return diffuse * kd + specular;
 }
 
 vec3 CalcPBRLighting(

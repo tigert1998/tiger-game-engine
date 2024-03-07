@@ -6,6 +6,7 @@
 
 #include "frame_buffer_object.h"
 #include "shader.h"
+#include "skybox.h"
 
 class EquirectangularMap {
  private:
@@ -22,6 +23,7 @@ class EquirectangularMap {
   std::unique_ptr<FrameBufferObject> fbo_, convoluted_fbo_, prefiltered_fbo_,
       lut_fbo_;
   Texture equirectangular_texture_;
+  std::unique_ptr<Skybox> skybox_ = nullptr;
 
   void Draw();
 
@@ -41,6 +43,7 @@ class EquirectangularMap {
     return prefiltered_fbo_->color_texture(0);
   }
   inline const Texture& lut() const { return lut_fbo_->color_texture(0); }
+  const Skybox* skybox();
 };
 
 #endif

@@ -51,7 +51,7 @@ class Mesh {
   void AddVerticesIndicesAndBones(aiMesh *mesh, Namer *bone_namer,
                                   std::vector<glm::mat4> *bone_offsets);
 
-  void MakeTexturesResidentOrNot(bool resident);
+  void MakeTexturesResident();
 };
 
 #endif

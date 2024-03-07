@@ -15,6 +15,13 @@ std::unique_ptr<Shader> EquirectangularMap::kConvolutionShader = nullptr;
 std::unique_ptr<Shader> EquirectangularMap::kPrefilterShader = nullptr;
 std::unique_ptr<Shader> EquirectangularMap::kLUTShader = nullptr;
 
+const Skybox *EquirectangularMap::skybox() {
+  if (skybox_ == nullptr) {
+    skybox_.reset(new Skybox(&environment_map()));
+  }
+  return skybox_.get();
+}
+
 EquirectangularMap::EquirectangularMap(const std::filesystem::path &path,
                                        uint32_t width)
     : width_(width) {

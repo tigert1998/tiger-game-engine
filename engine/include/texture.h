@@ -10,6 +10,7 @@
 class Texture {
  private:
   bool has_ownership_ = false;
+  mutable bool resident_ = false;
   uint32_t target_ = 0, id_ = 0;
   mutable std::optional<uint64_t> handle_ = std::nullopt;
 

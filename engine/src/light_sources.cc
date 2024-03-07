@@ -145,7 +145,6 @@ void ImageBasedLight::Load(const fs::path &path) {
   equirectangular_map_->irradiance_map().MakeResident();
   equirectangular_map_->prefiltered_map().MakeResident();
   equirectangular_map_->lut().MakeResident();
-  skybox_.reset(new Skybox(&equirectangular_map_->environment_map()));
 }
 
 void ImageBasedLight::ImGuiWindow(uint32_t index,

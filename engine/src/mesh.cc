@@ -140,7 +140,7 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
 #undef TRY_ADD_TEXTURE_WITH_BASE_COLOR
   }
 
-  MakeTexturesResidentOrNot(true);
+  MakeTexturesResident();
 
   AddVerticesIndicesAndBones(mesh, bone_namer, bone_offsets);
 
@@ -195,7 +195,7 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
 
 MaterialParameters *Mesh::material_params() { return &material_params_; }
 
-Mesh::~Mesh() { MakeTexturesResidentOrNot(false); }
+Mesh::~Mesh() {}
 
 void Mesh::AddVerticesIndicesAndBones(aiMesh *mesh, Namer *bone_namer,
                                       std::vector<glm::mat4> *bone_offsets) {
@@ -283,14 +283,11 @@ void Mesh::SubmitToMultiDrawIndirect(MultiDrawIndirect *multi_draw_indirect) {
                                has_bone_, transform_, aabb_);
 }
 
-void Mesh::MakeTexturesResidentOrNot(bool resident) {
+void Mesh::MakeTexturesResident() {
   for (int i = 0; i < textures_.size(); i++) {
     if (!textures_[i].enabled) continue;
     if (textures_[i].texture.has_ownership()) {
-      if (resident)
-        textures_[i].texture.MakeResident();
-      else
-        textures_[i].texture.MakeNonResident();
+      textures_[i].texture.MakeResident();
     }
   }
   CHECK_OPENGL_ERROR();

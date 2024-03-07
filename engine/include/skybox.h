@@ -23,7 +23,7 @@ class Skybox {
  public:
   Skybox(const std::filesystem::path &path);
   Skybox(const Texture *outside_texture);
-  void Draw(Camera *camera);
+  void Draw(Camera *camera) const;
   inline static std::vector<float> vertices() {
     return std::vector<float>(std::begin(vertices_), std::end(vertices_));
   }

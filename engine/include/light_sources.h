@@ -103,7 +103,6 @@ class PointLight : public Light {
 class ImageBasedLight : public Light {
  private:
   std::unique_ptr<EquirectangularMap> equirectangular_map_;
-  std::unique_ptr<Skybox> skybox_;
 
   void Load(const std::filesystem::path &path);
 
@@ -119,7 +118,7 @@ class ImageBasedLight : public Light {
   void ImGuiWindow(uint32_t index,
                    const std::function<void()> &erase_callback) override;
 
-  inline Skybox *skybox() { return skybox_.get(); }
+  inline const Skybox *skybox() { return equirectangular_map_->skybox(); }
 
   struct ImageBasedLightGLSL {
     uint64_t irradiance_map;
