@@ -3,10 +3,9 @@
 #extension GL_ARB_bindless_texture : require
 
 #include "material.glsl"
-#include "light_sources.glsl"
 
-layout (binding = 0, r32ui) uniform volatile coherent uimage3D uAlbedoImage;
-layout (binding = 1, r32ui) uniform volatile coherent uimage3D uNormalImage;
+layout (r32ui) uniform volatile coherent uimage3D uAlbedoImage;
+layout (r32ui) uniform volatile coherent uimage3D uNormalImage;
 uniform uint uVoxelResolution;
 
 layout (std430, binding = 6) buffer materialsBuffer {
@@ -42,16 +41,14 @@ void ImageAtomicRGBA8Avg(layout (r32ui) coherent volatile uimage3D img, ivec3 co
     uint newVal = ConvertVec4ToRGBA8(val);
     uint prevStoredVal = 0;
     uint curStoredVal;
-    uint numIterations = 0;
-    while ((curStoredVal = imageAtomicCompSwap(img, coord, prevStoredVal, newVal)) != prevStoredVal 
-            && numIterations < 255) {
+    while ((curStoredVal = imageAtomicCompSwap(img, coord, prevStoredVal, newVal)) != prevStoredVal) {
         prevStoredVal = curStoredVal;
         vec4 rval = ConvertRGBA8ToVec4(curStoredVal);
-        rval.xyz = (rval.xyz * rval.w);
+        rval.xyz = rval.xyz * rval.w;
         vec4 curValF = rval + val;
-        curValF.xyz /= (curValF.w);
+        curValF.xyz /= curValF.w;
+        if (curValF.w >= 256) return;
         newVal = ConvertVec4ToRGBA8(curValF);
-        ++numIterations;
     }
 }
 

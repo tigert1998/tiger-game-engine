@@ -21,7 +21,5 @@ OGLBuffer::~OGLBuffer() {
 }
 
 void OGLBuffer::SubData(uint32_t offset, uint32_t size, const void* data) {
-  Bind();
-  glBufferSubData(target_, offset, size, data);
-  Unbind();
+  glNamedBufferSubData(id_, offset, size, data);
 }

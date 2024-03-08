@@ -72,9 +72,9 @@ void OITRenderQuad::ResetBeforeRender() {
   glTexImage2D(GL_TEXTURE_2D, 0, GL_R32UI, width_, height_, 0, GL_RED_INTEGER,
                GL_UNSIGNED_INT, nullptr);
   head_pointer_initializer_->Unbind();
-  glBindImageTexture(0,  // unit
-                     head_pointer_texture_.id(), 0, false,
-                     0,  // level, not layered, layer
+  glBindImageTexture(0,                           // unit
+                     head_pointer_texture_.id(),  // id
+                     0, false, 0,                 // level, not layered, layer
                      GL_READ_WRITE, GL_R32UI);
 
   atomic_counter_buffer_->BindBufferBase();

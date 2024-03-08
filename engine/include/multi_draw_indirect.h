@@ -9,6 +9,7 @@
 
 #include "aabb.h"
 #include "camera.h"
+#include "gi/vx/voxelization.h"
 #include "light_sources.h"
 #include "ogl_buffer.h"
 #include "oit_render_quad.h"
@@ -106,7 +107,7 @@ class GPUDrivenWorkloadGeneration {
                                        const Constants &constants);
 
   void Compute(bool is_directional_shadow_pass,
-               bool is_omnidirectional_shadow_pass);
+               bool is_omnidirectional_shadow_pass, bool is_voxelization_pass);
 
  private:
   void CompileShaders();
@@ -186,7 +187,7 @@ class MultiDrawIndirect {
       const std::vector<RenderTargetParameter> &render_target_params);
   void Draw(Camera *camera, LightSources *light_sources,
             OITRenderQuad *oit_render_quad, bool deferred_shading,
-            bool default_shading, bool force_pbr,
+            Voxelization *voxelization, bool default_shading, bool force_pbr,
             const std::vector<RenderTargetParameter> &render_target_params);
 
   ~MultiDrawIndirect();

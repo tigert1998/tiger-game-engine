@@ -72,7 +72,8 @@ void GPUDrivenWorkloadGeneration::AllocateBuffers(
 }
 
 void GPUDrivenWorkloadGeneration::Compute(bool is_directional_shadow_pass,
-                                          bool is_omnidirectional_shadow_pass) {
+                                          bool is_omnidirectional_shadow_pass,
+                                          bool is_voxelization_pass) {
   // compute frustum culling and lod selection
   frustum_culling_and_lod_selection_shader_->Use();
   aabbs_ssbo_->BindBufferBase(0);
@@ -91,6 +92,8 @@ void GPUDrivenWorkloadGeneration::Compute(bool is_directional_shadow_pass,
       "uIsDirectionalShadowPass", is_directional_shadow_pass);
   frustum_culling_and_lod_selection_shader_->SetUniform<int32_t>(
       "uIsOmnidirectionalShadowPass", is_omnidirectional_shadow_pass);
+  frustum_culling_and_lod_selection_shader_->SetUniform<int32_t>(
+      "uIsVoxelizationPass", is_voxelization_pass);
   frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
       "uNumCascades", DirectionalShadow::NUM_CASCADES);
   frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
@@ -275,9 +278,9 @@ void MultiDrawIndirect::DrawDepthForShadow(
                     ->cascade_obbs();
     glNamedBufferSubData(shadow_obbs_ssbo_->id(), 0,
                          obbs.size() * sizeof(obbs[0]), obbs.data());
-    gpu_driven_->Compute(true, false);
+    gpu_driven_->Compute(true, false, false);
   } else if (point_index >= 0) {
-    gpu_driven_->Compute(false, true);
+    gpu_driven_->Compute(false, true, false);
   }
 
   BindBuffers();
@@ -302,38 +305,56 @@ void MultiDrawIndirect::DrawDepthForShadow(
 
 void MultiDrawIndirect::Draw(
     Camera *camera, LightSources *light_sources, OITRenderQuad *oit_render_quad,
-    bool deferred_shading, bool default_shading, bool force_pbr,
+    bool deferred_shading, Voxelization *voxelization, bool default_shading,
+    bool force_pbr,
     const std::vector<RenderTargetParameter> &render_target_params) {
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
   Frustum frustum = camera->frustum();
-  glNamedBufferSubData(frustum_ssbo_->id(), 0, sizeof(Frustum), &frustum);
-  gpu_driven_->Compute(false, false);
+  frustum_ssbo_->SubData(0, sizeof(Frustum), &frustum);
 
   Shader *shader = nullptr;
   if (oit_render_quad != nullptr) {
     shader = Model::kOITShader.get();
   } else if (deferred_shading) {
     shader = Model::kDeferredShadingShader.get();
+  } else if (voxelization != nullptr) {
+    shader = Model::kVoxelizationShader.get();
   } else {
     shader = Model::kShader.get();
   }
+
+  gpu_driven_->Compute(false, false, voxelization != nullptr);
 
   BindBuffers();
   shader->Use();
   if (oit_render_quad != nullptr) {
     oit_render_quad->Set(shader);
-  }
-  if (!deferred_shading) {
     light_sources->Set(shader);
+    shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
+    shader->SetUniform<glm::mat4>("uProjectionMatrix",
+                                  camera->projection_matrix());
     shader->SetUniform<glm::vec3>("uCameraPosition", camera->position());
+    shader->SetUniform<int32_t>("uDefaultShading", default_shading);
+    shader->SetUniform<int32_t>("uForcePBR", force_pbr);
+  } else if (deferred_shading) {
+    shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
+    shader->SetUniform<glm::mat4>("uProjectionMatrix",
+                                  camera->projection_matrix());
+    shader->SetUniform<int32_t>("uDefaultShading", default_shading);
+    shader->SetUniform<int32_t>("uForcePBR", force_pbr);
+  } else if (voxelization != nullptr) {
+    voxelization->Set(shader);
+  } else {
+    light_sources->Set(shader);
+    shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
+    shader->SetUniform<glm::mat4>("uProjectionMatrix",
+                                  camera->projection_matrix());
+    shader->SetUniform<glm::vec3>("uCameraPosition", camera->position());
+    shader->SetUniform<int32_t>("uDefaultShading", default_shading);
+    shader->SetUniform<int32_t>("uForcePBR", force_pbr);
   }
-  shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
-  shader->SetUniform<glm::mat4>("uProjectionMatrix",
-                                camera->projection_matrix());
-  shader->SetUniform<int32_t>("uDefaultShading", default_shading);
-  shader->SetUniform<int32_t>("uForcePBR", force_pbr);
 
   glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                               commands_.size(), 0);
