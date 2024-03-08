@@ -22,11 +22,11 @@ Voxelization::Voxelization(float world_size, uint32_t voxel_resolution)
   albedo_texture_ =
       Texture(nullptr, GL_TEXTURE_3D, voxel_resolution_, voxel_resolution_,
               voxel_resolution_, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT,
-              GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, {}, false);
+              GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false);
   normal_texture_ =
       Texture(nullptr, GL_TEXTURE_3D, voxel_resolution_, voxel_resolution_,
               voxel_resolution_, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT,
-              GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, {}, false);
+              GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false);
 }
 
 void Voxelization::Set(Shader *shader) {

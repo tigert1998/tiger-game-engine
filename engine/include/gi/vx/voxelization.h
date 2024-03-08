@@ -17,6 +17,9 @@ class Voxelization {
   explicit Voxelization(float world_size, uint32_t voxel_resolution);
 
   void Set(Shader *shader);
+
+  inline const Texture &albedo() { return albedo_texture_; }
+  inline const Texture &normal() { return normal_texture_; }
 };
 
 #endif
