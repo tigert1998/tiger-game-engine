@@ -7,10 +7,10 @@
 #include <vector>
 
 #include "equirectangular_map.h"
+#include "ogl_buffer.h"
 #include "shader.h"
 #include "shadows.h"
 #include "skybox.h"
-#include "ssbo.h"
 
 class Light {
  public:
@@ -131,18 +131,18 @@ class ImageBasedLight : public Light {
 
 class LightSources {
  private:
-  std::unique_ptr<SSBO> ambient_lights_ssbo_;
-  std::unique_ptr<SSBO> directional_lights_ssbo_;
-  std::unique_ptr<SSBO> point_lights_ssbo_;
-  std::unique_ptr<SSBO> image_based_lights_ssbo_;
-  std::unique_ptr<SSBO> poisson_disk_2d_points_ssbo_;
+  std::unique_ptr<OGLBuffer> ambient_lights_ssbo_;
+  std::unique_ptr<OGLBuffer> directional_lights_ssbo_;
+  std::unique_ptr<OGLBuffer> point_lights_ssbo_;
+  std::unique_ptr<OGLBuffer> image_based_lights_ssbo_;
+  std::unique_ptr<OGLBuffer> poisson_disk_2d_points_ssbo_;
 
-  void ResizeAmbientSSBO();
-  void ResizeDirectioanlSSBO();
-  void ResizePointSSBO();
-  void ResizeImageBasedSSBO();
+  void ResizeAmbientOGLBuffer();
+  void ResizeDirectioanlOGLBuffer();
+  void ResizePointOGLBuffer();
+  void ResizeImageBasedOGLBuffer();
 
-  void AllocatePoissonDiskSSBO();
+  void AllocatePoissonDiskOGLBuffer();
 
   std::vector<std::unique_ptr<AmbientLight>> ambient_lights_;
   std::vector<std::unique_ptr<DirectionalLight>> directional_lights_;

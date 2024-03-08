@@ -7,9 +7,9 @@
 #include "camera.h"
 #include "frame_buffer_object.h"
 #include "light_sources.h"
+#include "ogl_buffer.h"
 #include "shader.h"
 #include "shadows.h"
-#include "ssbo.h"
 
 class DeferredShadingRenderQuad {
  private:
@@ -20,7 +20,7 @@ class DeferredShadingRenderQuad {
   void Allocate(uint32_t width, uint32_t height);
   void InitSSAO();
 
-  std::unique_ptr<SSBO> ssao_kernel_ssbo_;
+  std::unique_ptr<OGLBuffer> ssao_kernel_ssbo_;
   Texture ssao_noise_texture_;
   std::unique_ptr<FrameBufferObject> ssao_fbo_, ssao_blur_fbo_;
 

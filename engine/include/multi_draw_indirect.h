@@ -10,10 +10,10 @@
 #include "aabb.h"
 #include "camera.h"
 #include "light_sources.h"
+#include "ogl_buffer.h"
 #include "oit_render_quad.h"
 #include "shader.h"
 #include "shadows.h"
-#include "ssbo.h"
 #include "texture.h"
 #include "vertex.h"
 
@@ -79,22 +79,22 @@ class GPUDrivenWorkloadGeneration {
   };
 
   struct DynamicBuffers {
-    const SSBO *input_model_matrices_ssbo;
-    const SSBO *frustum_ssbo;
-    const SSBO *shadow_obbs_ssbo;
-    const SSBO *commands_ssbo;
-    const SSBO *input_bone_matrices_offset_ssbo;
-    const SSBO *input_animated_ssbo;
-    const SSBO *input_transforms_ssbo;
-    const SSBO *input_clip_planes_ssbo;
-    const SSBO *input_materials_ssbo;
+    const OGLBuffer *input_model_matrices_ssbo;
+    const OGLBuffer *frustum_ssbo;
+    const OGLBuffer *shadow_obbs_ssbo;
+    const OGLBuffer *commands_ssbo;
+    const OGLBuffer *input_bone_matrices_offset_ssbo;
+    const OGLBuffer *input_animated_ssbo;
+    const OGLBuffer *input_transforms_ssbo;
+    const OGLBuffer *input_clip_planes_ssbo;
+    const OGLBuffer *input_materials_ssbo;
 
-    const SSBO *model_matrices_ssbo;
-    const SSBO *bone_matrices_offset_ssbo;
-    const SSBO *animated_ssbo;
-    const SSBO *transforms_ssbo;
-    const SSBO *clip_planes_ssbo;
-    const SSBO *materials_ssbo;
+    const OGLBuffer *model_matrices_ssbo;
+    const OGLBuffer *bone_matrices_offset_ssbo;
+    const OGLBuffer *animated_ssbo;
+    const OGLBuffer *transforms_ssbo;
+    const OGLBuffer *clip_planes_ssbo;
+    const OGLBuffer *materials_ssbo;
   };
 
   struct Constants {
@@ -115,13 +115,13 @@ class GPUDrivenWorkloadGeneration {
   DynamicBuffers dynamic_buffers_;
   Constants constants_;
 
-  std::unique_ptr<SSBO> aabbs_ssbo_;
-  std::unique_ptr<SSBO> instance_to_mesh_ssbo_;
-  std::unique_ptr<SSBO> mesh_to_cmd_offset_ssbo_;
-  std::unique_ptr<SSBO> mesh_to_num_cmds_ssbo_;
-  std::unique_ptr<SSBO> cmd_instance_count_ssbo_;
-  std::unique_ptr<SSBO> instance_to_cmd_ssbo_;
-  std::unique_ptr<SSBO> work_group_prefix_sum_ssbo_;
+  std::unique_ptr<OGLBuffer> aabbs_ssbo_;
+  std::unique_ptr<OGLBuffer> instance_to_mesh_ssbo_;
+  std::unique_ptr<OGLBuffer> mesh_to_cmd_offset_ssbo_;
+  std::unique_ptr<OGLBuffer> mesh_to_num_cmds_ssbo_;
+  std::unique_ptr<OGLBuffer> cmd_instance_count_ssbo_;
+  std::unique_ptr<OGLBuffer> instance_to_cmd_ssbo_;
+  std::unique_ptr<OGLBuffer> work_group_prefix_sum_ssbo_;
 
   static std::unique_ptr<Shader> frustum_culling_and_lod_selection_shader_;
   static std::unique_ptr<Shader> prefix_sum_0_shader_, prefix_sum_1_shader_,
@@ -224,7 +224,7 @@ class MultiDrawIndirect {
   std::vector<uint32_t> indices_;
   std::vector<DrawElementsIndirectCommand> commands_;
 
-  // the buffers corresponding to the SSBOs
+  // the buffers corresponding to the OGLBuffers
   std::vector<glm::mat4> model_matrices_, bone_matrices_;
   std::vector<uint32_t> bone_matrices_offset_;
   std::vector<uint32_t> has_bone_, animated_;
@@ -237,14 +237,14 @@ class MultiDrawIndirect {
   // buffers
   uint32_t commands_buffer_, vao_, ebo_, vbo_;
 
-  // SSBOs
-  std::unique_ptr<SSBO> input_model_matrices_ssbo_, bone_matrices_ssbo_,
+  // OGLBuffers
+  std::unique_ptr<OGLBuffer> input_model_matrices_ssbo_, bone_matrices_ssbo_,
       input_bone_matrices_offset_ssbo_, input_animated_ssbo_,
       input_transforms_ssbo_, input_clip_planes_ssbo_, input_materials_ssbo_,
       textures_ssbo_;
-  std::unique_ptr<SSBO> model_matrices_ssbo_, bone_matrices_offset_ssbo_,
+  std::unique_ptr<OGLBuffer> model_matrices_ssbo_, bone_matrices_offset_ssbo_,
       animated_ssbo_, transforms_ssbo_, clip_planes_ssbo_, materials_ssbo_;
-  std::unique_ptr<SSBO> commands_ssbo_, frustum_ssbo_, shadow_obbs_ssbo_;
+  std::unique_ptr<OGLBuffer> commands_ssbo_, frustum_ssbo_, shadow_obbs_ssbo_;
 
   // for gpu driven workload generation
   std::vector<AABB> aabbs_;

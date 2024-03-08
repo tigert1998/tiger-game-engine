@@ -8,14 +8,17 @@
 #include <memory>
 
 #include "frame_buffer_object.h"
+#include "ogl_buffer.h"
 #include "shader.h"
+#include "texture.h"
 
 class OITRenderQuad {
  private:
   uint32_t width_, height_;
-  uint32_t head_pointer_texture_, head_pointer_initializer_,
-      atomic_counter_buffer_, fragment_storage_buffer_,
-      fragment_storage_texture_;
+  Texture head_pointer_texture_;
+  std::unique_ptr<OGLBuffer> head_pointer_initializer_, atomic_counter_buffer_,
+      fragment_storage_buffer_;
+  uint32_t fragment_storage_texture_;
   std::unique_ptr<FrameBufferObject> fbo_;
 
   void Deallocate();

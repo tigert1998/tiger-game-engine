@@ -20,8 +20,9 @@ void DeferredShadingRenderQuad::InitSSAO() {
     sample *= scale;
     ssao_kernel.push_back(glm::vec4(sample, 0));
   }
-  ssao_kernel_ssbo_.reset(new SSBO(ssao_kernel.size() * sizeof(ssao_kernel[0]),
-                                   ssao_kernel.data(), GL_STATIC_DRAW, 0));
+  ssao_kernel_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, ssao_kernel.size() * sizeof(ssao_kernel[0]),
+      ssao_kernel.data(), GL_STATIC_DRAW, 0));
 
   std::vector<glm::vec3> ssao_noise;
   for (unsigned int i = 0; i < 16; i++) {
