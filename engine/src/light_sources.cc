@@ -335,7 +335,7 @@ void LightSources::ImGuiWindow(Camera *camera) {
   ImGui::End();
 }
 
-void LightSources::Set(Shader *shader) {
+void LightSources::Set(Shader *shader) const {
   // ambient
   std::vector<AmbientLight::AmbientLightGLSL> ambient_light_glsl_vec;
   for (const auto &light : ambient_lights_) {

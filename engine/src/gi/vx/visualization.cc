@@ -55,7 +55,7 @@ Visualization::~Visualization() {
 
 void Visualization::DrawCubeCoord(const Camera* camera,
                                   const FrameBufferObject* fbo,
-                                  uint32_t cull_face) {
+                                  uint32_t cull_face, float world_size) {
   glViewport(0, 0, width_, height_);
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glEnable(GL_CULL_FACE);
@@ -67,6 +67,7 @@ void Visualization::DrawCubeCoord(const Camera* camera,
   kCubeShader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
   kCubeShader->SetUniform<glm::mat4>("uProjectionMatrix",
                                      camera->projection_matrix());
+  kCubeShader->SetUniform<float>("uWorldSize", world_size);
   glBindVertexArray(vao_);
   glClear(GL_COLOR_BUFFER_BIT);
   glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -77,10 +78,10 @@ void Visualization::DrawCubeCoord(const Camera* camera,
 }
 
 void Visualization::Draw(const Camera* camera, const Texture& voxel,
+                         uint32_t voxel_type, float world_size,
                          uint32_t mipmap_level) {
-  DrawCubeCoord(camera, front_fbo_.get(), GL_BACK);
-  DrawCubeCoord(camera, back_fbo_.get(), GL_FRONT);
-  CHECK_OPENGL_ERROR();
+  DrawCubeCoord(camera, front_fbo_.get(), GL_BACK, world_size);
+  DrawCubeCoord(camera, back_fbo_.get(), GL_FRONT, world_size);
 
   glEnable(GL_CULL_FACE);
   glCullFace(GL_BACK);
@@ -88,14 +89,24 @@ void Visualization::Draw(const Camera* camera, const Texture& voxel,
   kVisualizationShader->Use();
   kVisualizationShader->SetUniform<glm::vec3>("uCameraPosition",
                                               camera->position());
-  kVisualizationShader->SetUniformSampler("uVoxel", voxel, 0);
+  kVisualizationShader->SetUniform<uint32_t>("uVoxelType", voxel_type);
+  if (voxel_type == 0) {
+    kVisualizationShader->SetUniformSampler("uVoxelU", voxel, 0);
+    kVisualizationShader->SetUniformSampler("uVoxelF",
+                                            Texture::Empty(GL_TEXTURE_3D), 1);
+  } else if (voxel_type == 1) {
+    kVisualizationShader->SetUniformSampler("uVoxelU",
+                                            Texture::Empty(GL_TEXTURE_3D), 0);
+    kVisualizationShader->SetUniformSampler("uVoxelF", voxel, 1);
+  }
   kVisualizationShader->SetUniformSampler("uFront",
-                                          front_fbo_->color_texture(0), 1);
+                                          front_fbo_->color_texture(0), 2);
   kVisualizationShader->SetUniformSampler("uBack", back_fbo_->color_texture(0),
-                                          2);
+                                          3);
   kVisualizationShader->SetUniform<uint32_t>("uMipmapLevel", mipmap_level);
   kVisualizationShader->SetUniform<glm::vec4>("uViewport",
                                               glm::vec4(0, 0, width_, height_));
+  kVisualizationShader->SetUniform<float>("uWorldSize", world_size);
 
   glViewport(0, 0, width_, height_);
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);

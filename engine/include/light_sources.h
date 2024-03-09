@@ -173,7 +173,7 @@ class LightSources {
   PointLight *GetPoint(uint32_t index) const;
   ImageBasedLight *GetImageBased(uint32_t index) const;
 
-  void Set(Shader *shader);
+  void Set(Shader *shader) const;
   void DrawDepthForShadow(
       const std::function<void(int32_t, int32_t)> &render_pass);
 

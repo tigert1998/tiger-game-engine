@@ -3,6 +3,7 @@
 #extension GL_ARB_bindless_texture : require
 
 #include "material.glsl"
+#include "common/alpha_test.glsl"
 
 layout (r32ui) uniform volatile coherent uimage3D uAlbedoImage;
 layout (r32ui) uniform volatile coherent uimage3D uNormalImage;
@@ -20,35 +21,19 @@ in mat3 gTBN;
 flat in int gInstanceID;
 flat in int gAxis;
 
-vec4 ConvertRGBA8ToVec4(uint val){
-    return vec4(
-        float((val & 0x000000FF)),
-        float((val & 0x0000FF00) >> 8U),
-        float((val & 0x00FF0000) >> 16U),
-        float((val & 0xFF000000) >> 24U)
-    );
-}
-
-uint ConvertVec4ToRGBA8(vec4 val){
-    return (uint(val.w) & 0x000000FF) << 24U |
-        (uint(val.z) &0x000000FF) << 16U |
-        (uint(val.y) & 0x000000FF) << 8U |
-        (uint(val.x) & 0x000000FF);
-}
-
-void ImageAtomicRGBA8Avg(layout (r32ui) coherent volatile uimage3D img, ivec3 coord, vec4 val) {
-    val.rgb *= 255;
-    uint newVal = ConvertVec4ToRGBA8(val);
-    uint prevStoredVal = 0;
-    uint curStoredVal;
-    while ((curStoredVal = imageAtomicCompSwap(img, coord, prevStoredVal, newVal)) != prevStoredVal) {
-        prevStoredVal = curStoredVal;
-        vec4 rval = ConvertRGBA8ToVec4(curStoredVal);
-        rval.xyz = rval.xyz * rval.w;
-        vec4 curValF = rval + val;
-        curValF.xyz /= curValF.w;
-        if (curValF.w >= 256) return;
-        newVal = ConvertVec4ToRGBA8(curValF);
+void ImageAtomicRGBA8Avg(layout (r32ui) coherent volatile uimage3D image, ivec3 coord, vec4 value) {
+    value.a /= 255.0;
+    uint packedValue = packUnorm4x8(value);
+    uint prevValue = 0;
+    uint curValue;
+    while ((curValue = imageAtomicCompSwap(image, coord, prevValue, packedValue)) != prevValue) {
+        prevValue = curValue;
+        vec4 curUnpackedValue = unpackUnorm4x8(curValue);
+        curUnpackedValue.xyz = curUnpackedValue.xyz * (curUnpackedValue.w * 255.0);
+        curUnpackedValue += value;
+        curUnpackedValue.xyz /= (curUnpackedValue.w * 255.0);
+        if (curUnpackedValue.w >= 1) return;
+        packedValue = packUnorm4x8(curUnpackedValue);
     }
 }
 
@@ -81,6 +66,7 @@ void main() {
         albedo = pow(sampled.rgb, vec3(2.2));
         alpha = sampled.a;
     }
+    AlphaTest(alpha);
 
     ivec3 voxelPosition = GetVoxelPosition();
     ImageAtomicRGBA8Avg(uAlbedoImage, voxelPosition, vec4(albedo, alpha));
