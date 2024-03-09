@@ -29,6 +29,10 @@ Voxelization::Voxelization(float world_size, uint32_t voxel_resolution)
       Texture(nullptr, GL_TEXTURE_3D, voxel_resolution_, voxel_resolution_,
               voxel_resolution_, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT,
               GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false);
+  metallic_and_roughness_texture_ =
+      Texture(nullptr, GL_TEXTURE_3D, voxel_resolution_, voxel_resolution_,
+              voxel_resolution_, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT,
+              GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false);
 }
 
 void Voxelization::Set(Shader *shader) {
@@ -52,6 +56,9 @@ void Voxelization::Set(Shader *shader) {
   glBindImageTexture(1, normal_texture_.id(), 0, false, 0, GL_READ_WRITE,
                      GL_R32UI);
   shader->SetUniform<int32_t>("uNormalImage", 1);
+  glBindImageTexture(2, metallic_and_roughness_texture_.id(), 0, false, 0,
+                     GL_READ_WRITE, GL_R32UI);
+  shader->SetUniform<int32_t>("uMetallicAndRoughnessImage", 2);
 }
 
 }  // namespace vxgi

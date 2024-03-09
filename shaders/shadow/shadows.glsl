@@ -68,6 +68,7 @@ float CalcDirectionalShadow(DirectionalShadow directionalShadow, vec3 position, 
             denom += ratio;
         }
     }
+    if (denom == 0) return 0;
 
     return num / denom;
 }

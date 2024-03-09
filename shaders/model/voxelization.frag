@@ -7,6 +7,7 @@
 
 layout (r32ui) uniform volatile coherent uimage3D uAlbedoImage;
 layout (r32ui) uniform volatile coherent uimage3D uNormalImage;
+layout (r32ui) uniform volatile coherent uimage3D uMetallicAndRoughnessImage;
 uniform uint uVoxelResolution;
 
 layout (std430, binding = 6) buffer materialsBuffer {
@@ -61,6 +62,8 @@ void main() {
 
     float alpha = 1;
     vec3 albedo = material.albedo;
+    float metallic = material.metallic;
+    float roughness = material.roughness;
     if (material.diffuseTexture >= 0) {
         vec4 sampled = texture(textures[material.diffuseTexture], gTexCoord);
         albedo = pow(sampled.rgb, vec3(2.2));
@@ -68,7 +71,22 @@ void main() {
     }
     AlphaTest(alpha);
 
+    if (material.bindMetalnessAndDiffuseRoughness) {
+        vec2 sampled = texture(textures[material.metalnessTexture], gTexCoord).gb;
+        // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
+        metallic = sampled[1]; // blue
+        roughness = sampled[0]; // green
+    } else {
+        if (material.metalnessTexture >= 0) {
+            metallic = texture(textures[material.metalnessTexture], gTexCoord).r;
+        }
+        if (material.diffuseRoughnessTexture >= 0) {
+            roughness = texture(textures[material.diffuseRoughnessTexture], gTexCoord).r;
+        }
+    }
+
     ivec3 voxelPosition = GetVoxelPosition();
     ImageAtomicRGBA8Avg(uAlbedoImage, voxelPosition, vec4(albedo, alpha));
     ImageAtomicRGBA8Avg(uNormalImage, voxelPosition, vec4(gTBN[2] * 0.5 + 0.5, 1));
+    ImageAtomicRGBA8Avg(uMetallicAndRoughnessImage, voxelPosition, vec4(metallic, roughness, 0, 1));
 }

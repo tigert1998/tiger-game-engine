@@ -32,6 +32,7 @@ LightInjection::LightInjection(float world_size, uint32_t voxel_resolution)
 }
 
 void LightInjection::Launch(const Texture& albedo, const Texture& normal,
+                            const Texture& metallic_and_roughness,
                             const Camera* camera,
                             const LightSources* light_sources) {
   kInjectionShader->Use();
@@ -42,8 +43,12 @@ void LightInjection::Launch(const Texture& albedo, const Texture& normal,
   kInjectionShader->SetUniform<int32_t>("uInjected", 0);
   kInjectionShader->SetUniformSampler("uAlbedo", albedo, 0);
   kInjectionShader->SetUniformSampler("uNormal", normal, 1);
+  kInjectionShader->SetUniformSampler("uMetallicAndRoughness",
+                                      metallic_and_roughness, 2);
   kInjectionShader->SetUniform<uint32_t>("uVoxelResolution", voxel_resolution_);
   kInjectionShader->SetUniform<float>("uWorldSize", world_size_);
+  kInjectionShader->SetUniform<glm::vec3>("uCameraPosition",
+                                          camera->position());
   kInjectionShader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
   glDispatchCompute((voxel_resolution_ + 7) / 8, (voxel_resolution_ + 7) / 8,
                     (voxel_resolution_ + 7) / 8);

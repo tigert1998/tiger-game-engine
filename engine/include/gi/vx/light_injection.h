@@ -24,7 +24,8 @@ class LightInjection {
   explicit LightInjection(float world_size, uint32_t voxel_resolution);
 
   void Launch(const Texture& albedo, const Texture& normal,
-              const Camera* camera, const LightSources* light_sources);
+              const Texture& metallic_and_roughness, const Camera* camera,
+              const LightSources* light_sources);
 
   inline const Texture& light_injected() { return texture_; }
 };

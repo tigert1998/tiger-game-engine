@@ -13,7 +13,7 @@ class Voxelization {
   glm::mat4 view_projection_matrix_x, view_projection_matrix_y,
       view_projection_matrix_z;
   uint32_t voxel_resolution_;
-  Texture albedo_texture_, normal_texture_;
+  Texture albedo_texture_, normal_texture_, metallic_and_roughness_texture_;
 
  public:
   explicit Voxelization(float world_size, uint32_t voxel_resolution);
@@ -22,6 +22,9 @@ class Voxelization {
 
   inline const Texture &albedo() { return albedo_texture_; }
   inline const Texture &normal() { return normal_texture_; }
+  inline const Texture &metallic_and_roughness() {
+    return metallic_and_roughness_texture_;
+  }
 };
 
 }  // namespace vxgi
