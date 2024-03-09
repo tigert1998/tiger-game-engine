@@ -5,6 +5,8 @@
 #include "frame_buffer_object.h"
 #include "shader.h"
 
+namespace vxgi {
+
 class Visualization {
  private:
   static std::unique_ptr<Shader> kCubeShader;
@@ -23,5 +25,7 @@ class Visualization {
   void Draw(const Camera* camera, const Texture& voxel, uint32_t voxel_type,
             float world_size, uint32_t mipmap_level);
 };
+
+}  // namespace vxgi
 
 #endif

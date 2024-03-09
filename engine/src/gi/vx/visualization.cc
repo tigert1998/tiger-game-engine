@@ -5,6 +5,8 @@
 #include "skybox.h"
 #include "utils.h"
 
+namespace vxgi {
+
 std::unique_ptr<Shader> Visualization::kCubeShader = nullptr;
 std::unique_ptr<Shader> Visualization::kVisualizationShader = nullptr;
 
@@ -117,3 +119,5 @@ void Visualization::Draw(const Camera* camera, const Texture& voxel,
 
   glDisable(GL_CULL_FACE);
 }
+
+}  // namespace vxgi

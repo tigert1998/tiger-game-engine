@@ -6,6 +6,8 @@
 #include "shader.h"
 #include "texture.h"
 
+namespace vxgi {
+
 class Voxelization {
  private:
   glm::mat4 view_projection_matrix_x, view_projection_matrix_y,
@@ -21,5 +23,7 @@ class Voxelization {
   inline const Texture &albedo() { return albedo_texture_; }
   inline const Texture &normal() { return normal_texture_; }
 };
+
+}  // namespace vxgi
 
 #endif

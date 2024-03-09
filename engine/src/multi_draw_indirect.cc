@@ -305,8 +305,8 @@ void MultiDrawIndirect::DrawDepthForShadow(
 
 void MultiDrawIndirect::Draw(
     Camera *camera, LightSources *light_sources, OITRenderQuad *oit_render_quad,
-    bool deferred_shading, Voxelization *voxelization, bool default_shading,
-    bool force_pbr,
+    bool deferred_shading, vxgi::Voxelization *voxelization,
+    bool default_shading, bool force_pbr,
     const std::vector<RenderTargetParameter> &render_target_params) {
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);

@@ -8,6 +8,8 @@
 #include "shader.h"
 #include "texture.h"
 
+namespace vxgi {
+
 class LightInjection {
  private:
   static std::unique_ptr<Shader> kInjectionShader;
@@ -26,5 +28,7 @@ class LightInjection {
 
   inline const Texture& light_injected() { return texture_; }
 };
+
+}  // namespace vxgi
 
 #endif

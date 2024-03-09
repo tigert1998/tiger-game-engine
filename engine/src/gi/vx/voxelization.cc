@@ -4,6 +4,8 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
+namespace vxgi {
+
 Voxelization::Voxelization(float world_size, uint32_t voxel_resolution)
     : voxel_resolution_(voxel_resolution) {
   auto projection =
@@ -51,3 +53,5 @@ void Voxelization::Set(Shader *shader) {
                      GL_R32UI);
   shader->SetUniform<int32_t>("uNormalImage", 1);
 }
+
+}  // namespace vxgi

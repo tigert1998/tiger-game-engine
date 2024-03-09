@@ -2,6 +2,8 @@
 
 #include "utils.h"
 
+namespace vxgi {
+
 std::unique_ptr<Shader> LightInjection::kInjectionShader = nullptr;
 std::unique_ptr<Shader> LightInjection::kMipmapShader = nullptr;
 
@@ -68,3 +70,5 @@ void LightInjection::Launch(const Texture& albedo, const Texture& normal,
                     GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
   }
 }
+
+}  // namespace vxgi
