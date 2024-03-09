@@ -11,6 +11,7 @@
 class LightInjection {
  private:
   static std::unique_ptr<Shader> kInjectionShader;
+  static std::unique_ptr<Shader> kMipmapShader;
 
   float world_size_;
   uint32_t voxel_resolution_;
