@@ -15,6 +15,7 @@ const float STEP_SIZE = 0.003;
 out vec4 fragColor;
 
 #include "common/tone_mapping_and_gamma_correction.glsl"
+#include "common/vxgi_accumulation.glsl"
 
 bool IsInsideUnitCube(vec3 position, float eps) {
     return abs(position.x) < 1 + eps && abs(position.y) < 1 + eps && abs(position.z) < 1 + eps;
@@ -41,7 +42,7 @@ void main() {
             voxel = textureLod(uVoxelF, position * 0.5 + 0.5, uMipmapLevel);
         }
 
-        color += (1 - color.a) * voxel;
+        color = Accumulate(color, voxel);
         if (color.a >= 0.95) break;
     }
 

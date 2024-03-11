@@ -6,6 +6,7 @@
 
 #include "camera.h"
 #include "frame_buffer_object.h"
+#include "gi/vx/vxgi_config.h"
 #include "light_sources.h"
 #include "ogl_buffer.h"
 #include "shader.h"
@@ -33,7 +34,8 @@ class DeferredShadingRenderQuad {
   void Resize(uint32_t width, uint32_t height);
 
   void TwoPasses(const Camera* camera, LightSources* light_sources,
-                 bool enable_ssao, const std::function<void()>& first_pass,
+                 bool enable_ssao, vxgi::VXGIConfig* vxgi_config,
+                 const std::function<void()>& first_pass,
                  const std::function<void()>& second_pass,
                  const FrameBufferObject* dest_fbo);
 };
