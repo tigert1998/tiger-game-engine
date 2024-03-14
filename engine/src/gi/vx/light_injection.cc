@@ -25,10 +25,10 @@ LightInjection::LightInjection(float world_size, uint32_t voxel_resolution)
         new Shader({{GL_COMPUTE_SHADER, "vxgi/mipmap.comp"}}, {}));
   }
 
-  texture_ = Texture(nullptr, GL_TEXTURE_3D, voxel_resolution_,
-                     voxel_resolution_, voxel_resolution_, GL_RGBA16F, GL_RGBA,
-                     GL_FLOAT, GL_CLAMP_TO_EDGE, GL_NEAREST_MIPMAP_NEAREST,
-                     GL_NEAREST, {}, true);
+  texture_ =
+      Texture(nullptr, GL_TEXTURE_3D, voxel_resolution_, voxel_resolution_,
+              voxel_resolution_, GL_RGBA16F, GL_RGBA, GL_FLOAT,
+              GL_CLAMP_TO_EDGE, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, {}, true);
 }
 
 void LightInjection::Launch(const Texture& albedo, const Texture& normal,

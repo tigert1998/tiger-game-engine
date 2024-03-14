@@ -36,6 +36,7 @@ class Mesh {
   void SubmitToMultiDrawIndirect(MultiDrawIndirect *multi_draw_indirect);
   ~Mesh();
   MaterialParameters *material_params();
+  inline std::string name() const { return name_; }
 
  private:
   AABB aabb_;
@@ -52,6 +53,11 @@ class Mesh {
                                   std::vector<glm::mat4> *bone_offsets);
 
   void MakeTexturesResident();
+
+  std::filesystem::path GetTexturePath(std::filesystem::path root,
+                                       aiTexture **const textures,
+                                       const aiMaterial *material,
+                                       aiTextureType texture_type);
 };
 
 #endif

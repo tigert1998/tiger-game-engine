@@ -9,7 +9,7 @@ namespace vxgi {
 
 struct VXGIConfig {
  public:
-  float step_size = 0.02f;
+  float step_size = 0.5f;
   float diffuse_offset = 0.5f;
   float diffuse_max_t = 2.0f;
   float specular_aperture = 0.5f;

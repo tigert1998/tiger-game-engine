@@ -34,6 +34,6 @@ void main() {
 		gl_GlobalInvocationID.z >= uVoxelResolution) return;
 
 	ivec3 voxelPosition = ivec3(gl_GlobalInvocationID);
-	vec4 sum = FetchAvg(2 * voxelPosition);
-	imageStore(uInjected, voxelPosition, sum);
+	vec4 avg = FetchAvg(2 * voxelPosition);
+	imageStore(uInjected, voxelPosition, avg);
 }

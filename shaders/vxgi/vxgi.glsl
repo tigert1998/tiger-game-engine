@@ -75,7 +75,7 @@ vec3 VXGI(
     vec3 indirectDiffuse = vec3(0);
 
     for (int i = 0; i < 6; i++) {
-        vec3 lightDirection = TBN * CONE_DIRECTIONS[i];
+        vec3 lightDirection = normalize(TBN * CONE_DIRECTIONS[i]);
         vec3 halfway = normalize(viewDirection + lightDirection);
 
         vec3 f0 = mix(vec3(0.04), albedo, metallic);

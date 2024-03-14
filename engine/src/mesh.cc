@@ -30,6 +30,27 @@ uint32_t Namer::total() const { return total_; }
 
 std::map<std::string, uint32_t> &Namer::map() { return map_; }
 
+fs::path Mesh::GetTexturePath(fs::path root, aiTexture **const textures,
+                              const aiMaterial *material,
+                              aiTextureType texture_type) {
+  aiString material_texture_path;
+  material->GetTexture(texture_type, 0, &material_texture_path);
+  const char *c_str = material_texture_path.C_Str();
+  std::u8string item;
+  if (c_str[0] == '*') {
+    uint32_t index = std::stoi(std::string(c_str + 1));
+    item = ToU8string(textures[index]->mFilename);
+    for (const auto &entry : fs::directory_iterator(root))
+      if (root / entry.path().stem() == root / item) {
+        return entry.path();
+      }
+    throw LoadPictureError(root / (item + u8".*"), "");
+  } else {
+    item = ToU8string(material_texture_path);
+    return root / item;
+  }
+}
+
 Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
            Namer *bone_namer, std::vector<glm::mat4> *bone_offsets,
            std::map<fs::path, Texture> *textures_cache, bool flip_y,
@@ -97,8 +118,8 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
       exit(1);                                                               \
     }                                                                        \
     textures_[i].enabled = true;                                             \
-    material->GetTexture(aiTextureType_##name, 0, &material_texture_path);   \
-    fs::path item = path / ToU8string(material_texture_path);                \
+    fs::path item = GetTexturePath(path, scene->mTextures, material,         \
+                                   aiTextureType_##name);                    \
     textures_[i].texture = Texture::LoadFromFS(                              \
         textures_cache, item, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, \
         {}, true, !flip_y, srgb);                                            \
