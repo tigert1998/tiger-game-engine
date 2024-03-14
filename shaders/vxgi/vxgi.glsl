@@ -45,6 +45,7 @@ vec4 ConeTracing(
 }
 
 struct VXGIConfig {
+    bool on;
     float stepSize;
     float diffuseOffset;
     float diffuseMaxT;

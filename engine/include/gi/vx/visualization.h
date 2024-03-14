@@ -24,6 +24,8 @@ class Visualization {
 
   void Draw(const Camera* camera, const Texture& voxel, uint32_t voxel_type,
             float world_size, uint32_t mipmap_level);
+
+  void Resize(uint32_t width, uint32_t height);
 };
 
 }  // namespace vxgi

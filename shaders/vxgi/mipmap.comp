@@ -20,12 +20,14 @@ const ivec3 offsets[] = ivec3[8]
 
 // subject to change according to ConeTracing method
 vec4 FetchAvg(ivec3 position) {
-	vec4 sum = vec4(0.0);
+	vec4 sum = vec4(0);
 	for (int i = 0; i < 8; i++) {
 		vec4 color = imageLoad(uLastInjected, position + offsets[i]);
-		sum += color;
+		sum.rgb += color.a * color.rgb;
+		sum.a += color.a;
 	}
-	return sum / 8;
+	if (sum.a < 1e-3) return vec4(0);
+	return vec4(sum.rgb / sum.a, sum.a / 8);
 }
 
 void main() {

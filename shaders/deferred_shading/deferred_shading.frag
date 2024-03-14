@@ -26,7 +26,6 @@ uniform sampler2D uSSAO;
 
 uniform vec2 uScreenSize;
 uniform bool uEnableSSAO;
-uniform bool uEnableVXGI;
 
 uniform VXGIConfig uVXGIConfig;
 
@@ -73,7 +72,7 @@ void main() {
             uViewMatrix
         );
 
-        if (uEnableVXGI) {
+        if (uVXGIConfig.on) {
             fragColor.rgb = VXGI(
                 position, directLighting,
                 texture(albedo, coord).rgb, metallic, roughness,

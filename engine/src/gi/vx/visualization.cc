@@ -10,8 +10,9 @@ namespace vxgi {
 std::unique_ptr<Shader> Visualization::kCubeShader = nullptr;
 std::unique_ptr<Shader> Visualization::kVisualizationShader = nullptr;
 
-Visualization::Visualization(uint32_t width, uint32_t height)
-    : width_(width), height_(height) {
+Visualization::Visualization(uint32_t width, uint32_t height) {
+  Resize(width, height);
+
   if (kCubeShader == nullptr && kVisualizationShader == nullptr) {
     kCubeShader.reset(new Shader("vxgi/cube.vert", "vxgi/cube.frag", {}));
     kVisualizationShader = Shader::ScreenSpaceShader("vxgi/visualize.frag", {});
@@ -33,7 +34,11 @@ Visualization::Visualization(uint32_t width, uint32_t height)
   glBindVertexArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   CHECK_OPENGL_ERROR();
+}
 
+void Visualization::Resize(uint32_t width, uint32_t height) {
+  width_ = width;
+  height_ = height;
   {
     Texture texture(nullptr, width, height, GL_RGBA16F, GL_RGBA, GL_FLOAT,
                     GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false);

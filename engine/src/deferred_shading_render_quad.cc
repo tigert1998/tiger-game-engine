@@ -210,7 +210,7 @@ void DeferredShadingRenderQuad::TwoPasses(
   }
 
   if (vxgi_config != nullptr) {
-    kShader->SetUniform<int32_t>("uEnableVXGI", true);
+    kShader->SetUniform<int32_t>("uVXGIConfig.on", vxgi_config->vxgi_on);
     kShader->SetUniform<float>("uVXGIConfig.stepSize", vxgi_config->step_size);
     kShader->SetUniform<float>("uVXGIConfig.diffuseOffset",
                                vxgi_config->diffuse_offset);

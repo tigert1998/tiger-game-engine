@@ -7,7 +7,7 @@
 namespace vxgi {
 
 Voxelization::Voxelization(float world_size, uint32_t voxel_resolution)
-    : voxel_resolution_(voxel_resolution) {
+    : world_size_(world_size), voxel_resolution_(voxel_resolution) {
   auto projection =
       glm::ortho(-world_size * 0.5f, world_size * 0.5f, -world_size * 0.5f,
                  world_size * 0.5f, world_size * 0.5f, world_size * 1.5f);

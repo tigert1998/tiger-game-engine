@@ -9,6 +9,7 @@ namespace vxgi {
 
 struct VXGIConfig {
  public:
+  bool vxgi_on = true;
   float step_size = 0.5f;
   float diffuse_offset = 0.5f;
   float diffuse_max_t = 2.0f;
