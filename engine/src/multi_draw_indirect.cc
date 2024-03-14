@@ -47,25 +47,33 @@ void GPUDrivenWorkloadGeneration::CompileShaders() {
 void GPUDrivenWorkloadGeneration::AllocateBuffers(
     const FixedArrays &fixed_arrays) {
   // constant buffers
-  aabbs_ssbo_.reset(new SSBO(*fixed_arrays.aabbs, GL_STATIC_DRAW, 0));
-  instance_to_mesh_ssbo_.reset(
-      new SSBO(*fixed_arrays.instance_to_mesh, GL_STATIC_DRAW, 1));
-  mesh_to_cmd_offset_ssbo_.reset(
-      new SSBO(*fixed_arrays.mesh_to_cmd_offset, GL_STATIC_DRAW, 2));
-  mesh_to_num_cmds_ssbo_.reset(
-      new SSBO(*fixed_arrays.mesh_to_num_cmds, GL_STATIC_DRAW, 3));
+  aabbs_ssbo_.reset(new OGLBuffer(GL_SHADER_STORAGE_BUFFER, *fixed_arrays.aabbs,
+                                  GL_STATIC_DRAW, 0));
+  instance_to_mesh_ssbo_.reset(new OGLBuffer(GL_SHADER_STORAGE_BUFFER,
+                                             *fixed_arrays.instance_to_mesh,
+                                             GL_STATIC_DRAW, 1));
+  mesh_to_cmd_offset_ssbo_.reset(new OGLBuffer(GL_SHADER_STORAGE_BUFFER,
+                                               *fixed_arrays.mesh_to_cmd_offset,
+                                               GL_STATIC_DRAW, 2));
+  mesh_to_num_cmds_ssbo_.reset(new OGLBuffer(GL_SHADER_STORAGE_BUFFER,
+                                             *fixed_arrays.mesh_to_num_cmds,
+                                             GL_STATIC_DRAW, 3));
 
   // intermediate buffers
-  cmd_instance_count_ssbo_.reset(new SSBO(
-      constants_.num_commands * sizeof(uint32_t), nullptr, GL_DYNAMIC_DRAW, 6));
-  instance_to_cmd_ssbo_.reset(new SSBO(
-      constants_.num_instances * sizeof(int32_t), nullptr, GL_DYNAMIC_DRAW, 7));
-  work_group_prefix_sum_ssbo_.reset(
-      new SSBO(1024 * sizeof(uint32_t), nullptr, GL_DYNAMIC_DRAW, 1));
+  cmd_instance_count_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, constants_.num_commands * sizeof(uint32_t),
+      nullptr, GL_DYNAMIC_DRAW, 6));
+  instance_to_cmd_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, constants_.num_instances * sizeof(int32_t),
+      nullptr, GL_DYNAMIC_DRAW, 7));
+  work_group_prefix_sum_ssbo_.reset(new OGLBuffer(GL_SHADER_STORAGE_BUFFER,
+                                                  1024 * sizeof(uint32_t),
+                                                  nullptr, GL_DYNAMIC_DRAW, 1));
 }
 
 void GPUDrivenWorkloadGeneration::Compute(bool is_directional_shadow_pass,
-                                          bool is_omnidirectional_shadow_pass) {
+                                          bool is_omnidirectional_shadow_pass,
+                                          bool is_voxelization_pass) {
   // compute frustum culling and lod selection
   frustum_culling_and_lod_selection_shader_->Use();
   aabbs_ssbo_->BindBufferBase(0);
@@ -84,6 +92,8 @@ void GPUDrivenWorkloadGeneration::Compute(bool is_directional_shadow_pass,
       "uIsDirectionalShadowPass", is_directional_shadow_pass);
   frustum_culling_and_lod_selection_shader_->SetUniform<int32_t>(
       "uIsOmnidirectionalShadowPass", is_omnidirectional_shadow_pass);
+  frustum_culling_and_lod_selection_shader_->SetUniform<int32_t>(
+      "uIsVoxelizationPass", is_voxelization_pass);
   frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
       "uNumCascades", DirectionalShadow::NUM_CASCADES);
   frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
@@ -268,9 +278,9 @@ void MultiDrawIndirect::DrawDepthForShadow(
                     ->cascade_obbs();
     glNamedBufferSubData(shadow_obbs_ssbo_->id(), 0,
                          obbs.size() * sizeof(obbs[0]), obbs.data());
-    gpu_driven_->Compute(true, false);
+    gpu_driven_->Compute(true, false, false);
   } else if (point_index >= 0) {
-    gpu_driven_->Compute(false, true);
+    gpu_driven_->Compute(false, true, false);
   }
 
   BindBuffers();
@@ -295,38 +305,56 @@ void MultiDrawIndirect::DrawDepthForShadow(
 
 void MultiDrawIndirect::Draw(
     Camera *camera, LightSources *light_sources, OITRenderQuad *oit_render_quad,
-    bool deferred_shading, bool default_shading, bool force_pbr,
+    bool deferred_shading, vxgi::Voxelization *voxelization,
+    bool default_shading, bool force_pbr,
     const std::vector<RenderTargetParameter> &render_target_params) {
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
   Frustum frustum = camera->frustum();
-  glNamedBufferSubData(frustum_ssbo_->id(), 0, sizeof(Frustum), &frustum);
-  gpu_driven_->Compute(false, false);
+  frustum_ssbo_->SubData(0, sizeof(Frustum), &frustum);
 
   Shader *shader = nullptr;
   if (oit_render_quad != nullptr) {
     shader = Model::kOITShader.get();
   } else if (deferred_shading) {
     shader = Model::kDeferredShadingShader.get();
+  } else if (voxelization != nullptr) {
+    shader = Model::kVoxelizationShader.get();
   } else {
     shader = Model::kShader.get();
   }
+
+  gpu_driven_->Compute(false, false, voxelization != nullptr);
 
   BindBuffers();
   shader->Use();
   if (oit_render_quad != nullptr) {
     oit_render_quad->Set(shader);
-  }
-  if (!deferred_shading) {
     light_sources->Set(shader);
+    shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
+    shader->SetUniform<glm::mat4>("uProjectionMatrix",
+                                  camera->projection_matrix());
     shader->SetUniform<glm::vec3>("uCameraPosition", camera->position());
+    shader->SetUniform<int32_t>("uDefaultShading", default_shading);
+    shader->SetUniform<int32_t>("uForcePBR", force_pbr);
+  } else if (deferred_shading) {
+    shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
+    shader->SetUniform<glm::mat4>("uProjectionMatrix",
+                                  camera->projection_matrix());
+    shader->SetUniform<int32_t>("uDefaultShading", default_shading);
+    shader->SetUniform<int32_t>("uForcePBR", force_pbr);
+  } else if (voxelization != nullptr) {
+    voxelization->Set(shader);
+  } else {
+    light_sources->Set(shader);
+    shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
+    shader->SetUniform<glm::mat4>("uProjectionMatrix",
+                                  camera->projection_matrix());
+    shader->SetUniform<glm::vec3>("uCameraPosition", camera->position());
+    shader->SetUniform<int32_t>("uDefaultShading", default_shading);
+    shader->SetUniform<int32_t>("uForcePBR", force_pbr);
   }
-  shader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
-  shader->SetUniform<glm::mat4>("uProjectionMatrix",
-                                camera->projection_matrix());
-  shader->SetUniform<int32_t>("uDefaultShading", default_shading);
-  shader->SetUniform<int32_t>("uForcePBR", force_pbr);
 
   glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,
                               commands_.size(), 0);
@@ -388,37 +416,51 @@ void MultiDrawIndirect::PrepareForDraw() {
   glBindBuffer(GL_ARRAY_BUFFER, 0);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-  // create SSBO
-  input_model_matrices_ssbo_.reset(new SSBO(num_instances_ * sizeof(glm::mat4),
-                                            nullptr, GL_DYNAMIC_DRAW, 0));
-  bone_matrices_ssbo_.reset(new SSBO(num_bone_matrices_ * sizeof(glm::mat4),
+  // create OGLBuffer
+  input_model_matrices_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, num_instances_ * sizeof(glm::mat4), nullptr,
+      GL_DYNAMIC_DRAW, 0));
+  bone_matrices_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, num_bone_matrices_ * sizeof(glm::mat4), nullptr,
+      GL_DYNAMIC_DRAW, 0));
+  input_bone_matrices_offset_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, bone_matrices_offset_, GL_STATIC_DRAW, 0));
+  input_animated_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, has_bone_.size() * sizeof(has_bone_[0]),
+      nullptr, GL_DYNAMIC_DRAW, 0));
+  input_transforms_ssbo_.reset(
+      new OGLBuffer(GL_SHADER_STORAGE_BUFFER, transforms_, GL_STATIC_DRAW, 0));
+  input_clip_planes_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, num_instances_ * sizeof(glm::vec4), nullptr,
+      GL_DYNAMIC_DRAW, 0));
+  input_materials_ssbo_.reset(
+      new OGLBuffer(GL_SHADER_STORAGE_BUFFER, materials_, GL_STATIC_DRAW, 0));
+  textures_ssbo_.reset(new OGLBuffer(GL_SHADER_STORAGE_BUFFER, texture_handles_,
+                                     GL_STATIC_DRAW, 0));
+
+  model_matrices_ssbo_.reset(new OGLBuffer(GL_SHADER_STORAGE_BUFFER,
+                                           num_instances_ * sizeof(glm::mat4),
+                                           nullptr, GL_DYNAMIC_DRAW, 0));
+  bone_matrices_offset_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, bone_matrices_offset_, GL_DYNAMIC_DRAW, 0));
+  animated_ssbo_.reset(new OGLBuffer(GL_SHADER_STORAGE_BUFFER,
+                                     has_bone_.size() * sizeof(has_bone_[0]),
                                      nullptr, GL_DYNAMIC_DRAW, 0));
-  input_bone_matrices_offset_ssbo_.reset(
-      new SSBO(bone_matrices_offset_, GL_STATIC_DRAW, 0));
-  input_animated_ssbo_.reset(new SSBO(has_bone_.size() * sizeof(has_bone_[0]),
-                                      nullptr, GL_DYNAMIC_DRAW, 0));
-  input_transforms_ssbo_.reset(new SSBO(transforms_, GL_STATIC_DRAW, 0));
-  input_clip_planes_ssbo_.reset(new SSBO(num_instances_ * sizeof(glm::vec4),
-                                         nullptr, GL_DYNAMIC_DRAW, 0));
-  input_materials_ssbo_.reset(new SSBO(materials_, GL_STATIC_DRAW, 0));
-  textures_ssbo_.reset(new SSBO(texture_handles_, GL_STATIC_DRAW, 0));
+  transforms_ssbo_.reset(
+      new OGLBuffer(GL_SHADER_STORAGE_BUFFER, transforms_, GL_DYNAMIC_DRAW, 0));
+  clip_planes_ssbo_.reset(new OGLBuffer(GL_SHADER_STORAGE_BUFFER,
+                                        num_instances_ * sizeof(glm::vec4),
+                                        nullptr, GL_DYNAMIC_DRAW, 0));
+  materials_ssbo_.reset(
+      new OGLBuffer(GL_SHADER_STORAGE_BUFFER, materials_, GL_DYNAMIC_DRAW, 0));
 
-  model_matrices_ssbo_.reset(new SSBO(num_instances_ * sizeof(glm::mat4),
-                                      nullptr, GL_DYNAMIC_DRAW, 0));
-  bone_matrices_offset_ssbo_.reset(
-      new SSBO(bone_matrices_offset_, GL_DYNAMIC_DRAW, 0));
-  animated_ssbo_.reset(new SSBO(has_bone_.size() * sizeof(has_bone_[0]),
-                                nullptr, GL_DYNAMIC_DRAW, 0));
-  transforms_ssbo_.reset(new SSBO(transforms_, GL_DYNAMIC_DRAW, 0));
-  clip_planes_ssbo_.reset(new SSBO(num_instances_ * sizeof(glm::vec4), nullptr,
-                                   GL_DYNAMIC_DRAW, 0));
-  materials_ssbo_.reset(new SSBO(materials_, GL_DYNAMIC_DRAW, 0));
-
-  commands_ssbo_.reset(new SSBO(commands_buffer_, 0, false));
-  frustum_ssbo_.reset(new SSBO(sizeof(Frustum), nullptr, GL_DYNAMIC_DRAW, 0));
-  shadow_obbs_ssbo_.reset(
-      new SSBO(sizeof(OBB) * DirectionalShadow::NUM_CASCADES, nullptr,
-               GL_DYNAMIC_DRAW, 8));
+  commands_ssbo_.reset(
+      new OGLBuffer(GL_SHADER_STORAGE_BUFFER, commands_buffer_, 0, false));
+  frustum_ssbo_.reset(new OGLBuffer(GL_SHADER_STORAGE_BUFFER, sizeof(Frustum),
+                                    nullptr, GL_DYNAMIC_DRAW, 0));
+  shadow_obbs_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, sizeof(OBB) * DirectionalShadow::NUM_CASCADES,
+      nullptr, GL_DYNAMIC_DRAW, 8));
 
   bone_matrices_.resize(num_bone_matrices_);
   animated_.resize(num_instances_);

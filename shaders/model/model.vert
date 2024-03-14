@@ -73,7 +73,7 @@ void main() {
     vec3 B = cross(N, T);
     vTBN = mat3(T, B, N);
 
-    if (IS_SHADOW_PASS) {
+    if (USE_GEOM_SHADER) {
         gl_Position = modelMatrix * transform * vec4(aPosition, 1);    
     } else {
         gl_Position = uProjectionMatrix * uViewMatrix * modelMatrix * transform * vec4(aPosition, 1);

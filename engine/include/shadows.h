@@ -9,8 +9,8 @@
 #include "camera.h"
 #include "frame_buffer_object.h"
 #include "obb.h"
+#include "ogl_buffer.h"
 #include "shader.h"
-#include "ssbo.h"
 #include "texture.h"
 
 class Shadow {

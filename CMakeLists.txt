@@ -36,3 +36,6 @@ target_link_libraries(omnidirectional-shadow-demo engine)
 
 add_executable(ibl-demo "apps/ibl-demo/src/main.cc")
 target_link_libraries(ibl-demo engine)
+
+add_executable(vxgi-demo "apps/vxgi-demo/src/main.cc")
+target_link_libraries(vxgi-demo engine)

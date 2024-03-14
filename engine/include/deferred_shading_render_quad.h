@@ -6,10 +6,11 @@
 
 #include "camera.h"
 #include "frame_buffer_object.h"
+#include "gi/vx/vxgi_config.h"
 #include "light_sources.h"
+#include "ogl_buffer.h"
 #include "shader.h"
 #include "shadows.h"
-#include "ssbo.h"
 
 class DeferredShadingRenderQuad {
  private:
@@ -20,7 +21,7 @@ class DeferredShadingRenderQuad {
   void Allocate(uint32_t width, uint32_t height);
   void InitSSAO();
 
-  std::unique_ptr<SSBO> ssao_kernel_ssbo_;
+  std::unique_ptr<OGLBuffer> ssao_kernel_ssbo_;
   Texture ssao_noise_texture_;
   std::unique_ptr<FrameBufferObject> ssao_fbo_, ssao_blur_fbo_;
 
@@ -33,7 +34,8 @@ class DeferredShadingRenderQuad {
   void Resize(uint32_t width, uint32_t height);
 
   void TwoPasses(const Camera* camera, LightSources* light_sources,
-                 bool enable_ssao, const std::function<void()>& first_pass,
+                 bool enable_ssao, vxgi::VXGIConfig* vxgi_config,
+                 const std::function<void()>& first_pass,
                  const std::function<void()>& second_pass,
                  const FrameBufferObject* dest_fbo);
 };

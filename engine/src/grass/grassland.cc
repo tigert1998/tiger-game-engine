@@ -13,7 +13,7 @@
 #include <iostream>
 #include <random>
 
-#include "ssbo.h"
+#include "ogl_buffer.h"
 #include "utils.h"
 #include "vertex.h"
 
@@ -72,21 +72,27 @@ Grassland::Grassland(const std::string& terrain_model_path,
 
   auto calc_blade_transforms_shader = std::unique_ptr<Shader>(
       new Shader({{GL_COMPUTE_SHADER, "grass/grass.comp"}}, {}));
-  SSBO vertices_ssbo(vertices.size() * sizeof(glm::vec4),
-                     glm::value_ptr(vertices[0]), GL_STATIC_DRAW, 0);
-  SSBO indices_ssbo(indices.size() * sizeof(uint32_t), &indices[0],
-                    GL_STATIC_DRAW, 1);
-  SSBO tex_coords_ssbo(tex_coords.size() * sizeof(glm::vec2),
-                       glm::value_ptr(tex_coords[0]), GL_STATIC_DRAW, 2);
-  SSBO rands_ssbo(rands.size() * sizeof(float), rands.data(), GL_STATIC_READ,
-                  3);
+  OGLBuffer vertices_ssbo(GL_SHADER_STORAGE_BUFFER,
+                          vertices.size() * sizeof(glm::vec4),
+                          glm::value_ptr(vertices[0]), GL_STATIC_DRAW, 0);
+  OGLBuffer indices_ssbo(GL_SHADER_STORAGE_BUFFER,
+                         indices.size() * sizeof(uint32_t), &indices[0],
+                         GL_STATIC_DRAW, 1);
+  OGLBuffer tex_coords_ssbo(GL_SHADER_STORAGE_BUFFER,
+                            tex_coords.size() * sizeof(glm::vec2),
+                            glm::value_ptr(tex_coords[0]), GL_STATIC_DRAW, 2);
+  OGLBuffer rands_ssbo(GL_SHADER_STORAGE_BUFFER, rands.size() * sizeof(float),
+                       rands.data(), GL_STATIC_READ, 3);
 
-  SSBO blade_transforms_ssbo(num_triangles * kMaxLOD * sizeof(glm::mat4),
-                             nullptr, GL_STATIC_READ, 4);
-  SSBO blade_positions_ssbo(num_triangles * kMaxLOD * sizeof(glm::vec4),
-                            nullptr, GL_STATIC_READ, 5);
-  SSBO blade_tex_coords_ssbo(num_triangles * kMaxLOD * sizeof(glm::vec2),
-                             nullptr, GL_STATIC_READ, 6);
+  OGLBuffer blade_transforms_ssbo(GL_SHADER_STORAGE_BUFFER,
+                                  num_triangles * kMaxLOD * sizeof(glm::mat4),
+                                  nullptr, GL_STATIC_READ, 4);
+  OGLBuffer blade_positions_ssbo(GL_SHADER_STORAGE_BUFFER,
+                                 num_triangles * kMaxLOD * sizeof(glm::vec4),
+                                 nullptr, GL_STATIC_READ, 5);
+  OGLBuffer blade_tex_coords_ssbo(GL_SHADER_STORAGE_BUFFER,
+                                  num_triangles * kMaxLOD * sizeof(glm::vec2),
+                                  nullptr, GL_STATIC_READ, 6);
 
   calc_blade_transforms_shader->Use();
   calc_blade_transforms_shader->SetUniform<uint32_t>("uNumTriangles",

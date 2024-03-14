@@ -230,10 +230,10 @@ void Model::CompileShaders() {
   if (kShader == nullptr && kOITShader == nullptr &&
       kDirectionalShadowShader == nullptr &&
       kOmnidirectionalShadowShader == nullptr &&
-      kDeferredShadingShader == nullptr) {
+      kDeferredShadingShader == nullptr && kVoxelizationShader == nullptr) {
     std::map<std::string, std::any> defines = {
         {"NUM_CASCADES", std::any(DirectionalShadow::NUM_CASCADES)},
-        {"IS_SHADOW_PASS", std::any(false)},
+        {"USE_GEOM_SHADER", std::any(false)},
         {"AMBIENT_LIGHT_BINDING", std::any(AmbientLight::GLSL_BINDING)},
         {"DIRECTIONAL_LIGHT_BINDING", std::any(DirectionalLight::GLSL_BINDING)},
         {"POINT_LIGHT_BINDING", std::any(PointLight::GLSL_BINDING)},
@@ -246,7 +246,7 @@ void Model::CompileShaders() {
     kDeferredShadingShader.reset(
         new Shader("model/model.vert", "model/deferred_shading.frag", defines));
 
-    defines["IS_SHADOW_PASS"] = std::any(true);
+    defines["USE_GEOM_SHADER"] = std::any(true);
     kDirectionalShadowShader.reset(new Shader(
         {
             {GL_VERTEX_SHADER, "model/model.vert"},
@@ -261,6 +261,13 @@ void Model::CompileShaders() {
             {GL_FRAGMENT_SHADER, "model/omnidirectional_shadow.frag"},
         },
         defines));
+    kVoxelizationShader.reset(new Shader(
+        {
+            {GL_VERTEX_SHADER, "model/model.vert"},
+            {GL_GEOMETRY_SHADER, "model/voxelization.geom"},
+            {GL_FRAGMENT_SHADER, "model/voxelization.frag"},
+        },
+        defines));
   }
 }
 
@@ -269,3 +276,4 @@ std::unique_ptr<Shader> Model::kOITShader = nullptr;
 std::unique_ptr<Shader> Model::kDirectionalShadowShader = nullptr;
 std::unique_ptr<Shader> Model::kOmnidirectionalShadowShader = nullptr;
 std::unique_ptr<Shader> Model::kDeferredShadingShader = nullptr;
+std::unique_ptr<Shader> Model::kVoxelizationShader = nullptr;

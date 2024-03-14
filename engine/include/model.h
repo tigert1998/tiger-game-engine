@@ -61,6 +61,7 @@ class Model {
   static std::unique_ptr<Shader> kDirectionalShadowShader;
   static std::unique_ptr<Shader> kOmnidirectionalShadowShader;
   static std::unique_ptr<Shader> kDeferredShadingShader;
+  static std::unique_ptr<Shader> kVoxelizationShader;
 };
 
 #endif

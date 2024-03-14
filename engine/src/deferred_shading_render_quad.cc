@@ -20,8 +20,9 @@ void DeferredShadingRenderQuad::InitSSAO() {
     sample *= scale;
     ssao_kernel.push_back(glm::vec4(sample, 0));
   }
-  ssao_kernel_ssbo_.reset(new SSBO(ssao_kernel.size() * sizeof(ssao_kernel[0]),
-                                   ssao_kernel.data(), GL_STATIC_DRAW, 0));
+  ssao_kernel_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER, ssao_kernel.size() * sizeof(ssao_kernel[0]),
+      ssao_kernel.data(), GL_STATIC_DRAW, 0));
 
   std::vector<glm::vec3> ssao_noise;
   for (unsigned int i = 0; i < 16; i++) {
@@ -125,17 +126,13 @@ void DeferredShadingRenderQuad::Resize(uint32_t width, uint32_t height) {
 
 void DeferredShadingRenderQuad::TwoPasses(
     const Camera* camera, LightSources* light_sources, bool enable_ssao,
-    const std::function<void()>& first_pass,
+    vxgi::VXGIConfig* vxgi_config, const std::function<void()>& first_pass,
     const std::function<void()>& second_pass,
     const FrameBufferObject* dest_fbo) {
-  if (dest_fbo != nullptr) {
-    dest_fbo->Bind();
-  }
+  if (dest_fbo != nullptr) dest_fbo->Bind();
   glViewport(0, 0, width_, height_);
   first_pass();
-  if (dest_fbo != nullptr) {
-    dest_fbo->Unbind();
-  }
+  if (dest_fbo != nullptr) dest_fbo->Unbind();
 
   glDisable(GL_BLEND);
   fbo_->Bind();
@@ -212,17 +209,36 @@ void DeferredShadingRenderQuad::TwoPasses(
     kShader->SetUniformSampler("uSSAO", Texture::Empty(GL_TEXTURE_2D), 9);
   }
 
-  int num_samplers = 10;
+  if (vxgi_config != nullptr) {
+    kShader->SetUniform<int32_t>("uVXGIConfig.on", vxgi_config->vxgi_on);
+    kShader->SetUniform<float>("uVXGIConfig.stepSize", vxgi_config->step_size);
+    kShader->SetUniform<float>("uVXGIConfig.diffuseOffset",
+                               vxgi_config->diffuse_offset);
+    kShader->SetUniform<float>("uVXGIConfig.diffuseMaxT",
+                               vxgi_config->diffuse_max_t);
+    kShader->SetUniform<float>("uVXGIConfig.specularAperture",
+                               vxgi_config->specular_aperture);
+    kShader->SetUniform<float>("uVXGIConfig.specularOffset",
+                               vxgi_config->specular_offset);
+    kShader->SetUniform<float>("uVXGIConfig.specularMaxT",
+                               vxgi_config->specular_max_t);
+    kShader->SetUniform<uint32_t>("uVXGIConfig.voxelResolution",
+                                  vxgi_config->voxel_resolution);
+    kShader->SetUniform<float>("uVXGIConfig.worldSize",
+                               vxgi_config->world_size);
+    kShader->SetUniformSampler("uVXGIConfig.radianceMap",
+                               vxgi_config->radiance_map, 9);
+  } else {
+    kShader->SetUniform<int32_t>("uVXGIConfig.on", false);
+    kShader->SetUniformSampler("uVXGIConfig.radianceMap",
+                               Texture::Empty(GL_TEXTURE_3D), 9);
+  }
 
   light_sources->Set(kShader.get());
 
-  if (dest_fbo != nullptr) {
-    dest_fbo->Bind();
-  }
+  if (dest_fbo != nullptr) dest_fbo->Bind();
   glDrawArrays(GL_POINTS, 0, 1);
-  if (dest_fbo != nullptr) {
-    dest_fbo->Unbind();
-  }
+  if (dest_fbo != nullptr) dest_fbo->Unbind();
 
   glBindVertexArray(0);
   glBindTexture(GL_TEXTURE_2D, 0);

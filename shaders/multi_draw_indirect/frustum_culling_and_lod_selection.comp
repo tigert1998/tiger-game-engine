@@ -35,6 +35,7 @@ layout (std430, binding = 8) readonly buffer shadowOBBsBuffer {
 
 uniform bool uIsDirectionalShadowPass;
 uniform bool uIsOmnidirectionalShadowPass;
+uniform bool uIsVoxelizationPass;
 uniform uint uNumCascades;
 uniform uint uInstanceCount;
 
@@ -55,7 +56,7 @@ void main() {
                 doRender = IntersectsOBB(newOBB, shadowOBBs[i], 1e-4);
                 if (doRender) break;
             }
-        } else if (uIsOmnidirectionalShadowPass) {
+        } else if (uIsOmnidirectionalShadowPass || uIsVoxelizationPass) {
             doRender = true;
         } else {
             doRender = AABBIsOnFrustum(newAABB, cameraFrustum);

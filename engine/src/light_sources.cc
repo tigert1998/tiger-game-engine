@@ -145,7 +145,6 @@ void ImageBasedLight::Load(const fs::path &path) {
   equirectangular_map_->irradiance_map().MakeResident();
   equirectangular_map_->prefiltered_map().MakeResident();
   equirectangular_map_->lut().MakeResident();
-  skybox_.reset(new Skybox(&equirectangular_map_->environment_map()));
 }
 
 void ImageBasedLight::ImGuiWindow(uint32_t index,
@@ -177,49 +176,54 @@ ImageBasedLight::ImageBasedLightGLSL ImageBasedLight::image_based_light_glsl()
   return ret;
 }
 
-void LightSources::ResizeAmbientSSBO() {
-  ambient_lights_ssbo_.reset(
-      new SSBO(sizeof(AmbientLight::AmbientLightGLSL) * ambient_lights_.size(),
-               nullptr, GL_DYNAMIC_DRAW, AmbientLight::GLSL_BINDING));
+void LightSources::ResizeAmbientOGLBuffer() {
+  ambient_lights_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER,
+      sizeof(AmbientLight::AmbientLightGLSL) * ambient_lights_.size(), nullptr,
+      GL_DYNAMIC_DRAW, AmbientLight::GLSL_BINDING));
 }
 
-void LightSources::ResizeDirectioanlSSBO() {
+void LightSources::ResizeDirectioanlOGLBuffer() {
   directional_lights_ssbo_.reset(
-      new SSBO(sizeof(DirectionalLight::DirectionalLightGLSL) *
-                   directional_lights_.size(),
-               nullptr, GL_DYNAMIC_DRAW, DirectionalLight::GLSL_BINDING));
+      new OGLBuffer(GL_SHADER_STORAGE_BUFFER,
+                    sizeof(DirectionalLight::DirectionalLightGLSL) *
+                        directional_lights_.size(),
+                    nullptr, GL_DYNAMIC_DRAW, DirectionalLight::GLSL_BINDING));
 }
 
-void LightSources::ResizePointSSBO() {
+void LightSources::ResizePointOGLBuffer() {
   point_lights_ssbo_.reset(
-      new SSBO(sizeof(PointLight::PointLightGLSL) * point_lights_.size(),
-               nullptr, GL_DYNAMIC_DRAW, PointLight::GLSL_BINDING));
+      new OGLBuffer(GL_SHADER_STORAGE_BUFFER,
+                    sizeof(PointLight::PointLightGLSL) * point_lights_.size(),
+                    nullptr, GL_DYNAMIC_DRAW, PointLight::GLSL_BINDING));
 }
 
-void LightSources::ResizeImageBasedSSBO() {
-  image_based_lights_ssbo_.reset(new SSBO(
+void LightSources::ResizeImageBasedOGLBuffer() {
+  image_based_lights_ssbo_.reset(new OGLBuffer(
+      GL_SHADER_STORAGE_BUFFER,
       sizeof(ImageBasedLight::ImageBasedLightGLSL) * image_based_lights_.size(),
       nullptr, GL_DYNAMIC_DRAW, ImageBasedLight::GLSL_BINDING));
 }
 
 LightSources::LightSources() {
-  ResizeAmbientSSBO();
-  ResizeDirectioanlSSBO();
-  ResizePointSSBO();
-  ResizeImageBasedSSBO();
+  ResizeAmbientOGLBuffer();
+  ResizeDirectioanlOGLBuffer();
+  ResizePointOGLBuffer();
+  ResizeImageBasedOGLBuffer();
 
-  AllocatePoissonDiskSSBO();
+  AllocatePoissonDiskOGLBuffer();
 }
 
-void LightSources::AllocatePoissonDiskSSBO() {
+void LightSources::AllocatePoissonDiskOGLBuffer() {
   auto engine = std::default_random_engine{};
 
   auto generator = PoissonDiskGenerator();
   std::vector<glm::vec2> poisson_disk_2d_points = generator.Generate2D(128, 16);
   std::shuffle(poisson_disk_2d_points.begin(), poisson_disk_2d_points.end(),
                engine);
-  poisson_disk_2d_points_ssbo_.reset(new SSBO(
-      poisson_disk_2d_points, GL_STATIC_DRAW, POISSON_DISK_2D_BINDING));
+  poisson_disk_2d_points_ssbo_.reset(
+      new OGLBuffer(GL_SHADER_STORAGE_BUFFER, poisson_disk_2d_points,
+                    GL_STATIC_DRAW, POISSON_DISK_2D_BINDING));
 }
 
 uint32_t LightSources::SizeAmbient() const { return ambient_lights_.size(); }
@@ -236,22 +240,22 @@ uint32_t LightSources::SizeImageBased() const {
 
 void LightSources::AddAmbient(std::unique_ptr<AmbientLight> light) {
   ambient_lights_.emplace_back(std::move(light));
-  ResizeAmbientSSBO();
+  ResizeAmbientOGLBuffer();
 }
 
 void LightSources::AddDirectional(std::unique_ptr<DirectionalLight> light) {
   directional_lights_.emplace_back(std::move(light));
-  ResizeDirectioanlSSBO();
+  ResizeDirectioanlOGLBuffer();
 }
 
 void LightSources::AddPoint(std::unique_ptr<PointLight> light) {
   point_lights_.emplace_back(std::move(light));
-  ResizePointSSBO();
+  ResizePointOGLBuffer();
 }
 
 void LightSources::AddImageBased(std::unique_ptr<ImageBasedLight> light) {
   image_based_lights_.emplace_back(std::move(light));
-  ResizeImageBasedSSBO();
+  ResizeImageBasedOGLBuffer();
 }
 
 AmbientLight *LightSources::GetAmbient(uint32_t index) const {
@@ -303,35 +307,35 @@ void LightSources::ImGuiWindow(Camera *camera) {
   for (int i = 0; i < ambient_lights_.size(); i++) {
     ambient_lights_[i]->ImGuiWindow(i, [this, i]() {
       this->ambient_lights_.erase(ambient_lights_.begin() + i);
-      this->ResizeAmbientSSBO();
+      this->ResizeAmbientOGLBuffer();
     });
   }
 
   for (int i = 0; i < directional_lights_.size(); i++) {
     directional_lights_[i]->ImGuiWindow(i, [this, i]() {
       this->directional_lights_.erase(directional_lights_.begin() + i);
-      this->ResizeDirectioanlSSBO();
+      this->ResizeDirectioanlOGLBuffer();
     });
   }
 
   for (int i = 0; i < point_lights_.size(); i++) {
     point_lights_[i]->ImGuiWindow(i, [this, i]() {
       this->point_lights_.erase(point_lights_.begin() + i);
-      this->ResizePointSSBO();
+      this->ResizePointOGLBuffer();
     });
   }
 
   for (int i = 0; i < image_based_lights_.size(); i++) {
     image_based_lights_[i]->ImGuiWindow(i, [this, i]() {
       this->image_based_lights_.erase(image_based_lights_.begin() + i);
-      this->ResizeImageBasedSSBO();
+      this->ResizeImageBasedOGLBuffer();
     });
   }
 
   ImGui::End();
 }
 
-void LightSources::Set(Shader *shader) {
+void LightSources::Set(Shader *shader) const {
   // ambient
   std::vector<AmbientLight::AmbientLightGLSL> ambient_light_glsl_vec;
   for (const auto &light : ambient_lights_) {

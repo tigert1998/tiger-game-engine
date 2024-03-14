@@ -8,9 +8,11 @@ uniform vec3 uCameraPosition;
 
 #include "light_sources.glsl"
 #include "common/position_from_depth.glsl"
+#include "vxgi/vxgi.glsl"
 
 out vec4 fragColor;
 
+// G-Buffer
 uniform sampler2D ka;
 uniform sampler2D kd;
 uniform sampler2D ksAndShininess;
@@ -24,6 +26,8 @@ uniform sampler2D uSSAO;
 
 uniform vec2 uScreenSize;
 uniform bool uEnableSSAO;
+
+uniform VXGIConfig uVXGIConfig;
 
 void main() {
     vec2 coord = gl_FragCoord.xy / uScreenSize;
@@ -51,17 +55,32 @@ void main() {
             ao = texture(uSSAO, coord).r;
         }
 
-        fragColor.rgb = CalcPBRLighting(
+        vec3 sampled = texture(metallicAndRoughnessAndAo, coord).xyz;
+        float metallic = sampled.x;
+        float roughness = sampled.y;
+        vec3 normal = texture(normalAndAlpha, coord).xyz;
+
+        vec3 directLighting = CalcPBRLighting(
             texture(albedo, coord).rgb, 
-            texture(metallicAndRoughnessAndAo, coord).x, 
-            texture(metallicAndRoughnessAndAo, coord).y,
+            metallic, 
+            roughness,
             ao,
             texture(emission, coord).rgb,
-            texture(normalAndAlpha, coord).xyz,
+            normal,
             uCameraPosition,
             position,
             uViewMatrix
         );
+
+        if (uVXGIConfig.on) {
+            fragColor.rgb = VXGI(
+                position, directLighting,
+                texture(albedo, coord).rgb, metallic, roughness,
+                normal, uCameraPosition - position,
+                uVXGIConfig);
+        } else {
+            fragColor.rgb = directLighting;
+        }
     }
 
     fragColor.a = 1;

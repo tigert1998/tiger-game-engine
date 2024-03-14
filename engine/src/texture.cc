@@ -27,7 +27,8 @@ void Texture::Load2DTextureFromPath(const fs::path &path, uint32_t wrap,
                                     bool mipmap, bool flip_y, bool srgb) {
   target_ = GL_TEXTURE_2D;
 
-  if (ToLower(path.extension().string()) == ".dds") {
+  std::string ext = ToLower(path.extension().string());
+  if (ext == ".dds") {
     gli::texture gli_texture = gli::load_dds(path.string());
     if (gli_texture.empty()) throw LoadPictureError(path, "");
 
@@ -65,7 +66,7 @@ void Texture::Load2DTextureFromPath(const fs::path &path, uint32_t wrap,
                         gli_texture.data(0, 0, level));
       }
     }
-  } else if (ToLower(path.extension().string()) == ".hdr") {
+  } else if (ext == ".hdr") {
     stbi_set_flip_vertically_on_load(flip_y);
     int32_t width, height, comp;
     float *image = stbi_loadf(path.string().c_str(), &width, &height, &comp, 0);
@@ -337,11 +338,13 @@ Texture::Texture(const std::vector<void *> &data, uint32_t width,
 
 void Texture::Clear() {
   if (has_ownership_ && id_ != 0) {
+    if (resident_) MakeNonResident();
     glDeleteTextures(1, &id_);
   }
   id_ = 0;
   target_ = 0;
   has_ownership_ = false;
+  resident_ = false;
 }
 
 Texture::~Texture() { Clear(); }
@@ -353,9 +356,13 @@ uint64_t Texture::handle() const {
   return handle_.value();
 }
 
-void Texture::MakeResident() const { glMakeTextureHandleResidentARB(handle()); }
+void Texture::MakeResident() const {
+  resident_ = true;
+  glMakeTextureHandleResidentARB(handle());
+}
 
 void Texture::MakeNonResident() const {
+  resident_ = false;
   glMakeTextureHandleNonResidentARB(handle());
 }
 

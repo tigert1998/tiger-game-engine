@@ -7,10 +7,10 @@
 #include <vector>
 
 #include "equirectangular_map.h"
+#include "ogl_buffer.h"
 #include "shader.h"
 #include "shadows.h"
 #include "skybox.h"
-#include "ssbo.h"
 
 class Light {
  public:
@@ -103,7 +103,6 @@ class PointLight : public Light {
 class ImageBasedLight : public Light {
  private:
   std::unique_ptr<EquirectangularMap> equirectangular_map_;
-  std::unique_ptr<Skybox> skybox_;
 
   void Load(const std::filesystem::path &path);
 
@@ -119,7 +118,7 @@ class ImageBasedLight : public Light {
   void ImGuiWindow(uint32_t index,
                    const std::function<void()> &erase_callback) override;
 
-  inline Skybox *skybox() { return skybox_.get(); }
+  inline const Skybox *skybox() { return equirectangular_map_->skybox(); }
 
   struct ImageBasedLightGLSL {
     uint64_t irradiance_map;
@@ -132,18 +131,18 @@ class ImageBasedLight : public Light {
 
 class LightSources {
  private:
-  std::unique_ptr<SSBO> ambient_lights_ssbo_;
-  std::unique_ptr<SSBO> directional_lights_ssbo_;
-  std::unique_ptr<SSBO> point_lights_ssbo_;
-  std::unique_ptr<SSBO> image_based_lights_ssbo_;
-  std::unique_ptr<SSBO> poisson_disk_2d_points_ssbo_;
+  std::unique_ptr<OGLBuffer> ambient_lights_ssbo_;
+  std::unique_ptr<OGLBuffer> directional_lights_ssbo_;
+  std::unique_ptr<OGLBuffer> point_lights_ssbo_;
+  std::unique_ptr<OGLBuffer> image_based_lights_ssbo_;
+  std::unique_ptr<OGLBuffer> poisson_disk_2d_points_ssbo_;
 
-  void ResizeAmbientSSBO();
-  void ResizeDirectioanlSSBO();
-  void ResizePointSSBO();
-  void ResizeImageBasedSSBO();
+  void ResizeAmbientOGLBuffer();
+  void ResizeDirectioanlOGLBuffer();
+  void ResizePointOGLBuffer();
+  void ResizeImageBasedOGLBuffer();
 
-  void AllocatePoissonDiskSSBO();
+  void AllocatePoissonDiskOGLBuffer();
 
   std::vector<std::unique_ptr<AmbientLight>> ambient_lights_;
   std::vector<std::unique_ptr<DirectionalLight>> directional_lights_;
@@ -174,7 +173,7 @@ class LightSources {
   PointLight *GetPoint(uint32_t index) const;
   ImageBasedLight *GetImageBased(uint32_t index) const;
 
-  void Set(Shader *shader);
+  void Set(Shader *shader) const;
   void DrawDepthForShadow(
       const std::function<void(int32_t, int32_t)> &render_pass);
 

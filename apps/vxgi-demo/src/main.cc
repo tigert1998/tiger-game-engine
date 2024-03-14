@@ -15,6 +15,9 @@
 #include "controller/sightseeing_controller.h"
 #include "deferred_shading_render_quad.h"
 #include "equirectangular_map.h"
+#include "gi/vx/light_injection.h"
+#include "gi/vx/visualization.h"
+#include "gi/vx/voxelization.h"
 #include "model.h"
 #include "mouse.h"
 #include "multi_draw_indirect.h"
@@ -24,26 +27,23 @@
 
 using namespace glm;
 using namespace std;
+namespace fs = std::filesystem;
 
 class Controller : public SightseeingController {
  private:
-  DeferredShadingRenderQuad *deferred_shading_render_quad_;
-  PostProcesses *post_processes_;
+  const std::function<void(uint32_t, uint32_t)> &resize_;
 
   void FramebufferSizeCallback(GLFWwindow *window, int width, int height) {
     SightseeingController::FramebufferSizeCallback(window, width, height);
-    deferred_shading_render_quad_->Resize(width, height);
-    post_processes_->Resize(width, height);
+    resize_(width, height);
   }
 
  public:
-  Controller(Camera *camera,
-             DeferredShadingRenderQuad *deferred_shading_render_quad,
-             PostProcesses *post_processes, uint32_t width, uint32_t height,
-             GLFWwindow *window)
-      : SightseeingController(camera, width, height, window),
-        deferred_shading_render_quad_(deferred_shading_render_quad),
-        post_processes_(post_processes) {
+  using ResizeFunc = std::function<void(uint32_t, uint32_t)>;
+
+  Controller(Camera *camera, const ResizeFunc &resize, uint32_t width,
+             uint32_t height, GLFWwindow *window)
+      : SightseeingController(camera, width, height, window), resize_(resize) {
     glfwSetFramebufferSizeCallback(
         window, [](GLFWwindow *window, int width, int height) {
           Controller *self = (Controller *)glfwGetWindowUserPointer(window);
@@ -61,11 +61,18 @@ std::unique_ptr<LightSources> light_sources_ptr;
 std::unique_ptr<EquirectangularMap> equirectangular_map_ptr;
 std::unique_ptr<Controller> controller_ptr;
 
+std::unique_ptr<vxgi::Voxelization> voxelization_ptr;
+std::unique_ptr<vxgi::Visualization> voxelization_visualization_ptr;
+std::unique_ptr<vxgi::LightInjection> injection_ptr;
+std::unique_ptr<vxgi::VXGIConfig> vxgi_config_ptr;
+
 int default_shading_choice = 0;
 int enable_ssao = 0;
 int enable_smaa = 0;
 int enable_bloom = 0;
-int enable_moving_shadow = 0;
+int enable_voxelization_visualization = 0;
+int mipmap_level = 0;
+bool revoxelization = false;
 
 GLFWwindow *window;
 
@@ -82,31 +89,53 @@ void ImGuiInit() {
   io.Fonts->Build();
 }
 
+void ReloadModel(const fs::path &path, float voxel_world_size,
+                 uint32_t voxel_resolution) {
+  model_ptr.reset(new Model(path, true, true));
+  multi_draw_indirect.reset(new MultiDrawIndirect());
+  model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
+  multi_draw_indirect->PrepareForDraw();
+
+  voxelization_ptr.reset(
+      new vxgi::Voxelization(voxel_world_size, voxel_resolution));
+  injection_ptr.reset(
+      new vxgi::LightInjection(voxel_world_size, voxel_resolution));
+  vxgi_config_ptr.reset(new vxgi::VXGIConfig(voxel_world_size, voxel_resolution,
+                                             injection_ptr->light_injected()));
+
+  revoxelization = true;
+}
+
 void ImGuiWindow() {
   // model
   static char buf[1 << 10] = {0};
   const char *choices[] = {"off", "on"};
+  static float world_size = 20;
+  static int32_t resolution = 256;
 
   ImGui::Begin("Panel");
-  if (ImGui::InputText("Model path", buf, sizeof(buf),
+  ImGui::InputFloat("World Size", &world_size);
+  ImGui::InputInt("Voxelization Resolution", &resolution);
+  if (ImGui::InputText("Model Path", buf, sizeof(buf),
                        ImGuiInputTextFlags_EnterReturnsTrue)) {
-    model_ptr.reset(new Model(buf, true, true));
-    multi_draw_indirect.reset(new MultiDrawIndirect());
-    model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
-    multi_draw_indirect->PrepareForDraw();
+    ReloadModel(buf, world_size, resolution);
   }
-  ImGui::ListBox("Default shading", &default_shading_choice, choices,
+  ImGui::ListBox("Default Shading", &default_shading_choice, choices,
                  IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SSAO", &enable_ssao, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable SMAA", &enable_smaa, choices, IM_ARRAYSIZE(choices));
   ImGui::ListBox("Enable Bloom", &enable_bloom, choices, IM_ARRAYSIZE(choices));
-  ImGui::ListBox("Enable Moving Shadow", &enable_moving_shadow, choices,
+  ImGui::ListBox("Enable Voxelization Visualization",
+                 &enable_voxelization_visualization, choices,
                  IM_ARRAYSIZE(choices));
+  if (enable_voxelization_visualization)
+    ImGui::InputInt("Mipmap Level", &mipmap_level);
   ImGui::End();
 
   camera_ptr->ImGuiWindow();
   light_sources_ptr->ImGuiWindow(camera_ptr.get());
   post_processes_ptr->ImGuiWindow();
+  vxgi_config_ptr->ImGuiWindow();
 
   post_processes_ptr->Enable(0, enable_bloom);
   post_processes_ptr->Enable(2, enable_smaa);
@@ -119,8 +148,7 @@ void Init(uint32_t width, uint32_t height) {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-  window =
-      glfwCreateWindow(width, height, "Model Visualizer", nullptr, nullptr);
+  window = glfwCreateWindow(width, height, "VXGI Demo", nullptr, nullptr);
   glfwMakeContextCurrent(window);
   gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
@@ -147,45 +175,27 @@ void Init(uint32_t width, uint32_t height) {
 
   light_sources_ptr = make_unique<LightSources>();
   light_sources_ptr->AddDirectional(make_unique<DirectionalLight>(
-      vec3(0, -1, 0.5), vec3(10), camera_ptr.get()));
-  light_sources_ptr->AddAmbient(make_unique<AmbientLight>(vec3(0.1)));
-
-  model_ptr.reset(
-      new Model("resources/Bistro_v5_2/BistroExterior.fbx", true, true));
-  multi_draw_indirect.reset(new MultiDrawIndirect());
-  model_ptr->SubmitToMultiDrawIndirect(multi_draw_indirect.get(), 1);
-  multi_draw_indirect->PrepareForDraw();
+      vec3(0, -1, 0), vec3(50), camera_ptr.get()));
 
   equirectangular_map_ptr.reset(new EquirectangularMap(
       "resources/kloofendal_48d_partly_cloudy_puresky_4k.hdr", 2048));
 
+  ReloadModel("resources/cave/cave.gltf", 20, 256);
+  voxelization_visualization_ptr.reset(new vxgi::Visualization(width, height));
+
   controller_ptr = make_unique<Controller>(
-      camera_ptr.get(), deferred_shading_render_quad_ptr.get(),
-      post_processes_ptr.get(), width, height, window);
+      camera_ptr.get(),
+      [](uint32_t width, uint32_t height) {
+        deferred_shading_render_quad_ptr->Resize(width, height);
+        post_processes_ptr->Resize(width, height);
+        voxelization_visualization_ptr->Resize(width, height);
+      },
+      width, height, window);
 
   ImGuiInit();
 }
 
-void MovingShadow(double time) {
-  if (enable_moving_shadow && light_sources_ptr->SizeDirectional() >= 1) {
-    auto light = light_sources_ptr->GetDirectional(0);
-    if (light->shadow() != nullptr) {
-      float input = time * 1e-2;
-      float x = sin(input);
-      float y = -abs(cos(input));
-      light->set_dir(glm::vec3(x, y, 0));
-    }
-  }
-}
-
-int main(int argc, char *argv[]) {
-  try {
-    Init(1920, 1080);
-  } catch (const std::exception &e) {
-    fmt::print(stderr, "[error] {}\n", e.what());
-    exit(1);
-  }
-
+void RenderLoop() {
   while (!glfwWindowShouldClose(window)) {
     static uint32_t fps = 0;
     static double last_time_for_fps = glfwGetTime();
@@ -209,7 +219,22 @@ int main(int argc, char *argv[]) {
 
     glfwPollEvents();
 
-    MovingShadow(current_time);
+    if (revoxelization) {
+      // voxelization
+      glDisable(GL_DEPTH_TEST);
+      glDisable(GL_CULL_FACE);
+      glDisable(GL_BLEND);
+      glViewport(0, 0, voxelization_ptr->voxel_resolution(),
+                 voxelization_ptr->voxel_resolution());
+      multi_draw_indirect->Draw(
+          camera_ptr.get(), nullptr, nullptr, false, voxelization_ptr.get(),
+          false, false,
+          {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
+      glEnable(GL_DEPTH_TEST);
+      glEnable(GL_BLEND);
+
+      revoxelization = false;
+    }
 
     // draw depth map first
     light_sources_ptr->DrawDepthForShadow(
@@ -219,25 +244,39 @@ int main(int argc, char *argv[]) {
               {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
         });
 
-    deferred_shading_render_quad_ptr->TwoPasses(
-        camera_ptr.get(), light_sources_ptr.get(), enable_ssao, nullptr,
-        []() {
-          glEnable(GL_CULL_FACE);
-          glCullFace(GL_BACK);
-          glClearColor(0, 0, 0, 1);
-          glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-          equirectangular_map_ptr->skybox()->Draw(camera_ptr.get());
-        },
-        []() {
-          glDisable(GL_CULL_FACE);
-          multi_draw_indirect->Draw(
-              camera_ptr.get(), nullptr, nullptr, true, nullptr,
-              default_shading_choice, true,
-              {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
-        },
-        post_processes_ptr->fbo());
+    // light injection
+    injection_ptr->Launch(voxelization_ptr->albedo(),
+                          voxelization_ptr->normal(),
+                          voxelization_ptr->metallic_and_roughness(),
+                          camera_ptr.get(), light_sources_ptr.get());
 
-    post_processes_ptr->Draw(nullptr);
+    if (enable_voxelization_visualization) {
+      voxelization_visualization_ptr->Draw(
+          camera_ptr.get(), injection_ptr->light_injected(), 1,
+          voxelization_ptr->world_size(), mipmap_level);
+    } else {
+      // deferred shading
+      deferred_shading_render_quad_ptr->TwoPasses(
+          camera_ptr.get(), light_sources_ptr.get(), enable_ssao,
+          vxgi_config_ptr.get(),
+          []() {
+            glEnable(GL_CULL_FACE);
+            glCullFace(GL_BACK);
+            glClearColor(0, 0, 0, 1);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            equirectangular_map_ptr->skybox()->Draw(camera_ptr.get());
+          },
+          []() {
+            glDisable(GL_CULL_FACE);
+            multi_draw_indirect->Draw(
+                camera_ptr.get(), nullptr, nullptr, true, nullptr,
+                default_shading_choice, true,
+                {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
+          },
+          post_processes_ptr->fbo());
+
+      post_processes_ptr->Draw(nullptr);
+    }
 
     ImGui_ImplGlfw_NewFrame();
     ImGui_ImplOpenGL3_NewFrame();
@@ -247,6 +286,16 @@ int main(int argc, char *argv[]) {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
     glfwSwapBuffers(window);
+  }
+}
+
+int main(int argc, char *argv[]) {
+  try {
+    Init(1920, 1080);
+    RenderLoop();
+  } catch (const std::exception &e) {
+    fmt::print(stderr, "[error] {}\n", e.what());
+    exit(1);
   }
   return 0;
 }

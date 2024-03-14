@@ -35,7 +35,7 @@ Skybox::Skybox(const Texture *outside_texture)
   Init();
 }
 
-void Skybox::Draw(Camera *camera) {
+void Skybox::Draw(Camera *camera) const {
   glDepthMask(GL_FALSE);
 
   shader_ptr_->Use();

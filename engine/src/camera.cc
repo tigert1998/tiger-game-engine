@@ -147,10 +147,10 @@ void Camera::ImGuiWindow() {
   float b = beta();
 
   ImGui::Begin("Camera:");
-  ImGui::InputFloat3("position", p_arr);
-  ImGui::InputFloat3("front", f_arr);
-  ImGui::InputFloat("alpha", &a);
-  ImGui::InputFloat("beta", &b);
+  ImGui::InputFloat3("Position", p_arr);
+  ImGui::InputFloat3("Front", f_arr);
+  ImGui::InputFloat("Alpha", &a);
+  ImGui::InputFloat("Beta", &b);
   ImGui::End();
 
   // camera
