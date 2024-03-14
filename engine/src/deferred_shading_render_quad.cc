@@ -229,7 +229,7 @@ void DeferredShadingRenderQuad::TwoPasses(
     kShader->SetUniformSampler("uVXGIConfig.radianceMap",
                                vxgi_config->radiance_map, 9);
   } else {
-    kShader->SetUniform<int32_t>("uEnableVXGI", false);
+    kShader->SetUniform<int32_t>("uVXGIConfig.on", false);
     kShader->SetUniformSampler("uVXGIConfig.radianceMap",
                                Texture::Empty(GL_TEXTURE_3D), 9);
   }

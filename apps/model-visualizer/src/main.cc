@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
         });
 
     deferred_shading_render_quad_ptr->TwoPasses(
-        camera_ptr.get(), light_sources_ptr.get(), enable_ssao,
+        camera_ptr.get(), light_sources_ptr.get(), enable_ssao, nullptr,
         []() {
           glEnable(GL_CULL_FACE);
           glCullFace(GL_BACK);
@@ -231,8 +231,9 @@ int main(int argc, char *argv[]) {
         []() {
           glDisable(GL_CULL_FACE);
           multi_draw_indirect->Draw(
-              camera_ptr.get(), nullptr, nullptr, true, default_shading_choice,
-              true, {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
+              camera_ptr.get(), nullptr, nullptr, true, nullptr,
+              default_shading_choice, true,
+              {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
         },
         post_processes_ptr->fbo());
 
