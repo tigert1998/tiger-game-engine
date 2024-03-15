@@ -46,6 +46,9 @@ vec4 ConeTracing(
 
 struct VXGIConfig {
     bool on;
+    bool directLightingOn;
+    bool indirectDiffuseLightingOn;
+    bool indirectSpecularLightingOn;
     float stepSize;
     float diffuseOffset;
     float diffuseMaxT;
@@ -118,7 +121,11 @@ vec3 VXGI(
         ).rgb * specular * nDotL;
     }
 
-    return directLighting + indirectDiffuse + indirectSpecular;
+    vec3 color = vec3(0);
+    if (config.directLightingOn) color += directLighting;
+    if (config.indirectDiffuseLightingOn) color += indirectDiffuse;
+    if (config.indirectSpecularLightingOn) color += indirectSpecular;
+    return color;
 }
 
 #endif

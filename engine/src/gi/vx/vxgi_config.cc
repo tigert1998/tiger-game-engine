@@ -13,6 +13,11 @@ VXGIConfig::VXGIConfig(float world_size, uint32_t voxel_resolution,
 void VXGIConfig::ImGuiWindow() {
   ImGui::Begin("VXGI:");
   ImGui::Checkbox("VXGI ON", &vxgi_on);
+  ImGui::Checkbox("Direct Lighting ON", &direct_lighting_on);
+  ImGui::Checkbox("Indirect Diffuse Lighting ON",
+                  &indirect_diffuse_lighting_on);
+  ImGui::Checkbox("Indirect Specular Lighting ON",
+                  &indirect_specular_lighting_on);
   ImGui::DragFloat("Step Size", &step_size, 0.1f, 0.02f, 10.0f);
   ImGui::DragFloat("Diffuse Offset", &diffuse_offset, 0.1f, 0.1f, 10.0f);
   ImGui::DragFloat("Diffuse Max T", &diffuse_max_t, 0.01f, 0.01f, 5.0f);
