@@ -52,6 +52,10 @@ class DirectionalLight : public Light {
   inline void set_dir(glm::vec3 dir) { dir_ = dir; }
   inline void set_color(glm::vec3 color) { color_ = color; }
   inline DirectionalShadow *shadow() { return shadow_.get(); }
+  inline void set_shadow(std::unique_ptr<DirectionalShadow> shadow) {
+    shadow_ = std::move(shadow);
+    shadow_->set_direction(dir_);
+  }
   void ImGuiWindow(uint32_t index,
                    const std::function<void()> &erase_callback) override;
   inline ~DirectionalLight() override {}

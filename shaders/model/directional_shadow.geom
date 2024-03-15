@@ -15,8 +15,11 @@ out mat3 gTBN;
 flat out int gInstanceID;
 
 uniform uint uLightIndex;
+uniform bool uEnableGlobalCascade;
 
 void main() {
+    if (!uEnableGlobalCascade && gl_InvocationID == NUM_CASCADES - 1) return;
+
     DirectionalShadow directionalShadow = directionalLights[uLightIndex].shadow;
 
     for (int i = 0; i < 3; ++i) {

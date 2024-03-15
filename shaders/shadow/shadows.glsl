@@ -56,21 +56,14 @@ float CalcDirectionalShadow(DirectionalShadow directionalShadow, vec3 position, 
     vec4 viewSpacePosition = cameraViewMatrix * vec4(position, 1);
     float depth = -viewSpacePosition.z;
 
-    float num = 0;
-    float denom = 0;
     for (int i = 0; i < NUM_CASCADES; i++) {
         float near = directionalShadow.cascadePlaneDistances[i * 2];
         float far = directionalShadow.cascadePlaneDistances[i * 2 + 1]; 
         if (near <= depth && depth < far) {
-            float shadow = CalcDirectionalShadowForSingleCascade(directionalShadow, i, position);
-            float ratio = (far - depth) / (far - near);
-            num += shadow * ratio;
-            denom += ratio;
+            return CalcDirectionalShadowForSingleCascade(directionalShadow, i, position);
         }
     }
-    if (denom == 0) return 1;
-
-    return num / denom;
+    return 1;
 }
 
 float CalcOmnidirectionalShadow(OmnidirectionalShadow omnidirectionalShadow, vec3 position) {

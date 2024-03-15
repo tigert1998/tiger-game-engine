@@ -290,6 +290,10 @@ void MultiDrawIndirect::DrawDepthForShadow(
     light_sources->Set(Model::kDirectionalShadowShader.get());
     Model::kDirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
                                                           directional_index);
+    auto shadow = light_sources->GetDirectional(directional_index)->shadow();
+    Model::kDirectionalShadowShader->SetUniform<int32_t>(
+        "uEnableGlobalCascade",
+        shadow != nullptr && shadow->enable_global_cascade());
   } else if (point_index >= 0) {
     Model::kOmnidirectionalShadowShader->Use();
     light_sources->Set(Model::kOmnidirectionalShadowShader.get());

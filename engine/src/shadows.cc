@@ -13,23 +13,30 @@
 #include "utils.h"
 
 DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
-                                     uint32_t fbo_height, const Camera *camera)
-    : fbo_width_(fbo_width), fbo_height_(fbo_height), camera_(camera) {
+                                     uint32_t fbo_height,
+                                     std::optional<AABB> global_cascade_aabb,
+                                     const Camera *camera)
+    : global_cascade_aabb_(global_cascade_aabb),
+      fbo_width_(fbo_width),
+      fbo_height_(fbo_height),
+      camera_(camera) {
   std::vector<Texture> empty;
+  uint32_t num_cascades =
+      global_cascade_aabb_.has_value() ? NUM_CASCADES : NUM_CASCADES - 1;
   Texture depth_texture(nullptr, GL_TEXTURE_2D_ARRAY, fbo_width, fbo_height,
-                        NUM_CASCADES, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
+                        num_cascades, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
                         GL_FLOAT, GL_CLAMP_TO_BORDER, GL_LINEAR, GL_LINEAR,
                         {1, 1, 1, 1}, false);
   fbo_.reset(new FrameBufferObject(empty, depth_texture));
   fbo_->depth_texture().MakeResident();
 
-  previous.resize(NUM_CASCADES);
+  previous.resize(NUM_CASCADES - 1);
   set_direction(direction);
 }
 
 void DirectionalShadow::set_direction(glm::vec3 direction) {
   if (glm::distance(direction_, direction) > 1e-5) {
-    for (int i = 0; i < NUM_CASCADES; i++) {
+    for (int i = 0; i < NUM_CASCADES - 1; i++) {
       // erase previous results
       previous[i].projection_matrix_ortho_param.min =
           glm::vec3(std::numeric_limits<float>::max());
@@ -72,12 +79,16 @@ void DirectionalShadow::CalcFrustumCorners(
         &callback) const {
   auto distances = cascade_plane_distances();
 
-  for (int i = 0; i < NUM_CASCADES; i++) {
+  for (int i = 0; i < NUM_CASCADES - 1; i++) {
     auto corners =
         camera_->frustum_corners(distances[i * 2 + 0], distances[i * 2 + 1]);
     bool should_use_previous_result = ShouldUsePreviousResult(i, corners);
 
     callback(should_use_previous_result, i, corners);
+  }
+  if (global_cascade_aabb_.has_value()) {
+    auto corners = global_cascade_aabb_->corners();
+    callback(false, NUM_CASCADES - 1, corners);
   }
 }
 
@@ -107,9 +118,11 @@ std::vector<glm::mat4> DirectionalShadow::view_projection_matrices() const {
       auto v = view_matrix(corners);
       auto param = projection_matrix_ortho_param(corners);
       matrices.push_back(p * v);
-      previous[index].projection_matrix = p;
-      previous[index].view_matrix = v;
-      previous[index].projection_matrix_ortho_param = param;
+      if (index < NUM_CASCADES - 1) {
+        previous[index].projection_matrix = p;
+        previous[index].view_matrix = v;
+        previous[index].projection_matrix_ortho_param = param;
+      }
     }
   });
 
@@ -226,9 +239,29 @@ glm::mat4 DirectionalShadow::projection_matrix(
 
 void DirectionalShadow::Visualize() const {
   if (0 <= imgui_visualize_layer_ && imgui_visualize_layer_ < NUM_CASCADES) {
-    kViewer->Draw(imgui_visualize_viewport, fbo_->depth_texture(),
+    kViewer->Draw(imgui_visualize_viewport_, fbo_->depth_texture(),
                   imgui_visualize_layer_);
   }
+}
+
+std::vector<float> DirectionalShadow::cascade_plane_distances() const {
+  float dis = camera_->z_far() - camera_->z_near();
+  std::vector<float> ret(NUM_CASCADES * 2);
+  for (int i = 0; i < NUM_CASCADES - 1; i++)
+    for (int j = 0; j < 2; j++)
+      ret[i * 2 + j] = camera_->z_near() + dis * CASCADE_PLANE_RATIO[i][j];
+
+  uint32_t index = (NUM_CASCADES - 1) * 2;
+  if (global_cascade_aabb_.has_value()) {
+    // has global cascade
+    ret[index + 0] = -1e9;
+    ret[index + 1] = 1e9;
+  } else {
+    // has no global cascade
+    ret[index + 0] = 0;
+    ret[index + 1] = -1;
+  }
+  return ret;
 }
 
 std::unique_ptr<DirectionalShadowViewer> DirectionalShadow::kViewer = nullptr;

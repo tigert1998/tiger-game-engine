@@ -4,6 +4,7 @@
 #include <functional>
 #include <glm/glm.hpp>
 #include <memory>
+#include <optional>
 
 #include "aabb.h"
 #include "camera.h"
@@ -27,14 +28,18 @@ class DirectionalShadow : public Shadow {
  private:
   glm::vec3 direction_;
   uint32_t fbo_width_, fbo_height_;
+  std::optional<AABB> global_cascade_aabb_;
   std::unique_ptr<FrameBufferObject> fbo_;
   const Camera *camera_;
 
   int32_t imgui_visualize_layer_ = -1;
-  glm::vec4 imgui_visualize_viewport = glm::vec4(0, 0, 128, 128);
+  glm::vec4 imgui_visualize_viewport_ = glm::vec4(0, 0, 128, 128);
 
   AABB projection_matrix_ortho_param(
       const std::vector<glm::vec3> &frustum_corners) const;
+
+  // if use global cascade, returns NUM_CASCADES cascades
+  // else returns (NUM_CASCADES - 1) cascades
   void CalcFrustumCorners(
       const std::function<void(bool, uint32_t, const std::vector<glm::vec3> &)>
           &callback) const;
@@ -53,37 +58,41 @@ class DirectionalShadow : public Shadow {
 
  public:
   DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
-                    uint32_t fbo_height, const Camera *camera);
+                    uint32_t fbo_height,
+                    std::optional<AABB> global_cascade_aabb,
+                    const Camera *camera);
   void Bind() override;
   inline void Unbind() override { fbo_->Unbind(); }
   inline ~DirectionalShadow() override {}
 
+  inline bool enable_global_cascade() const {
+    return global_cascade_aabb_.has_value();
+  }
+
   inline glm::vec3 direction() { return direction_; }
   void set_direction(glm::vec3 direction);
 
+  // if use global cascade, returns NUM_CASCADES cascades
+  // else returns (NUM_CASCADES - 1) cascades
   std::vector<OBB> cascade_obbs() const;
   OBB cascade_obb(bool should_use_previous_result, uint32_t index,
                   const std::vector<glm::vec3> &frustum_corners) const;
 
+  // if use global cascade, returns NUM_CASCADES cascades
+  // else returns (NUM_CASCADES - 1) cascades
   std::vector<glm::mat4> view_projection_matrices() const;
   glm::mat4 view_matrix(const std::vector<glm::vec3> &frustum_corners) const;
   glm::mat4 projection_matrix(
       const std::vector<glm::vec3> &frustum_corners) const;
 
-  static constexpr uint32_t NUM_CASCADES = 5;
+  static constexpr uint32_t NUM_CASCADES = 6;
 
-  static constexpr float CASCADE_PLANE_RATIO[NUM_CASCADES][2] = {
-      {0, 0.03}, {0.02, 0.04}, {0.03, 0.1}, {0.07, 0.5}, {0.4, 1},
+  static constexpr float CASCADE_PLANE_RATIO[NUM_CASCADES - 1][2] = {
+      {0.00f, 0.02f}, {0.02f, 0.05f}, {0.05f, 0.1f}, {0.1f, 0.5f}, {0.5f, 1.0f},
   };
 
-  inline std::vector<float> cascade_plane_distances() const {
-    float dis = camera_->z_far() - camera_->z_near();
-    std::vector<float> ret(NUM_CASCADES * 2);
-    for (int i = 0; i < NUM_CASCADES; i++)
-      for (int j = 0; j < 2; j++)
-        ret[i * 2 + j] = camera_->z_near() + dis * CASCADE_PLANE_RATIO[i][j];
-    return ret;
-  }
+  // returns NUM_CASCADES cascades
+  std::vector<float> cascade_plane_distances() const;
 
   void Visualize() const override;
 
