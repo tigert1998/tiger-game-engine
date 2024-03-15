@@ -292,7 +292,7 @@ int main(int argc, char *argv[]) {
     });
 
     deferred_shading_render_quad_ptr->TwoPasses(
-        camera_ptr.get(), light_sources_ptr.get(), enable_ssao,
+        camera_ptr.get(), light_sources_ptr.get(), enable_ssao, nullptr,
         []() {
           glClearColor(0, 0, 0, 1);
           glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -300,10 +300,10 @@ int main(int argc, char *argv[]) {
         [&]() {
           glDisable(GL_CULL_FACE);
           multi_draw_indirect->Draw(camera_ptr.get(), nullptr, nullptr, true,
-                                    default_shading_choice, true,
+                                    nullptr, default_shading_choice, true,
                                     render_target_params);
           for (const auto &kv : render_target_params_lights) {
-            kv.first->Draw(camera_ptr.get(), nullptr, nullptr, true,
+            kv.first->Draw(camera_ptr.get(), nullptr, nullptr, true, nullptr,
                            default_shading_choice, true, {kv.second});
           }
         },
