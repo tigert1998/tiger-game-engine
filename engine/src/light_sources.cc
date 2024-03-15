@@ -47,7 +47,8 @@ void DirectionalLight::ImGuiWindow(
   }
 
   float d_arr[3] = {dir_.x, dir_.y, dir_.z};
-  ImGui::InputFloat3(fmt::format("Direction{}", suffix).c_str(), d_arr);
+  ImGui::DragFloat3(fmt::format("Direction{}", suffix).c_str(), d_arr, 1e-2, -1,
+                    1);
   dir_ = glm::vec3(d_arr[0], d_arr[1], d_arr[2]);
   float c_arr[3] = {color_.r, color_.g, color_.b};
   ImGui::InputFloat3(fmt::format("Color{}", suffix).c_str(), c_arr);
