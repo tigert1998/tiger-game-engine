@@ -16,7 +16,7 @@
 #include "light_sources.h"
 #include "model.h"
 #include "oit_render_quad.h"
-#include "shadows.h"
+#include "shadows/shadow.h"
 
 class Controller : public SightseeingController {
  private:
