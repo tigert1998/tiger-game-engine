@@ -15,12 +15,10 @@ out mat3 gTBN;
 flat out int gInstanceID;
 
 uniform uint uLightIndex;
-uniform bool uEnableGlobalCascade;
 
 void main() {
-    if (!uEnableGlobalCascade && gl_InvocationID == NUM_CASCADES - 1) return;
-
     DirectionalShadow directionalShadow = directionalLights[uLightIndex].shadow;
+    if (!directionalShadow.hasGlobalCascade && gl_InvocationID == NUM_CASCADES - 1) return;
 
     for (int i = 0; i < 3; ++i) {
         gl_Position = directionalShadow.viewProjectionMatrices[gl_InvocationID] * gl_in[i].gl_Position;

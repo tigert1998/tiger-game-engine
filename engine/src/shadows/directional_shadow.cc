@@ -219,6 +219,7 @@ DirectionalShadow::directional_shadow_glsl() const {
   DirectionalShadowGLSL ret;
   ret.dir = direction_;
   ret.shadow_map = fbo_->depth_texture().handle();
+  ret.has_global_cascade = enable_global_cascade();
 
   for (int i = 0; i < NUM_CASCADES; i++) {
     if (i < NUM_MOVING_CASCADES) {

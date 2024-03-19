@@ -95,8 +95,6 @@ void GPUDrivenWorkloadGeneration::Compute(bool is_directional_shadow_pass,
   frustum_culling_and_lod_selection_shader_->SetUniform<int32_t>(
       "uIsVoxelizationPass", is_voxelization_pass);
   frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
-      "uNumCascades", DirectionalShadow::NUM_CASCADES);
-  frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
       "uInstanceCount", constants_.num_instances);
   glDispatchCompute((constants_.num_instances + 255) / 256, 1, 1);
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
@@ -291,9 +289,6 @@ void MultiDrawIndirect::DrawDepthForShadow(
     Model::kDirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
                                                           directional_index);
     auto shadow = light_sources->GetDirectional(directional_index)->shadow();
-    Model::kDirectionalShadowShader->SetUniform<int32_t>(
-        "uEnableGlobalCascade",
-        shadow != nullptr && shadow->enable_global_cascade());
   } else if (point_index >= 0) {
     Model::kOmnidirectionalShadowShader->Use();
     light_sources->Set(Model::kOmnidirectionalShadowShader.get());

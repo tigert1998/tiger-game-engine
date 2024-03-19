@@ -11,6 +11,7 @@ struct DirectionalShadow {
     float cascadePlaneDistances[NUM_MOVING_CASCADES * 2];
     sampler2DArray shadowMap;
     vec3 dir;
+    bool hasGlobalCascade;
 };
 
 struct OmnidirectionalShadow {
