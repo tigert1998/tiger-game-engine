@@ -52,18 +52,10 @@ void DirectionalShadow::set_camera(Camera *camera) {
 
 std::pair<float, float> DirectionalShadow::cascade_plane_distances(
     uint32_t index) const {
-  if (index < NUM_MOVING_CASCADES) {
-    float dis = camera_->z_far() - camera_->z_near();
-    float z_near = camera_->z_near() + dis * CASCADE_PLANE_RATIOS[index][0];
-    float z_far = camera_->z_near() + dis * CASCADE_PLANE_RATIOS[index][1];
-    return {z_near, z_far};
-  } else {
-    if (enable_global_cascade())
-      return {std::numeric_limits<float>::lowest(),
-              std::numeric_limits<float>::max()};
-    else
-      return {0.f, -1.f};
-  }
+  float dis = camera_->z_far() - camera_->z_near();
+  float z_near = camera_->z_near() + dis * CASCADE_PLANE_RATIOS[index][0];
+  float z_far = camera_->z_near() + dis * CASCADE_PLANE_RATIOS[index][1];
+  return {z_near, z_far};
 }
 
 bool DirectionalShadow::ShouldUsePreviousFrame(
@@ -181,13 +173,10 @@ OBB DirectionalShadow::obb(
 }
 
 void DirectionalShadow::UpdateCascades() const {
-  for (int i = 0; i < NUM_CASCADES; i++) {
+  for (int i = 0; i < NUM_MOVING_CASCADES; i++) {
     auto [z_near, z_far] = cascade_plane_distances(i);
     cascades_[i].cascade_plane_distances[0] = z_near;
     cascades_[i].cascade_plane_distances[1] = z_far;
-  }
-
-  for (int i = 0; i < NUM_MOVING_CASCADES; i++) {
     auto corners =
         camera_->frustum_corners(cascades_[i].cascade_plane_distances[0],
                                  cascades_[i].cascade_plane_distances[1]);
@@ -232,10 +221,12 @@ DirectionalShadow::directional_shadow_glsl() const {
   ret.shadow_map = fbo_->depth_texture().handle();
 
   for (int i = 0; i < NUM_CASCADES; i++) {
-    ret.cascade_plane_distances[i * 2 + 0] =
-        cascades_[i].cascade_plane_distances[0];
-    ret.cascade_plane_distances[i * 2 + 1] =
-        cascades_[i].cascade_plane_distances[1];
+    if (i < NUM_MOVING_CASCADES) {
+      ret.cascade_plane_distances[i * 2 + 0] =
+          cascades_[i].cascade_plane_distances[0];
+      ret.cascade_plane_distances[i * 2 + 1] =
+          cascades_[i].cascade_plane_distances[1];
+    }
     ret.view_projection_matrices[i] =
         cascades_[i].projection_matrix * cascades_[i].view_matrix;
   }

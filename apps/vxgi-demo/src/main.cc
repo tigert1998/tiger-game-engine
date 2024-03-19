@@ -129,8 +129,9 @@ void ImGuiWindow() {
   ImGui::ListBox("Enable Voxelization Visualization",
                  &enable_voxelization_visualization, choices,
                  IM_ARRAYSIZE(choices));
-  if (enable_voxelization_visualization)
+  if (enable_voxelization_visualization) {
     ImGui::InputInt("Mipmap Level", &mipmap_level);
+  }
   ImGui::End();
 
   camera_ptr->ImGuiWindow();
@@ -234,9 +235,8 @@ void RenderLoop() {
       glViewport(0, 0, voxelization_ptr->voxel_resolution(),
                  voxelization_ptr->voxel_resolution());
       multi_draw_indirect->Draw(
-          camera_ptr.get(), nullptr, nullptr, false, voxelization_ptr.get(),
-          false, false,
-          {{model_ptr.get(), {{-1, 0, model_matrix, glm::vec4(0)}}}});
+          nullptr, nullptr, nullptr, false, voxelization_ptr.get(), false,
+          false, {{model_ptr.get(), {{-1, 0, model_matrix, glm::vec4(0)}}}});
       glEnable(GL_DEPTH_TEST);
       glEnable(GL_BLEND);
 

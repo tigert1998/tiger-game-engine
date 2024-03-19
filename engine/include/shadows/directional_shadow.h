@@ -63,7 +63,7 @@ class DirectionalShadow : public Shadow {
 
   struct DirectionalShadowGLSL {
     alignas(16) glm::mat4 view_projection_matrices[NUM_CASCADES];
-    float cascade_plane_distances[NUM_CASCADES * 2];
+    float cascade_plane_distances[NUM_MOVING_CASCADES * 2];
     uint64_t shadow_map;
     glm::vec3 dir;
   };

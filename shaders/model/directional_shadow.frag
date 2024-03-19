@@ -32,8 +32,10 @@ void main() {
     // According to Arccch's comment in https://learnopengl.com/Advanced-Lighting/Shadows/Shadow-Mapping
     DirectionalShadow directionalShadow = directionalLights[uLightIndex].shadow;
     float bias = max(0.05 * (1.0 - dot(gTBN[2], normalize(-directionalShadow.dir))), 0.005);
-    const float biasModifier = 0.5;
-    bias *= 1 / (directionalShadow.cascadePlaneDistances[gl_Layer * 2 + 1] * biasModifier);
+    if (gl_Layer < directionalShadow.cascadePlaneDistances.length()) {
+        const float biasModifier = 0.5;
+        bias *= 1 / (directionalShadow.cascadePlaneDistances[gl_Layer * 2 + 1] * biasModifier);
+    }
     gl_FragDepth = gl_FragCoord.z;
     gl_FragDepth += gl_FrontFacing ? bias : 0; 
 }

@@ -43,7 +43,7 @@ vec4 ConeTracing(
         vec4 sampled = sampleVoxel(position, level, worldSize, radianceMap);
 
         float mul = diffuseMode ? pow(2, 2 * level) : 1;
-        // TODO: this is a dirty hack to make diffuse indirect ligher
+        // TODO: this is a dirty hack to make diffuse indirect lighter
         color = Accumulate(color, vec4(sampled.rgb * mul, sampled.a));
         t += stepSize * diameter;
         diameter = 2 * t * tan(aperture / 2);

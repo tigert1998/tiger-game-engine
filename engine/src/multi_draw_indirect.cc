@@ -315,9 +315,6 @@ void MultiDrawIndirect::Draw(
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
-  Frustum frustum = camera->frustum();
-  frustum_ssbo_->SubData(0, sizeof(Frustum), &frustum);
-
   Shader *shader = nullptr;
   if (oit_render_quad != nullptr) {
     shader = Model::kOITShader.get();
@@ -327,6 +324,11 @@ void MultiDrawIndirect::Draw(
     shader = Model::kVoxelizationShader.get();
   } else {
     shader = Model::kShader.get();
+  }
+
+  if (voxelization == nullptr) {
+    Frustum frustum = camera->frustum();
+    frustum_ssbo_->SubData(0, sizeof(Frustum), &frustum);
   }
 
   gpu_driven_->Compute(false, false, voxelization != nullptr);

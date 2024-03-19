@@ -3,10 +3,12 @@
 
 #include "common/rand.glsl"
 
+const uint NUM_MOVING_CASCADES = NUM_CASCADES - 1;
+
 struct DirectionalShadow {
     // Cascaded Shadow Mapping
     mat4 viewProjectionMatrices[NUM_CASCADES];
-    float cascadePlaneDistances[NUM_CASCADES * 2];
+    float cascadePlaneDistances[NUM_MOVING_CASCADES * 2];
     sampler2DArray shadowMap;
     vec3 dir;
 };
@@ -51,19 +53,28 @@ float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow,
     return shadow;
 }
 
-float CalcDirectionalShadow(DirectionalShadow directionalShadow, vec3 position, mat4 cameraViewMatrix) {
-    // select cascade layer
-    vec4 viewSpacePosition = cameraViewMatrix * vec4(position, 1);
-    float depth = -viewSpacePosition.z;
+float CalcDirectionalShadow(
+    DirectionalShadow directionalShadow,
+    vec3 position, mat4 cameraViewMatrix,
+    bool useGlobalCascade
+) {
+    if (useGlobalCascade) {
+        return CalcDirectionalShadowForSingleCascade(directionalShadow, NUM_CASCADES - 1, position);
+    } else {
+        // select cascade layer
+        vec4 viewSpacePosition = cameraViewMatrix * vec4(position, 1);
+        float depth = -viewSpacePosition.z;
 
-    for (int i = 0; i < NUM_CASCADES; i++) {
-        float near = directionalShadow.cascadePlaneDistances[i * 2];
-        float far = directionalShadow.cascadePlaneDistances[i * 2 + 1]; 
-        if (near <= depth && depth < far) {
-            return CalcDirectionalShadowForSingleCascade(directionalShadow, i, position);
+        for (int i = 0; i < NUM_MOVING_CASCADES; i++) {
+            float near = directionalShadow.cascadePlaneDistances[i * 2];
+            float far = directionalShadow.cascadePlaneDistances[i * 2 + 1]; 
+            if (near <= depth && depth < far) {
+                return CalcDirectionalShadowForSingleCascade(directionalShadow, i, position);
+            }
         }
+
+        return 1;
     }
-    return 1;
 }
 
 float CalcOmnidirectionalShadow(OmnidirectionalShadow omnidirectionalShadow, vec3 position) {
