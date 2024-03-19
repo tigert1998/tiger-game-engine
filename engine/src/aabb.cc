@@ -29,3 +29,13 @@ AABB AABB::Transform(const glm::mat4& transform) const {
       }
   return ret;
 }
+
+std::vector<glm::vec3> AABB::corners() const {
+  std::vector<glm::vec3> corners;
+  for (float a : {min[0], max[0]})
+    for (float b : {min[1], max[1]})
+      for (float c : {min[2], max[2]}) {
+        corners.push_back(glm::vec3(a, b, c));
+      }
+  return corners;
+}

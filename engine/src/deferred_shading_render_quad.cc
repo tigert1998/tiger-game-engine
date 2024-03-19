@@ -211,6 +211,12 @@ void DeferredShadingRenderQuad::TwoPasses(
 
   if (vxgi_config != nullptr) {
     kShader->SetUniform<int32_t>("uVXGIConfig.on", vxgi_config->vxgi_on);
+    kShader->SetUniform<int32_t>("uVXGIConfig.directLightingOn",
+                                 vxgi_config->direct_lighting_on);
+    kShader->SetUniform<int32_t>("uVXGIConfig.indirectDiffuseLightingOn",
+                                 vxgi_config->indirect_diffuse_lighting_on);
+    kShader->SetUniform<int32_t>("uVXGIConfig.indirectSpecularLightingOn",
+                                 vxgi_config->indirect_specular_lighting_on);
     kShader->SetUniform<float>("uVXGIConfig.stepSize", vxgi_config->step_size);
     kShader->SetUniform<float>("uVXGIConfig.diffuseOffset",
                                vxgi_config->diffuse_offset);

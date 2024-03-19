@@ -8,6 +8,7 @@
 #include <fmt/core.h>
 #include <imgui.h>
 
+#include <glm/gtc/matrix_transform.hpp>
 #include <iostream>
 #include <memory>
 
@@ -128,8 +129,9 @@ void ImGuiWindow() {
   ImGui::ListBox("Enable Voxelization Visualization",
                  &enable_voxelization_visualization, choices,
                  IM_ARRAYSIZE(choices));
-  if (enable_voxelization_visualization)
+  if (enable_voxelization_visualization) {
     ImGui::InputInt("Mipmap Level", &mipmap_level);
+  }
   ImGui::End();
 
   camera_ptr->ImGuiWindow();
@@ -176,11 +178,15 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr = make_unique<LightSources>();
   light_sources_ptr->AddDirectional(make_unique<DirectionalLight>(
       vec3(0, -1, 0), vec3(50), camera_ptr.get()));
+  light_sources_ptr->GetDirectional(0)->set_shadow(
+      std::unique_ptr<DirectionalShadow>(new DirectionalShadow(
+          vec3(0, -1, 0), 2048, 2048, AABB(glm::vec3(-20), glm::vec3(20)),
+          camera_ptr.get())));
 
   equirectangular_map_ptr.reset(new EquirectangularMap(
       "resources/kloofendal_48d_partly_cloudy_puresky_4k.hdr", 2048));
 
-  ReloadModel("resources/cave/cave.gltf", 20, 256);
+  ReloadModel("resources/sponza/sponza.gltf", 40, 256);
   voxelization_visualization_ptr.reset(new vxgi::Visualization(width, height));
 
   controller_ptr = make_unique<Controller>(
@@ -196,6 +202,8 @@ void Init(uint32_t width, uint32_t height) {
 }
 
 void RenderLoop() {
+  glm::mat4 model_matrix = glm::scale(glm::mat4(1), glm::vec3(1));
+
   while (!glfwWindowShouldClose(window)) {
     static uint32_t fps = 0;
     static double last_time_for_fps = glfwGetTime();
@@ -227,9 +235,8 @@ void RenderLoop() {
       glViewport(0, 0, voxelization_ptr->voxel_resolution(),
                  voxelization_ptr->voxel_resolution());
       multi_draw_indirect->Draw(
-          camera_ptr.get(), nullptr, nullptr, false, voxelization_ptr.get(),
-          false, false,
-          {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
+          nullptr, nullptr, nullptr, false, voxelization_ptr.get(), false,
+          false, {{model_ptr.get(), {{-1, 0, model_matrix, glm::vec4(0)}}}});
       glEnable(GL_DEPTH_TEST);
       glEnable(GL_BLEND);
 
@@ -238,10 +245,10 @@ void RenderLoop() {
 
     // draw depth map first
     light_sources_ptr->DrawDepthForShadow(
-        [](int32_t directional_index, int32_t point_index) {
+        [&](int32_t directional_index, int32_t point_index) {
           multi_draw_indirect->DrawDepthForShadow(
               light_sources_ptr.get(), directional_index, point_index,
-              {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
+              {{model_ptr.get(), {{-1, 0, model_matrix, glm::vec4(0)}}}});
         });
 
     // light injection
@@ -266,12 +273,12 @@ void RenderLoop() {
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             equirectangular_map_ptr->skybox()->Draw(camera_ptr.get());
           },
-          []() {
+          [&]() {
             glDisable(GL_CULL_FACE);
             multi_draw_indirect->Draw(
                 camera_ptr.get(), nullptr, nullptr, true, nullptr,
                 default_shading_choice, true,
-                {{model_ptr.get(), {{-1, 0, glm::mat4(1), glm::vec4(0)}}}});
+                {{model_ptr.get(), {{-1, 0, model_matrix, glm::vec4(0)}}}});
           },
           post_processes_ptr->fbo());
 

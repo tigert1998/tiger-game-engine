@@ -14,7 +14,8 @@
 #include "ogl_buffer.h"
 #include "oit_render_quad.h"
 #include "shader.h"
-#include "shadows.h"
+#include "shadows/directional_shadow.h"
+#include "shadows/shadow.h"
 #include "texture.h"
 #include "vertex.h"
 

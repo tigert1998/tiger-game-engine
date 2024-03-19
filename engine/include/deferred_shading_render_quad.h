@@ -10,7 +10,8 @@
 #include "light_sources.h"
 #include "ogl_buffer.h"
 #include "shader.h"
-#include "shadows.h"
+#include "shadows/directional_shadow.h"
+#include "shadows/shadow.h"
 
 class DeferredShadingRenderQuad {
  private:

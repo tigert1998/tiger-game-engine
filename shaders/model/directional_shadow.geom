@@ -18,6 +18,7 @@ uniform uint uLightIndex;
 
 void main() {
     DirectionalShadow directionalShadow = directionalLights[uLightIndex].shadow;
+    if (!directionalShadow.hasGlobalCascade && gl_InvocationID == NUM_CASCADES - 1) return;
 
     for (int i = 0; i < 3; ++i) {
         gl_Position = directionalShadow.viewProjectionMatrices[gl_InvocationID] * gl_in[i].gl_Position;

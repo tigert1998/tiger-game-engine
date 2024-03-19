@@ -16,15 +16,20 @@ const vec3 CONE_DIRECTIONS[6] = vec3[]
 
 const float CONE_WEIGHTS[6] = float[](0.25, 0.15, 0.15, 0.15, 0.15, 0.15);
 
-vec4 sampleVoxel(vec3 position, float diameter, uint voxelResolution, float worldSize, sampler3D radianceMap) {
+float computeSampleLevel(float diameter, uint voxelResolution, float worldSize) {
     float level = log2(max(diameter / worldSize * voxelResolution, 1));
-    return textureLod(radianceMap, position / worldSize + 0.5, min(level, 6));
+    return min(level, 6);
+}
+
+vec4 sampleVoxel(vec3 position, float level, float worldSize, sampler3D radianceMap) {
+    return textureLod(radianceMap, position / worldSize + 0.5, level);
 }
 
 vec4 ConeTracing(
     vec3 origin, vec3 normal, vec3 direction, float aperture,
     float stepSize, float offset, float maxT,
-    uint voxelResolution, float worldSize, sampler3D radianceMap
+    uint voxelResolution, float worldSize, sampler3D radianceMap,
+    bool diffuseMode
 ) {
     float voxelCellSize = worldSize / voxelResolution;
     float t = offset * voxelCellSize;
@@ -34,8 +39,12 @@ vec4 ConeTracing(
     vec3 position = origin + t * direction;
 
     while (color.a < 1 && t < maxT) {
-        vec4 sampled = sampleVoxel(position, diameter, voxelResolution, worldSize, radianceMap);
-        color = Accumulate(color, sampled);
+        float level = computeSampleLevel(diameter, voxelResolution, worldSize);
+        vec4 sampled = sampleVoxel(position, level, worldSize, radianceMap);
+
+        float mul = diffuseMode ? pow(2, 2 * level) : 1;
+        // TODO: this is a dirty hack to make diffuse indirect lighter
+        color = Accumulate(color, vec4(sampled.rgb * mul, sampled.a));
         t += stepSize * diameter;
         diameter = 2 * t * tan(aperture / 2);
         position = origin + t * direction;
@@ -46,6 +55,9 @@ vec4 ConeTracing(
 
 struct VXGIConfig {
     bool on;
+    bool directLightingOn;
+    bool indirectDiffuseLightingOn;
+    bool indirectSpecularLightingOn;
     float stepSize;
     float diffuseOffset;
     float diffuseMaxT;
@@ -86,7 +98,7 @@ vec3 VXGI(
         indirectDiffuse += ConeTracing(
             position, TBN[2], lightDirection, radians(60),
             config.stepSize, config.diffuseOffset, config.diffuseMaxT,
-            config.voxelResolution, config.worldSize, config.radianceMap
+            config.voxelResolution, config.worldSize, config.radianceMap, true
         ).rgb * CONE_WEIGHTS[i] * albedo / PI * kd;
     }
 
@@ -114,11 +126,15 @@ vec3 VXGI(
         indirectSpecular = ConeTracing(
             position, TBN[2], lightDirection, config.specularAperture,
             config.stepSize, config.specularOffset, config.specularMaxT,
-            config.voxelResolution, config.worldSize, config.radianceMap
+            config.voxelResolution, config.worldSize, config.radianceMap, false
         ).rgb * specular * nDotL;
     }
 
-    return directLighting + indirectDiffuse + indirectSpecular;
+    vec3 color = vec3(0);
+    if (config.directLightingOn) color += directLighting;
+    if (config.indirectDiffuseLightingOn) color += indirectDiffuse;
+    if (config.indirectSpecularLightingOn) color += indirectSpecular;
+    return color;
 }
 
 #endif

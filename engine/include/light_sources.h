@@ -9,7 +9,8 @@
 #include "equirectangular_map.h"
 #include "ogl_buffer.h"
 #include "shader.h"
-#include "shadows.h"
+#include "shadows/directional_shadow.h"
+#include "shadows/shadow.h"
 #include "skybox.h"
 
 class Light {
@@ -52,6 +53,14 @@ class DirectionalLight : public Light {
   inline void set_dir(glm::vec3 dir) { dir_ = dir; }
   inline void set_color(glm::vec3 color) { color_ = color; }
   inline DirectionalShadow *shadow() { return shadow_.get(); }
+  inline void set_shadow(std::unique_ptr<DirectionalShadow> shadow) {
+    shadow_ = std::move(shadow);
+    shadow_->set_direction(dir_);
+  }
+  inline void set_camera(Camera *camera) {
+    camera_ = camera;
+    if (shadow_ != nullptr) shadow_->set_camera(camera);
+  }
   void ImGuiWindow(uint32_t index,
                    const std::function<void()> &erase_callback) override;
   inline ~DirectionalLight() override {}

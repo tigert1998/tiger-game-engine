@@ -36,7 +36,6 @@ layout (std430, binding = 8) readonly buffer shadowOBBsBuffer {
 uniform bool uIsDirectionalShadowPass;
 uniform bool uIsOmnidirectionalShadowPass;
 uniform bool uIsVoxelizationPass;
-uniform uint uNumCascades;
 uniform uint uInstanceCount;
 
 void main() {
@@ -52,7 +51,7 @@ void main() {
         if (uIsDirectionalShadowPass) {
             doRender = false;
             OBB newOBB = OBB(newAABB.coordsMin, newAABB.coordsMax, mat3(1));
-            for (int i = 0; i < uNumCascades; i++) {
+            for (int i = 0; i < shadowOBBs.length(); i++) {
                 doRender = IntersectsOBB(newOBB, shadowOBBs[i], 1e-4);
                 if (doRender) break;
             }

@@ -13,7 +13,6 @@ uniform usampler3D uMetallicAndRoughness;
 uniform uint uVoxelResolution;
 uniform float uWorldSize;
 uniform vec3 uCameraPosition;
-uniform mat4 uViewMatrix;
 
 #include "light_sources.glsl"
 
@@ -38,13 +37,13 @@ vec3 CalcDiffusePBRLightingForSingleLightSource(
 
 vec3 CalcDiffusePBRLighting(
     vec3 albedo, float metallic, float roughness,
-    vec3 normal, vec3 cameraPosition, vec3 position, mat4 cameraViewMatrix
+    vec3 normal, vec3 cameraPosition, vec3 position
 ) {
     vec3 color = vec3(0);
 
     for (int i = 0; i < directionalLights.length(); i++) {
-        float shadow = directionalLights[i].shadowEnabled ? 
-            CalcDirectionalShadow(directionalLights[i].shadow, position, cameraViewMatrix) : 0;
+        float shadow = directionalLights[i].shadowEnabled ?
+            CalcDirectionalShadow(directionalLights[i].shadow, position, mat4(1), true) : 0;
 
         color += CalcDiffusePBRLightingForSingleLightSource(
             albedo, metallic, roughness,
@@ -91,7 +90,7 @@ void main() {
 
     vec3 radiance = CalcDiffusePBRLighting(
         albedo.rgb, metallic, roughness,
-        normal, uCameraPosition, position, uViewMatrix);
+        normal, uCameraPosition, position);
 
     imageStore(uInjected, voxelPosition, vec4(radiance, 1));
 }

@@ -95,8 +95,6 @@ void GPUDrivenWorkloadGeneration::Compute(bool is_directional_shadow_pass,
   frustum_culling_and_lod_selection_shader_->SetUniform<int32_t>(
       "uIsVoxelizationPass", is_voxelization_pass);
   frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
-      "uNumCascades", DirectionalShadow::NUM_CASCADES);
-  frustum_culling_and_lod_selection_shader_->SetUniform<uint32_t>(
       "uInstanceCount", constants_.num_instances);
   glDispatchCompute((constants_.num_instances + 255) / 256, 1, 1);
   glMemoryBarrier(GL_ALL_BARRIER_BITS);
@@ -290,6 +288,7 @@ void MultiDrawIndirect::DrawDepthForShadow(
     light_sources->Set(Model::kDirectionalShadowShader.get());
     Model::kDirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
                                                           directional_index);
+    auto shadow = light_sources->GetDirectional(directional_index)->shadow();
   } else if (point_index >= 0) {
     Model::kOmnidirectionalShadowShader->Use();
     light_sources->Set(Model::kOmnidirectionalShadowShader.get());
@@ -311,9 +310,6 @@ void MultiDrawIndirect::Draw(
   CheckRenderTargetParameter(render_target_params);
   UpdateBuffers(render_target_params);
 
-  Frustum frustum = camera->frustum();
-  frustum_ssbo_->SubData(0, sizeof(Frustum), &frustum);
-
   Shader *shader = nullptr;
   if (oit_render_quad != nullptr) {
     shader = Model::kOITShader.get();
@@ -323,6 +319,11 @@ void MultiDrawIndirect::Draw(
     shader = Model::kVoxelizationShader.get();
   } else {
     shader = Model::kShader.get();
+  }
+
+  if (voxelization == nullptr) {
+    Frustum frustum = camera->frustum();
+    frustum_ssbo_->SubData(0, sizeof(Frustum), &frustum);
   }
 
   gpu_driven_->Compute(false, false, voxelization != nullptr);
