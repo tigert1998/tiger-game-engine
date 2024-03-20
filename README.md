@@ -34,8 +34,25 @@ and set "OpenGL GDI compatibility" to "Compatibility first".
 - Multi draw call
 - Order Independent Transparency
 - Cascaded shadow mapping
-- Omnidirectional shadow mapping
+- Omnidirectional shadow mapping (still under improving)
 - PCF/PCSS
 - Skybox
 - SMAA
+- **VXGI**
 
+## Resources
+
+Some of the models I used to test this engine is linked below:
+
+- [Sponza](https://github.com/KhronosGroup/glTF-Sample-Models/blob/main/2.0/Sponza/glTF/Sponza.gltf)
+- [Games 202 homework model: Cave](https://drive.google.com/drive/folders/1g7gr8XlrlyZllI8f-r4OM-uMdX0KMRWS?usp=drive_link)
+- [San Miguel 2.0](https://casual-effects.com/data/)
+- [Bistro](https://developer.nvidia.com/orca/amazon-lumberyard-bistro)
+
+## Showcases
+
+I post videos on YouTube and Bilibili to show my engine.
+Please check it out!
+
+- My YouTube channel: https://www.youtube.com/channel/UCvHmuypv_mckA0j0VClgVLg
+- My Bilibili channel: https://space.bilibili.com/32883962

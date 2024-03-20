@@ -218,7 +218,7 @@ void RenderLoop() {
       fps += 1;
       if (current_time - last_time_for_fps >= 1.0) {
         char buf[1 << 10];
-        sprintf(buf, "Model Visualizer | FPS: %d\n", fps);
+        sprintf(buf, "VXGI Demo | FPS: %d\n", fps);
         glfwSetWindowTitle(window, buf);
         fps = 0;
         last_time_for_fps = current_time;
