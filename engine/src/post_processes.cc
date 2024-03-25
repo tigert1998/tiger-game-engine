@@ -4,23 +4,19 @@
 
 #include <glm/glm.hpp>
 
-std::unique_ptr<Shader> ToneMappingAndGammaCorrection::kShader = nullptr;
+std::unique_ptr<Shader> GammaCorrection::kShader = nullptr;
 
-ToneMappingAndGammaCorrection::ToneMappingAndGammaCorrection(uint32_t width,
-                                                             uint32_t height) {
+GammaCorrection::GammaCorrection(uint32_t width, uint32_t height) {
   Resize(width, height);
   glGenVertexArrays(1, &vao_);
   if (kShader == nullptr) {
-    kShader =
-        Shader::ScreenSpaceShader("tone_mapping_and_gamma_correction.frag", {});
+    kShader = Shader::ScreenSpaceShader("gamma_correction.frag", {});
   }
 }
 
-ToneMappingAndGammaCorrection::~ToneMappingAndGammaCorrection() {
-  glDeleteVertexArrays(1, &vao_);
-}
+GammaCorrection::~GammaCorrection() { glDeleteVertexArrays(1, &vao_); }
 
-void ToneMappingAndGammaCorrection::Resize(uint32_t width, uint32_t height) {
+void GammaCorrection::Resize(uint32_t width, uint32_t height) {
   width_ = width;
   height_ = height;
   auto texture = Texture(nullptr, width, height, GL_RGBA16F, GL_RGBA, GL_FLOAT,
@@ -33,16 +29,15 @@ void ToneMappingAndGammaCorrection::Resize(uint32_t width, uint32_t height) {
   input_fbo_.reset(new FrameBufferObject(color_textures, depth_texture));
 }
 
-const FrameBufferObject *ToneMappingAndGammaCorrection::fbo() const {
+const FrameBufferObject *GammaCorrection::fbo() const {
   return input_fbo_.get();
 }
 
-void ToneMappingAndGammaCorrection::Draw(const FrameBufferObject *dest_fbo) {
+void GammaCorrection::Draw(const FrameBufferObject *dest_fbo) {
   if (dest_fbo != nullptr) dest_fbo->Bind();
 
   kShader->Use();
   kShader->SetUniform<glm::vec4>("uViewport", glm::vec4(0, 0, width_, height_));
-  kShader->SetUniform<float>("uAdaptedLum", adapted_lum_);
   kShader->SetUniformSampler("uScene", input_fbo_->color_texture(0), 0);
   glViewport(0, 0, width_, height_);
   glClearColor(0, 0, 0, 1);
@@ -54,7 +49,7 @@ void ToneMappingAndGammaCorrection::Draw(const FrameBufferObject *dest_fbo) {
   if (dest_fbo != nullptr) dest_fbo->Unbind();
 }
 
-void ToneMappingAndGammaCorrection::ImGuiWindow() {}
+void GammaCorrection::ImGuiWindow() {}
 
 uint32_t PostProcesses::Size() const { return post_processes_.size(); }
 

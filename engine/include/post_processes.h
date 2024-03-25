@@ -12,7 +12,7 @@ class PostProcess {
   virtual void ImGuiWindow() = 0;
 };
 
-class ToneMappingAndGammaCorrection : public PostProcess {
+class GammaCorrection : public PostProcess {
  private:
   static std::unique_ptr<Shader> kShader;
 
@@ -22,8 +22,8 @@ class ToneMappingAndGammaCorrection : public PostProcess {
   float adapted_lum_ = 0.5;
 
  public:
-  ToneMappingAndGammaCorrection(uint32_t width, uint32_t height);
-  ~ToneMappingAndGammaCorrection();
+  GammaCorrection(uint32_t width, uint32_t height);
+  ~GammaCorrection();
   void Resize(uint32_t width, uint32_t height) override;
   const FrameBufferObject *fbo() const override;
   void Draw(const FrameBufferObject *dest_fbo) override;

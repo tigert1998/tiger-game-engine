@@ -1,0 +1,40 @@
+#version 460 core
+
+layout (local_size_x = 4, local_size_y = 4, local_size_z = 1) in;
+
+#include "tone_mapping/bilateral_grid/common.glsl"
+
+layout (rgba16f) readonly uniform image2D uInput;
+layout (r32ui) uniform uimage3D uGrid;
+
+uniform uint uScaleSize;
+uniform uint uScaleRange;
+
+void BilateralGridToneMappingPass0(
+    ivec2 coord, uint scaleSize, uint scaleRange
+) {
+    vec3 c = imageLoad(uInput, coord).rgb / 1024.0;
+    float l = LogLuminance(c);
+
+    ivec3 p = ivec3(round(coord / scaleSize), round(l / scaleRange));
+    uint packedValue = packHalf2x16(vec2(l, 1));
+    uint prevValue = 0;
+    uint curValue;
+    while ((curValue = imageAtomicCompSwap(uGrid, p, prevValue, packedValue)) != prevValue) {
+        prevValue = curValue;
+        vec2 curUnpackedValue = unpackHalf2x16(curValue);
+        curUnpackedValue += vec2(l, 1);
+        packedValue = packHalf2x16(curUnpackedValue);
+    }
+}
+
+void main() {
+    ivec2 inputSize = imageSize(uInput);
+    if (gl_GlobalInvocationID.x >= inputSize.x || gl_GlobalInvocationID.y >= inputSize.y) {
+        return;
+    }
+    BilateralGridToneMappingPass0(
+        ivec2(gl_GlobalInvocationID), 
+        uScaleSize, uScaleRange
+    );
+}

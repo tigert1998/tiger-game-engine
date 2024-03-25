@@ -14,7 +14,7 @@ const float STEP_SIZE = 0.003;
 
 out vec4 fragColor;
 
-#include "common/tone_mapping_and_gamma_correction.glsl"
+#include "common/gamma_correction.glsl"
 #include "common/vxgi_accumulation.glsl"
 
 bool IsInsideUnitCube(vec3 position, float eps) {

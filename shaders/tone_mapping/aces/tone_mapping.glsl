@@ -1,5 +1,5 @@
-#ifndef COMMON_TONE_MAPPING_AND_GAMMA_CORRECTION_GLSL_
-#define COMMON_TONE_MAPPING_AND_GAMMA_CORRECTION_GLSL_
+#ifndef TONE_MAPPING_ACES_TONE_MAPPING_GLSL_
+#define TONE_MAPPING_ACES_TONE_MAPPING_GLSL_
 
 vec3 ACESToneMapping(vec3 color, float adaptedLum) {
     color = min(color, vec3(1e9));
@@ -12,11 +12,6 @@ vec3 ACESToneMapping(vec3 color, float adaptedLum) {
 
     color *= adaptedLum;
     return (color * (A * color + B)) / (color * (C * color + D) + E);
-}
-
-vec3 GammaCorrection(vec3 color) {
-    const float gamma = 2.2;
-    return pow(color, vec3(1.0 / gamma));
 }
 
 #endif

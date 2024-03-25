@@ -1,0 +1,35 @@
+#version 460 core
+
+layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
+
+layout (r32ui) readonly uniform uimage3D uGrid;
+layout (r32ui) writeonly uniform uimage3D uOutputGrid;
+layout (r16f) readonly uniform image2D uWeights;
+
+uniform uint uBlurRadius;
+
+void BilateralGridToneMappingPass1(
+    ivec3 coord, uint blurRadius
+) {
+    ivec3 gridSize = imageSize(uGrid);
+    int left = max(coord.x - int(blurRadius), 0);
+    int right = min(coord.x + int(blurRadius), gridSize.x - 1);
+
+    vec2 total = vec2(0);
+    for (int i = left; i <= right; i++) {
+        total += unpackHalf2x16(imageLoad(uGrid, ivec3(i, coord.y, coord.z)).r) * 
+            imageLoad(uWeights, ivec2(coord.x - i + blurRadius, 0)).r;
+    }
+
+    imageStore(uOutputGrid, coord, uvec4(packHalf2x16(total), 0, 0, 0));
+}
+
+void main() {
+    ivec3 gridSize = imageSize(uGrid);
+    if (gl_GlobalInvocationID.x >= gridSize.x || 
+        gl_GlobalInvocationID.y >= gridSize.y ||
+        gl_GlobalInvocationID.z >= gridSize.z) {
+        return;
+    }
+    BilateralGridToneMappingPass1(ivec3(gl_GlobalInvocationID), uBlurRadius);
+}
