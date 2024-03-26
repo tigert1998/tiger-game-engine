@@ -1,6 +1,6 @@
 #version 460 core
 
-layout (r32ui) readonly uniform uimage3D uGrid;
+layout (rg16f) readonly uniform image3D uGrid;
 layout (rgba16f) readonly uniform image2D uInput;
 
 uniform uint uScaleSize;
@@ -16,13 +16,13 @@ out vec4 fragColor;
 
 vec2 SampleGridSpatial(float x, float y, uint z) {
     vec2 a = mix(
-        unpackHalf2x16(imageLoad(uGrid, ivec3(x, y, z)).r), 
-        unpackHalf2x16(imageLoad(uGrid, ivec3(x + 1, y, z)).r),
+        imageLoad(uGrid, ivec3(x, y, z)).rg, 
+        imageLoad(uGrid, ivec3(x + 1, y, z)).rg,
         fract(x)
     );
     vec2 b = mix(
-        unpackHalf2x16(imageLoad(uGrid, ivec3(x, y + 1, z)).r), 
-        unpackHalf2x16(imageLoad(uGrid, ivec3(x + 1, y + 1, z)).r),
+        imageLoad(uGrid, ivec3(x, y + 1, z)).rg, 
+        imageLoad(uGrid, ivec3(x + 1, y + 1, z)).rg,
         fract(x)
     );
     return mix(a, b, fract(y));

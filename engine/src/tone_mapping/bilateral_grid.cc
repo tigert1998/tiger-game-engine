@@ -66,10 +66,9 @@ void BilateralGrid::Resize(uint32_t width, uint32_t height) {
     grid_height_ = grid_height;
     grid_depth_ = grid_depth;
     for (int i = 0; i < 2; i++) {
-      grids_[i] =
-          Texture(nullptr, GL_TEXTURE_3D, grid_width_, grid_height_,
-                  grid_depth_, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT,
-                  GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, {}, false);
+      grids_[i] = Texture(nullptr, GL_TEXTURE_3D, grid_width_, grid_height_,
+                          grid_depth_, GL_RG16F, GL_RG, GL_FLOAT,
+                          GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, {}, false);
     }
   }
 }
@@ -108,7 +107,7 @@ void BilateralGrid::set_sigma(float sigma_size, float sigma_range) {
 
 void BilateralGrid::Draw(const FrameBufferObject *dest_fbo) {
   // clear
-  glClearTexImage(grids_[0].id(), 0, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
+  glClearTexImage(grids_[0].id(), 0, GL_RG, GL_FLOAT, nullptr);
 
   // pass #0
   kPasses[0]->Use();
@@ -117,7 +116,7 @@ void BilateralGrid::Draw(const FrameBufferObject *dest_fbo) {
   glBindImageTexture(0, input_fbo_->color_texture(0).id(), 0, GL_FALSE, 0,
                      GL_READ_ONLY, GL_RGBA16F);
   kPasses[0]->SetUniform<int32_t>("uInput", 0);
-  glBindImageTexture(1, grids_[0].id(), 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_R32UI);
+  glBindImageTexture(1, grids_[0].id(), 0, GL_TRUE, 0, GL_WRITE_ONLY, GL_RG16F);
   kPasses[0]->SetUniform<int32_t>("uGrid", 1);
   glDispatchCompute((width_ + 3) / 4, (height_ + 3) / 4, 1);
   glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT |
@@ -127,10 +126,10 @@ void BilateralGrid::Draw(const FrameBufferObject *dest_fbo) {
   for (int i = 1; i <= 3; i++) {
     kPasses[i]->Use();
     glBindImageTexture(0, grids_[(i & 1) ^ 1].id(), 0, GL_TRUE, 0, GL_READ_ONLY,
-                       GL_R32UI);
+                       GL_RG16F);
     kPasses[i]->SetUniform<int32_t>("uGrid", 0);
     glBindImageTexture(1, grids_[(i & 1) ^ 0].id(), 0, GL_TRUE, 0,
-                       GL_WRITE_ONLY, GL_R32UI);
+                       GL_WRITE_ONLY, GL_RG16F);
     kPasses[i]->SetUniform<int32_t>("uOutputGrid", 1);
     glBindImageTexture(2, weights_.id(), 0, GL_FALSE, 0, GL_READ_ONLY, GL_R16F);
     kPasses[i]->SetUniform<int32_t>("uWeights", 2);
@@ -150,7 +149,7 @@ void BilateralGrid::Draw(const FrameBufferObject *dest_fbo) {
   // pass #4
   if (dest_fbo != nullptr) dest_fbo->Bind();
   kPasses[4]->Use();
-  glBindImageTexture(0, grids_[1].id(), 0, GL_TRUE, 0, GL_READ_ONLY, GL_R32UI);
+  glBindImageTexture(0, grids_[1].id(), 0, GL_TRUE, 0, GL_READ_ONLY, GL_RG16F);
   kPasses[4]->SetUniform<int32_t>("uGrid", 0);
   glBindImageTexture(1, input_fbo_->color_texture(0).id(), 0, GL_FALSE, 0,
                      GL_READ_ONLY, GL_RGBA16F);

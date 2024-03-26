@@ -2,8 +2,8 @@
 
 layout (local_size_x = 4, local_size_y = 4, local_size_z = 4) in;
 
-layout (r32ui) readonly uniform uimage3D uGrid;
-layout (r32ui) writeonly uniform uimage3D uOutputGrid;
+layout (rg16f) readonly uniform image3D uGrid;
+layout (rg16f) writeonly uniform image3D uOutputGrid;
 layout (r16f) readonly uniform image2D uWeights;
 
 uniform uint uBlurRadius;
@@ -17,11 +17,11 @@ void BilateralGridToneMappingPass3(
 
     vec2 total = vec2(0);
     for (int i = left; i <= right; i++) {
-        total += unpackHalf2x16(imageLoad(uGrid, ivec3(coord.x, coord.y, i)).r) * 
+        total += imageLoad(uGrid, ivec3(coord.x, coord.y, i)).rg * 
             imageLoad(uWeights, ivec2(coord.z - i + blurRadius, 1)).r;
     }
 
-    imageStore(uOutputGrid, coord, uvec4(packHalf2x16(total), 0, 0, 0));
+    imageStore(uOutputGrid, coord, vec4(total, 0, 0));
 }
 
 void main() {
