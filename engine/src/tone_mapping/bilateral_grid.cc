@@ -84,7 +84,7 @@ void BilateralGrid::set_sigma(float sigma_size, float sigma_range) {
   uint32_t blur_radius_size = std::ceil(sigma_size * 3);
   uint32_t blur_radius_range = std::ceil(sigma_range * 3);
   std::vector<float> weights;
-  uint32_t width = std::max(blur_radius_size, blur_radius_size) * 2 + 1;
+  uint32_t width = std::max(blur_radius_size, blur_radius_range) * 2 + 1;
   uint32_t height = 2;
   weights.resize(width * height, 0);
 

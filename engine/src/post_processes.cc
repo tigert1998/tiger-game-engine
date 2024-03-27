@@ -4,53 +4,6 @@
 
 #include <glm/glm.hpp>
 
-std::unique_ptr<Shader> GammaCorrection::kShader = nullptr;
-
-GammaCorrection::GammaCorrection(uint32_t width, uint32_t height) {
-  Resize(width, height);
-  glGenVertexArrays(1, &vao_);
-  if (kShader == nullptr) {
-    kShader = Shader::ScreenSpaceShader("gamma_correction.frag", {});
-  }
-}
-
-GammaCorrection::~GammaCorrection() { glDeleteVertexArrays(1, &vao_); }
-
-void GammaCorrection::Resize(uint32_t width, uint32_t height) {
-  width_ = width;
-  height_ = height;
-  auto texture = Texture(nullptr, width, height, GL_RGBA16F, GL_RGBA, GL_FLOAT,
-                         GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {}, false);
-  std::vector<Texture> color_textures;
-  color_textures.push_back(std::move(texture));
-  Texture depth_texture(nullptr, width, height, GL_DEPTH_COMPONENT,
-                        GL_DEPTH_COMPONENT, GL_FLOAT, GL_REPEAT, GL_LINEAR,
-                        GL_LINEAR, {}, false);
-  input_fbo_.reset(new FrameBufferObject(color_textures, depth_texture));
-}
-
-const FrameBufferObject *GammaCorrection::fbo() const {
-  return input_fbo_.get();
-}
-
-void GammaCorrection::Draw(const FrameBufferObject *dest_fbo) {
-  if (dest_fbo != nullptr) dest_fbo->Bind();
-
-  kShader->Use();
-  kShader->SetUniform<glm::vec4>("uViewport", glm::vec4(0, 0, width_, height_));
-  kShader->SetUniformSampler("uScene", input_fbo_->color_texture(0), 0);
-  glViewport(0, 0, width_, height_);
-  glClearColor(0, 0, 0, 1);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glBindVertexArray(vao_);
-  glDrawArrays(GL_POINTS, 0, 1);
-  glBindVertexArray(0);
-
-  if (dest_fbo != nullptr) dest_fbo->Unbind();
-}
-
-void GammaCorrection::ImGuiWindow() {}
-
 uint32_t PostProcesses::Size() const { return post_processes_.size(); }
 
 void PostProcesses::Enable(uint32_t index, bool enabled) {

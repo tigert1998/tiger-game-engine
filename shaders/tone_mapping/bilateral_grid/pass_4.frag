@@ -11,6 +11,7 @@ uniform float uBlend;
 uniform float uExposure;
 
 #include "tone_mapping/bilateral_grid/common.glsl"
+#include "common/gamma_correction.glsl"
 
 out vec4 fragColor;
 
@@ -59,10 +60,11 @@ vec3 BilateralGridToneMappingPass4(
 }
 
 void main() {
-    fragColor.rgb = BilateralGridToneMappingPass4(
+    vec3 color = BilateralGridToneMappingPass4(
         ivec2(gl_FragCoord.xy), 
         uScaleSize, uScaleRange,
         uAlpha, uBeta, uBlend, uExposure
     );
-    fragColor.a = 1;
+    color = GammaCorrection(color);
+    fragColor = vec4(color, 1);
 }

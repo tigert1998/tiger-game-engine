@@ -18,8 +18,8 @@
 #include "multi_draw_indirect.h"
 #include "physics/character_controller.h"
 #include "physics/collision_model.h"
-#include "post_processes.h"
 #include "skybox.h"
+#include "tone_mapping/aces.h"
 
 using namespace glm;
 using namespace std;
@@ -210,8 +210,8 @@ void Init(uint32_t width, uint32_t height) {
   Shader::include_directories = {"./shaders"};
 
   post_processes_ptr.reset(new PostProcesses());
-  post_processes_ptr->Add(std::unique_ptr<ToneMappingAndGammaCorrection>(
-      new ToneMappingAndGammaCorrection(width, height)));
+  post_processes_ptr->Add(std::unique_ptr<tone_mapping::ACES>(
+      new tone_mapping::ACES(width, height)));
 
   oit_render_quad_ptr = make_unique<OITRenderQuad>(width, height);
 

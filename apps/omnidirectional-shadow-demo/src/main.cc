@@ -19,9 +19,9 @@
 #include "model.h"
 #include "mouse.h"
 #include "multi_draw_indirect.h"
-#include "post_processes.h"
 #include "skybox.h"
 #include "smaa.h"
+#include "tone_mapping/aces.h"
 #include "utils.h"
 
 using namespace glm;
@@ -153,8 +153,8 @@ void Init(uint32_t width, uint32_t height) {
 
   post_processes_ptr.reset(new PostProcesses());
   post_processes_ptr->Add(std::unique_ptr<Bloom>(new Bloom(width, height, 6)));
-  post_processes_ptr->Add(std::unique_ptr<ToneMappingAndGammaCorrection>(
-      new ToneMappingAndGammaCorrection(width, height)));
+  post_processes_ptr->Add(std::unique_ptr<tone_mapping::ACES>(
+      new tone_mapping::ACES(width, height)));
   post_processes_ptr->Add(
       std::unique_ptr<SMAA>(new SMAA("./third_party/smaa", width, height)));
 

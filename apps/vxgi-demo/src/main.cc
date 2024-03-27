@@ -141,7 +141,7 @@ void ImGuiWindow() {
   vxgi_config_ptr->ImGuiWindow();
 
   post_processes_ptr->Enable(0, enable_bloom);
-  post_processes_ptr->Enable(3, enable_smaa);
+  post_processes_ptr->Enable(2, enable_smaa);
 }
 
 void Init(uint32_t width, uint32_t height) {
@@ -168,8 +168,6 @@ void Init(uint32_t width, uint32_t height) {
   post_processes_ptr->Add(std::unique_ptr<Bloom>(new Bloom(width, height, 6)));
   post_processes_ptr->Add(std::unique_ptr<tone_mapping::BilateralGrid>(
       new tone_mapping::BilateralGrid(width, height)));
-  post_processes_ptr->Add(
-      std::unique_ptr<GammaCorrection>(new GammaCorrection(width, height)));
   post_processes_ptr->Add(
       std::unique_ptr<SMAA>(new SMAA("./third_party/smaa", width, height)));
 

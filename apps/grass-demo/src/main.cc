@@ -13,8 +13,8 @@
 
 #include "controller/sightseeing_controller.h"
 #include "grass/grassland.h"
-#include "post_processes.h"
 #include "skybox.h"
+#include "tone_mapping/aces.h"
 
 std::unique_ptr<Camera> camera_ptr;
 std::unique_ptr<LightSources> light_sources_ptr;
@@ -61,8 +61,8 @@ void Init(uint32_t width, uint32_t height) {
   Shader::include_directories = {"./shaders"};
 
   post_processes_ptr.reset(new PostProcesses());
-  post_processes_ptr->Add(std::unique_ptr<ToneMappingAndGammaCorrection>(
-      new ToneMappingAndGammaCorrection(width, height)));
+  post_processes_ptr->Add(std::unique_ptr<tone_mapping::ACES>(
+      new tone_mapping::ACES(width, height)));
 
   camera_ptr = std::make_unique<Camera>(
       glm::vec3(0, 10, 0), static_cast<double>(width) / height,
