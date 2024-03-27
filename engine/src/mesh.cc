@@ -107,7 +107,7 @@ Mesh::Mesh(const fs::path &directory_path, aiMesh *mesh, const aiScene *scene,
 
       material_params_.albedo = material_params_.kd;
       material_params_.metallic = 0;
-      material_params_.roughness = 0.25;
+      material_params_.roughness = 0.9;
       material_params_.emission = glm::vec3(0);
     }
     aiString material_texture_path;
