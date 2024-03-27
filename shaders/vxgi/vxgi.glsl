@@ -111,8 +111,6 @@ vec3 VXGI(
         float G = GeometrySmith(normal, viewDirection, lightDirection, roughness);
         vec3 F = FresnelSchlick(halfway, viewDirection, f0);
 
-        vec3 kd = (vec3(1.0) - F) * (1.0 - metallic);
-
         float nDotL = max(dot(normal, lightDirection), 0.0);
         float nDotV = max(dot(normal, viewDirection), 0.0);
         vec3 numerator = NDF * G * F;
