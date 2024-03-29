@@ -20,6 +20,7 @@ DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
   fbo_.reset(new FrameBufferObject(empty, depth_texture));
   fbo_->depth_texture().MakeResident();
 
+  direction_ = glm::vec3(0);
   set_direction(direction);
 }
 
