@@ -8,6 +8,7 @@ const uint NUM_MOVING_CASCADES = NUM_CASCADES - 1;
 struct DirectionalShadow {
     // Cascaded Shadow Mapping
     mat4 viewProjectionMatrices[NUM_CASCADES];
+    bool requiresUpdate[NUM_CASCADES];
     float cascadePlaneDistances[NUM_MOVING_CASCADES * 2];
     sampler2DArray shadowMap;
     vec3 dir;

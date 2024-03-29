@@ -18,6 +18,7 @@ uniform uint uLightIndex;
 
 void main() {
     DirectionalShadow directionalShadow = directionalLights[uLightIndex].shadow;
+    if (!directionalShadow.requiresUpdate[gl_InvocationID]) return;
     if (!directionalShadow.hasGlobalCascade && gl_InvocationID == NUM_CASCADES - 1) return;
 
     for (int i = 0; i < 3; ++i) {

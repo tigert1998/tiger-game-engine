@@ -1,5 +1,7 @@
 #include "shadows/directional_shadow.h"
 
+#include <fmt/core.h>
+
 #include <glm/gtc/matrix_transform.hpp>
 
 DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
@@ -15,8 +17,8 @@ DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
       enable_global_cascade() ? NUM_CASCADES : NUM_MOVING_CASCADES;
   Texture depth_texture(nullptr, GL_TEXTURE_2D_ARRAY, fbo_width, fbo_height,
                         num_cascades, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
-                        GL_FLOAT, GL_CLAMP_TO_BORDER, GL_LINEAR, GL_LINEAR,
-                        {1, 1, 1, 1}, false);
+                        GL_FLOAT, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {},
+                        false);
   fbo_.reset(new FrameBufferObject(empty, depth_texture));
   fbo_->depth_texture().MakeResident();
 
@@ -38,17 +40,19 @@ void DirectionalShadow::InvalidatePreviousCascades() {
 }
 
 void DirectionalShadow::set_direction(glm::vec3 direction) {
-  const float zero = 1e-5;
+  const float zero = 1e-5f;
   if (glm::distance(direction_, direction) > zero) {
     InvalidatePreviousCascades();
+    set_requires_update();
   }
-
   direction_ = direction;
 }
 
 void DirectionalShadow::set_camera(Camera *camera) {
   InvalidatePreviousCascades();
   camera_ = camera;
+
+  set_requires_update();
 }
 
 std::pair<float, float> DirectionalShadow::cascade_plane_distances(
@@ -173,6 +177,8 @@ OBB DirectionalShadow::obb(
   return obb;
 }
 
+void DirectionalShadow::set_requires_update() { update_flag_ = true; }
+
 void DirectionalShadow::UpdateCascades() const {
   for (int i = 0; i < NUM_MOVING_CASCADES; i++) {
     auto [z_near, z_far] = cascade_plane_distances(i);
@@ -181,7 +187,9 @@ void DirectionalShadow::UpdateCascades() const {
     auto corners =
         camera_->frustum_corners(cascades_[i].cascade_plane_distances[0],
                                  cascades_[i].cascade_plane_distances[1]);
-    if (ShouldUsePreviousFrame(i, corners)) continue;
+    bool should_use_previous_frame = ShouldUsePreviousFrame(i, corners);
+    cascades_[i].requires_update = !should_use_previous_frame || update_flag_;
+    if (should_use_previous_frame) continue;
 
     cascades_[i].view_matrix = view_matrix(corners);
     cascades_[i].ortho_param = ortho_param(corners);
@@ -196,12 +204,11 @@ void DirectionalShadow::UpdateCascades() const {
     cascades_[i].ortho_param = ortho_param(corners);
     cascades_[i].projection_matrix = projection_matrix(corners);
     cascades_[i].obb = obb(corners);
+    cascades_[i].requires_update = update_flag_;
   }
 }
 
 std::vector<OBB> DirectionalShadow::cascade_obbs() const {
-  UpdateCascades();
-
   std::vector<OBB> obbs;
   obbs.reserve(NUM_CASCADES);
   for (int i = 0; i < NUM_MOVING_CASCADES; i++) {
@@ -215,8 +222,6 @@ std::vector<OBB> DirectionalShadow::cascade_obbs() const {
 
 DirectionalShadow::DirectionalShadowGLSL
 DirectionalShadow::directional_shadow_glsl() const {
-  UpdateCascades();
-
   DirectionalShadowGLSL ret;
   ret.dir = direction_;
   ret.shadow_map = fbo_->depth_texture().handle();
@@ -231,6 +236,7 @@ DirectionalShadow::directional_shadow_glsl() const {
     }
     ret.view_projection_matrices[i] =
         cascades_[i].projection_matrix * cascades_[i].view_matrix;
+    ret.requires_update[i] = cascades_[i].requires_update;
   }
 
   return ret;
@@ -243,6 +249,22 @@ void DirectionalShadow::Visualize() const {
 void DirectionalShadow::Bind() {
   glViewport(0, 0, fbo_width_, fbo_height_);
   fbo_->Bind();
+  UpdateCascades();
 }
 
-void DirectionalShadow::Unbind() { fbo_->Unbind(); }
+void DirectionalShadow::Unbind() {
+  fbo_->Unbind();
+  update_flag_ = false;
+}
+
+void DirectionalShadow::Clear() {
+  uint32_t num_cascades =
+      enable_global_cascade() ? NUM_CASCADES : NUM_MOVING_CASCADES;
+  const float one = 1;
+  for (int i = 0; i < num_cascades; i++) {
+    if (cascades_[i].requires_update) {
+      glClearTexSubImage(fbo_->depth_texture().id(), 0, 0, 0, i, fbo_width_,
+                         fbo_height_, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &one);
+    }
+  }
+}

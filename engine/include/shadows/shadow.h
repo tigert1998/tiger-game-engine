@@ -16,6 +16,7 @@
 
 class Shadow {
  public:
+  virtual void Clear() = 0;
   virtual void Bind() = 0;
   virtual void Unbind() = 0;
   virtual void Visualize() const = 0;
@@ -43,6 +44,7 @@ class OmnidirectionalShadow : public Shadow {
   inline ~OmnidirectionalShadow() override {}
 
   void Visualize() const override;
+  void Clear() override;
 
   struct OmnidirectionalShadowGLSL {
     glm::mat4 view_projection_matrices[6];

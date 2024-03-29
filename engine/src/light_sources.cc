@@ -392,14 +392,14 @@ void LightSources::DrawDepthForShadow(
   for (int i = 0; i < directional_lights_.size(); i++) {
     if (directional_lights_[i]->shadow() == nullptr) continue;
     directional_lights_[i]->shadow()->Bind();
-    glClear(GL_DEPTH_BUFFER_BIT);
+    directional_lights_[i]->shadow()->Clear();
     render_pass(i, -1);
     directional_lights_[i]->shadow()->Unbind();
   }
   for (int i = 0; i < point_lights_.size(); i++) {
     if (point_lights_[i]->shadow() == nullptr) continue;
     point_lights_[i]->shadow()->Bind();
-    glClear(GL_DEPTH_BUFFER_BIT);
+    point_lights_[i]->shadow()->Clear();
     render_pass(-1, i);
     point_lights_[i]->shadow()->Unbind();
   }

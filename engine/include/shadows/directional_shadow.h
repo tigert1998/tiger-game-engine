@@ -21,6 +21,7 @@ class DirectionalShadow : public Shadow {
   std::optional<AABB> global_cascade_aabb_;
   std::unique_ptr<FrameBufferObject> fbo_;
   const Camera *camera_;
+  bool update_flag_;
 
   struct Cascade {
     glm::mat4 view_matrix;
@@ -28,6 +29,7 @@ class DirectionalShadow : public Shadow {
     float cascade_plane_distances[2];
     AABB ortho_param;
     OBB obb;
+    bool requires_update;
   };
 
   mutable Cascade cascades_[NUM_CASCADES];
@@ -62,11 +64,12 @@ class DirectionalShadow : public Shadow {
   std::vector<OBB> cascade_obbs() const;
 
   struct DirectionalShadowGLSL {
-    alignas(16) glm::mat4 view_projection_matrices[NUM_CASCADES];
+    glm::mat4 view_projection_matrices[NUM_CASCADES];
+    int32_t requires_update[NUM_CASCADES];
     float cascade_plane_distances[NUM_MOVING_CASCADES * 2];
     uint64_t shadow_map;
     glm::vec3 dir;
-    int32_t has_global_cascade;
+    alignas(4) int32_t has_global_cascade;
   };
 
   DirectionalShadowGLSL directional_shadow_glsl() const;
@@ -74,6 +77,10 @@ class DirectionalShadow : public Shadow {
   void Visualize() const override;
   void Bind() override;
   void Unbind() override;
+  void Clear() override;
+
+  // set this flag when the scene changes
+  void set_requires_update();
 };
 
 #endif

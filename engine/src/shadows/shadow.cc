@@ -60,6 +60,8 @@ void OmnidirectionalShadow::Bind() {
   fbo_->Bind();
 }
 
+void OmnidirectionalShadow::Clear() { glClear(GL_DEPTH_BUFFER_BIT); }
+
 void OmnidirectionalShadow::Visualize() const {}
 
 OmnidirectionalShadow::OmnidirectionalShadowGLSL
