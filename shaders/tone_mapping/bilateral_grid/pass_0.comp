@@ -1,0 +1,35 @@
+#version 460 core
+
+#extension GL_NV_gpu_shader5 : require
+#extension GL_NV_shader_atomic_fp16_vector : require
+
+layout (local_size_x = 4, local_size_y = 4, local_size_z = 1) in;
+
+#include "tone_mapping/bilateral_grid/common.glsl"
+
+layout (rgba16f) readonly uniform image2D uInput;
+layout (rg16f) uniform image3D uGrid;
+
+uniform uint uScaleSize;
+uniform uint uScaleRange;
+
+void BilateralGridToneMappingPass0(
+    ivec2 coord, uint scaleSize, uint scaleRange
+) {
+    vec3 c = imageLoad(uInput, coord).rgb / 1024.0;
+    float l = LogLuminance(c);
+
+    ivec3 p = ivec3(round(coord / scaleSize), round(l / scaleRange));
+    imageAtomicAdd(uGrid, p, f16vec2(l, 1));
+}
+
+void main() {
+    ivec2 inputSize = imageSize(uInput);
+    if (gl_GlobalInvocationID.x >= inputSize.x || gl_GlobalInvocationID.y >= inputSize.y) {
+        return;
+    }
+    BilateralGridToneMappingPass0(
+        ivec2(gl_GlobalInvocationID), 
+        uScaleSize, uScaleRange
+    );
+}

@@ -28,8 +28,7 @@ vec4 sampleVoxel(vec3 position, float level, float worldSize, sampler3D radiance
 vec4 ConeTracing(
     vec3 origin, vec3 normal, vec3 direction, float aperture,
     float stepSize, float offset, float maxT,
-    uint voxelResolution, float worldSize, sampler3D radianceMap,
-    bool diffuseMode
+    uint voxelResolution, float worldSize, sampler3D radianceMap
 ) {
     float voxelCellSize = worldSize / voxelResolution;
     float t = offset * voxelCellSize;
@@ -41,10 +40,7 @@ vec4 ConeTracing(
     while (color.a < 1 && t < maxT) {
         float level = computeSampleLevel(diameter, voxelResolution, worldSize);
         vec4 sampled = sampleVoxel(position, level, worldSize, radianceMap);
-
-        float mul = diffuseMode ? pow(2, 2 * level) : 1;
-        // TODO: this is a dirty hack to make diffuse indirect lighter
-        color = Accumulate(color, vec4(sampled.rgb * mul, sampled.a));
+        color = Accumulate(color, sampled);
         t += stepSize * diameter;
         diameter = 2 * t * tan(aperture / 2);
         position = origin + t * direction;
@@ -98,7 +94,7 @@ vec3 VXGI(
         indirectDiffuse += ConeTracing(
             position, TBN[2], lightDirection, radians(60),
             config.stepSize, config.diffuseOffset, config.diffuseMaxT,
-            config.voxelResolution, config.worldSize, config.radianceMap, true
+            config.voxelResolution, config.worldSize, config.radianceMap
         ).rgb * CONE_WEIGHTS[i] * albedo / PI * kd;
     }
 
@@ -115,8 +111,6 @@ vec3 VXGI(
         float G = GeometrySmith(normal, viewDirection, lightDirection, roughness);
         vec3 F = FresnelSchlick(halfway, viewDirection, f0);
 
-        vec3 kd = (vec3(1.0) - F) * (1.0 - metallic);
-
         float nDotL = max(dot(normal, lightDirection), 0.0);
         float nDotV = max(dot(normal, viewDirection), 0.0);
         vec3 numerator = NDF * G * F;
@@ -126,7 +120,7 @@ vec3 VXGI(
         indirectSpecular = ConeTracing(
             position, TBN[2], lightDirection, config.specularAperture,
             config.stepSize, config.specularOffset, config.specularMaxT,
-            config.voxelResolution, config.worldSize, config.radianceMap, false
+            config.voxelResolution, config.worldSize, config.radianceMap
         ).rgb * specular * nDotL;
     }
 

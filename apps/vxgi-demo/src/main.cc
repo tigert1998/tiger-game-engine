@@ -24,6 +24,7 @@
 #include "multi_draw_indirect.h"
 #include "post_processes.h"
 #include "smaa.h"
+#include "tone_mapping/bilateral_grid.h"
 #include "utils.h"
 
 using namespace glm;
@@ -165,8 +166,8 @@ void Init(uint32_t width, uint32_t height) {
 
   post_processes_ptr.reset(new PostProcesses());
   post_processes_ptr->Add(std::unique_ptr<Bloom>(new Bloom(width, height, 6)));
-  post_processes_ptr->Add(std::unique_ptr<ToneMappingAndGammaCorrection>(
-      new ToneMappingAndGammaCorrection(width, height)));
+  post_processes_ptr->Add(std::unique_ptr<tone_mapping::BilateralGrid>(
+      new tone_mapping::BilateralGrid(width, height)));
   post_processes_ptr->Add(
       std::unique_ptr<SMAA>(new SMAA("./third_party/smaa", width, height)));
 

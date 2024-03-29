@@ -75,12 +75,12 @@ vec3 VoxelPositionToWorldPosition(ivec3 voxelPosition) {
 
 void main() {
     if (gl_GlobalInvocationID.x >= uVoxelResolution ||
-		gl_GlobalInvocationID.y >= uVoxelResolution ||
-		gl_GlobalInvocationID.z >= uVoxelResolution) return;
+        gl_GlobalInvocationID.y >= uVoxelResolution ||
+        gl_GlobalInvocationID.z >= uVoxelResolution) return;
 
     ivec3 voxelPosition = ivec3(gl_GlobalInvocationID);
     vec3 position = VoxelPositionToWorldPosition(voxelPosition);
-	vec4 albedo = unpackUnorm4x8(texelFetch(uAlbedo, voxelPosition, 0).r);
+    vec4 albedo = unpackUnorm4x8(texelFetch(uAlbedo, voxelPosition, 0).r);
     if (albedo.a == 0) return;
 
     vec3 normal = unpackUnorm4x8(texelFetch(uNormal, voxelPosition, 0).r).xyz * 2 - 1;
