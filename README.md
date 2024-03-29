@@ -18,7 +18,9 @@ cmake \
     ..
 ```
 
-Besides, if you are using a NVIDIA GPU, don't forget to go to NVIDIA control panel
+Currently, this engine only supports NVIDIA cards since it relies on the OpenGL extension:
+"GL_NV_shader_atomic_fp16_vector".
+Besides, don't forget to go to NVIDIA control panel
 and set "OpenGL GDI compatibility" to "Compatibility first".
 
 ## Supported Features
@@ -39,6 +41,7 @@ and set "OpenGL GDI compatibility" to "Compatibility first".
 - Skybox
 - SMAA
 - **VXGI**
+- ACES/Bilateral grid tone mapping
 
 ## Resources
 
