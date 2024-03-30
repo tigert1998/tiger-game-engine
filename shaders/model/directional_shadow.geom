@@ -1,33 +1,36 @@
 #version 460 core
 
 #extension GL_ARB_bindless_texture : require
+#extension GL_NV_geometry_shader_passthrough : require
+#extension GL_NV_viewport_array2 : require
 
-layout (triangles, invocations = NUM_CASCADES) in;
-layout (triangle_strip, max_vertices = 3) out;
+layout (triangles) in;
+layout (viewport_relative) out int gl_Layer;
 
 #include "light_sources.glsl"
 
-in vec2 vTexCoord[3];
-in mat3 vTBN[3];
-flat in int vInstanceID[3];
-out vec2 gTexCoord;
-out mat3 gTBN;
-flat out int gInstanceID;
+layout (passthrough) in gl_PerVertex {
+    vec4 gl_Position;
+} gl_in[];
+
+layout (passthrough) in vOutputs {
+    vec3 position;
+    vec2 texCoord;
+    mat3 TBN;
+    flat int instanceID;
+} vOut[];
 
 uniform uint uLightIndex;
 
 void main() {
     DirectionalShadow directionalShadow = directionalLights[uLightIndex].shadow;
-    if (!directionalShadow.requiresUpdate[gl_InvocationID]) return;
-    if (!directionalShadow.hasGlobalCascade && gl_InvocationID == NUM_CASCADES - 1) return;
 
-    for (int i = 0; i < 3; ++i) {
-        gl_Position = directionalShadow.viewProjectionMatrices[gl_InvocationID] * gl_in[i].gl_Position;
-        gl_Layer = gl_InvocationID;
-        gTexCoord = vTexCoord[i];
-        gTBN = vTBN[i];
-        gInstanceID = vInstanceID[i];
-        EmitVertex();
-    }
-    EndPrimitive();
+    int mask = 0;
+    for (uint i = 0; i < NUM_CASCADES; i++)
+        if (directionalShadow.requiresUpdate[i]) {
+            mask |= (1 << i);
+        }
+    gl_ViewportMask[0] = 0;
+
+    gl_Layer = 0;
 }

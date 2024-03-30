@@ -57,7 +57,7 @@ void DirectionalLight::ImGuiWindow(
   if (shadow_ == nullptr) {
     if (ImGui::Button(fmt::format("Add Shadow{}", suffix).c_str())) {
       shadow_ = std::unique_ptr<DirectionalShadow>(
-          new DirectionalShadow(dir_, 2048, 2048, std::nullopt, camera_));
+          new DirectionalShadow(dir_, 2048, 2048, camera_));
     }
   } else {
     if (ImGui::Button(fmt::format("Erase Shadow{}", suffix).c_str())) {

@@ -11,10 +11,12 @@ layout (location = 7) in vec4 aBoneWeights0;
 layout (location = 8) in vec4 aBoneWeights1;
 layout (location = 9) in vec4 aBoneWeights2;
 
-out vec3 vPosition;
-out vec2 vTexCoord;
-out mat3 vTBN;
-flat out int vInstanceID;
+out vOutputs {
+    vec3 position;
+    vec2 texCoord;
+    mat3 TBN;
+    flat int instanceID;
+} vOut;
 
 layout (std430, binding = 0) buffer modelMatricesBuffer {
     mat4 modelMatrices[]; // per instance
@@ -39,7 +41,7 @@ uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;
 
 mat4 CalcBoneMatrix() {
-    int offset = boneMatricesOffset[vInstanceID];
+    int offset = boneMatricesOffset[vOut.instanceID];
     mat4 boneMatrix = mat4(0);
     for (int i = 0; i < 4; i++) {
         if (aBoneIDs0[i] < 0) return boneMatrix;
@@ -57,28 +59,24 @@ mat4 CalcBoneMatrix() {
 }
 
 void main() {
-    vInstanceID = gl_BaseInstance + gl_InstanceID;
+    vOut.instanceID = gl_BaseInstance + gl_InstanceID;
     mat4 transform;
-    if (bool(animated[vInstanceID])) {
+    if (bool(animated[vOut.instanceID])) {
         transform = CalcBoneMatrix();
     } else {
-        transform = transforms[vInstanceID];
+        transform = transforms[vOut.instanceID];
     }
-    mat4 modelMatrix = modelMatrices[vInstanceID];
-    vTexCoord = aTexCoord;
+    mat4 modelMatrix = modelMatrices[vOut.instanceID];
+    vOut.texCoord = aTexCoord;
     mat3 normalMatrix = transpose(inverse(mat3(modelMatrix * transform)));
     vec3 T = normalize(normalMatrix * aTangent);
     vec3 N = normalize(normalMatrix * aNormal);
     T = normalize(T - dot(T, N) * N);
     vec3 B = cross(N, T);
-    vTBN = mat3(T, B, N);
+    vOut.TBN = mat3(T, B, N);
 
-    if (USE_GEOM_SHADER) {
-        gl_Position = modelMatrix * transform * vec4(aPosition, 1);    
-    } else {
-        gl_Position = uProjectionMatrix * uViewMatrix * modelMatrix * transform * vec4(aPosition, 1);
-        vPosition = vec3(modelMatrix * transform * vec4(aPosition, 1));
+    gl_Position = uProjectionMatrix * uViewMatrix * modelMatrix * transform * vec4(aPosition, 1);
+    vOut.position = vec3(modelMatrix * transform * vec4(aPosition, 1));
 
-        gl_ClipDistance[0] = dot(vec4(vPosition, 1), clipPlanes[vInstanceID]);
-    }
+    gl_ClipDistance[0] = dot(vec4(vOut.position, 1), clipPlanes[vOut.instanceID]);
 }

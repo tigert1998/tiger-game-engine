@@ -73,7 +73,7 @@ vec3 CalcPhongLighting(
     }
     for (int i = 0; i < directionalLights.length(); i++) {
         float shadow = directionalLights[i].shadowEnabled ? 
-            CalcDirectionalShadow(directionalLights[i].shadow, position, cameraViewMatrix, false) : 0;
+            CalcDirectionalShadow(directionalLights[i].shadow, position, cameraViewMatrix) : 0;
 
         color += CalcDiffuse(-directionalLights[i].dir, normal, kd) *
             directionalLights[i].color * (1 - shadow);
@@ -165,7 +165,7 @@ vec3 CalcPBRLighting(
 
     for (int i = 0; i < directionalLights.length(); i++) {
         float shadow = directionalLights[i].shadowEnabled ?
-            CalcDirectionalShadow(directionalLights[i].shadow, position, cameraViewMatrix, false) : 0;
+            CalcDirectionalShadow(directionalLights[i].shadow, position, cameraViewMatrix) : 0;
 
         color += CalcPBRLightingForSingleLightSource(
             albedo, metallic, roughness,

@@ -5,18 +5,11 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
-                                     uint32_t fbo_height,
-                                     std::optional<AABB> global_cascade_aabb,
-                                     const Camera *camera)
-    : fbo_width_(fbo_width),
-      fbo_height_(fbo_height),
-      global_cascade_aabb_(global_cascade_aabb),
-      camera_(camera) {
+                                     uint32_t fbo_height, const Camera *camera)
+    : fbo_width_(fbo_width), fbo_height_(fbo_height), camera_(camera) {
   std::vector<Texture> empty;
-  uint32_t num_cascades =
-      enable_global_cascade() ? NUM_CASCADES : NUM_MOVING_CASCADES;
   Texture depth_texture(nullptr, GL_TEXTURE_2D_ARRAY, fbo_width, fbo_height,
-                        num_cascades, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
+                        NUM_CASCADES, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT,
                         GL_FLOAT, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, {},
                         false);
   fbo_.reset(new FrameBufferObject(empty, depth_texture));
@@ -26,12 +19,8 @@ DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
   set_direction(direction);
 }
 
-bool DirectionalShadow::enable_global_cascade() const {
-  return global_cascade_aabb_.has_value();
-}
-
 void DirectionalShadow::InvalidatePreviousCascades() {
-  for (int i = 0; i < NUM_MOVING_CASCADES; i++) {
+  for (int i = 0; i < NUM_CASCADES; i++) {
     // invalidate previous results
     cascades_[i].ortho_param.min = glm::vec3(std::numeric_limits<float>::max());
     cascades_[i].ortho_param.max =
@@ -107,7 +96,8 @@ glm::mat4 DirectionalShadow::view_matrix(
 }
 
 AABB DirectionalShadow::ortho_param(
-    const std::vector<glm::vec3> &current_frame_frustum_corners) const {
+    const std::vector<glm::vec3> &current_frame_frustum_corners,
+    glm::mat4 view_matrix) const {
   float min_x = std::numeric_limits<float>::max();
   float max_x = std::numeric_limits<float>::lowest();
   float min_y = std::numeric_limits<float>::max();
@@ -115,7 +105,7 @@ AABB DirectionalShadow::ortho_param(
   float min_z = std::numeric_limits<float>::max();
   float max_z = std::numeric_limits<float>::lowest();
 
-  glm::mat4 v = view_matrix(current_frame_frustum_corners);
+  glm::mat4 v = view_matrix;
 
   for (auto corner : current_frame_frustum_corners) {
     auto corner_view_space = v * glm::vec4(corner, 1);
@@ -141,9 +131,8 @@ AABB DirectionalShadow::ortho_param(
   return aabb;
 }
 
-glm::mat4 DirectionalShadow::projection_matrix(
-    const std::vector<glm::vec3> &current_frame_frustum_corners) const {
-  AABB aabb = ortho_param(current_frame_frustum_corners);
+glm::mat4 DirectionalShadow::projection_matrix(AABB ortho_param) const {
+  AABB aabb = ortho_param;
   return glm::ortho(aabb.min.x, aabb.max.x, aabb.min.y, aabb.max.y, aabb.min.z,
                     aabb.max.z);
 }
@@ -151,7 +140,7 @@ glm::mat4 DirectionalShadow::projection_matrix(
 OBB DirectionalShadow::obb(
     const std::vector<glm::vec3> &current_frame_frustum_corners) const {
   glm::mat4 v = view_matrix(current_frame_frustum_corners);
-  AABB aabb = ortho_param(current_frame_frustum_corners);
+  AABB aabb = ortho_param(current_frame_frustum_corners, v);
 
   glm::mat4 translation = glm::mat4(1);
   translation[3].x = v[3].x;
@@ -180,7 +169,14 @@ OBB DirectionalShadow::obb(
 void DirectionalShadow::set_requires_update() { update_flag_ = true; }
 
 void DirectionalShadow::UpdateCascades() const {
-  for (int i = 0; i < NUM_MOVING_CASCADES; i++) {
+  auto camera_frustum_corners =
+      camera_->frustum_corners(camera_->z_near(), camera_->z_far());
+  glm::mat4 camera_frustum_view_matrix =
+      this->view_matrix(camera_frustum_corners);
+  AABB camera_ortho_param =
+      ortho_param(camera_frustum_corners, camera_frustum_view_matrix);
+
+  for (int i = 0; i < NUM_CASCADES; i++) {
     auto [z_near, z_far] = cascade_plane_distances(i);
     cascades_[i].cascade_plane_distances[0] = z_near;
     cascades_[i].cascade_plane_distances[1] = z_far;
@@ -192,30 +188,36 @@ void DirectionalShadow::UpdateCascades() const {
     if (should_use_previous_frame) continue;
 
     cascades_[i].view_matrix = view_matrix(corners);
-    cascades_[i].ortho_param = ortho_param(corners);
-    cascades_[i].projection_matrix = projection_matrix(corners);
+    cascades_[i].ortho_param = ortho_param(corners, cascades_[i].view_matrix);
+    cascades_[i].projection_matrix =
+        projection_matrix(cascades_[i].ortho_param);
     cascades_[i].obb = obb(corners);
-  }
 
-  if (enable_global_cascade()) {
-    uint32_t i = NUM_CASCADES - 1;
-    auto corners = global_cascade_aabb_->corners();
-    cascades_[i].view_matrix = view_matrix(corners);
-    cascades_[i].ortho_param = ortho_param(corners);
-    cascades_[i].projection_matrix = projection_matrix(corners);
-    cascades_[i].obb = obb(corners);
-    cascades_[i].requires_update = update_flag_;
+    {
+      AABB ortho_param = this->ortho_param(corners, camera_frustum_view_matrix);
+      glm::vec2 cascade_size = glm::vec2(ortho_param.max.x - ortho_param.min.x,
+                                         ortho_param.max.y - ortho_param.min.y);
+      glm::vec2 camera_size =
+          glm::vec2(camera_ortho_param.max.x - camera_ortho_param.min.x,
+                    camera_ortho_param.max.y - camera_ortho_param.min.y);
+      glm::vec2 ratio = glm::vec2(fbo_width_, fbo_height_) / cascade_size;
+      glm::vec2 camera_size_pixels = camera_size * ratio;
+      glm::vec2 cascade_offset =
+          glm::vec2(ortho_param.min.x - camera_ortho_param.min.x,
+                    ortho_param.min.y - camera_ortho_param.min.y);
+      glm::vec2 cascade_offset_pixels = cascade_offset * ratio;
+      glm::vec4 viewport =
+          glm::vec4(-cascade_offset_pixels, camera_size_pixels);
+      cascades_[i].viewport = viewport;
+    }
   }
 }
 
 std::vector<OBB> DirectionalShadow::cascade_obbs() const {
   std::vector<OBB> obbs;
   obbs.reserve(NUM_CASCADES);
-  for (int i = 0; i < NUM_MOVING_CASCADES; i++) {
+  for (int i = 0; i < NUM_CASCADES; i++) {
     obbs.push_back(cascades_[i].obb);
-  }
-  if (enable_global_cascade()) {
-    obbs.push_back(cascades_[NUM_CASCADES - 1].obb);
   }
   return obbs;
 }
@@ -225,15 +227,12 @@ DirectionalShadow::directional_shadow_glsl() const {
   DirectionalShadowGLSL ret;
   ret.dir = direction_;
   ret.shadow_map = fbo_->depth_texture().handle();
-  ret.has_global_cascade = enable_global_cascade();
 
   for (int i = 0; i < NUM_CASCADES; i++) {
-    if (i < NUM_MOVING_CASCADES) {
-      ret.cascade_plane_distances[i * 2 + 0] =
-          cascades_[i].cascade_plane_distances[0];
-      ret.cascade_plane_distances[i * 2 + 1] =
-          cascades_[i].cascade_plane_distances[1];
-    }
+    ret.cascade_plane_distances[i * 2 + 0] =
+        cascades_[i].cascade_plane_distances[0];
+    ret.cascade_plane_distances[i * 2 + 1] =
+        cascades_[i].cascade_plane_distances[1];
     ret.view_projection_matrices[i] =
         cascades_[i].projection_matrix * cascades_[i].view_matrix;
     ret.requires_update[i] = cascades_[i].requires_update;
@@ -247,9 +246,11 @@ void DirectionalShadow::Visualize() const {
 }
 
 void DirectionalShadow::Bind() {
-  glViewport(0, 0, fbo_width_, fbo_height_);
   fbo_->Bind();
   UpdateCascades();
+  for (int i = 0; i < NUM_CASCADES; i++) {
+    glViewportIndexedfv(i, &cascades_[i].viewport.x);
+  }
 }
 
 void DirectionalShadow::Unbind() {
@@ -258,10 +259,8 @@ void DirectionalShadow::Unbind() {
 }
 
 void DirectionalShadow::Clear() {
-  uint32_t num_cascades =
-      enable_global_cascade() ? NUM_CASCADES : NUM_MOVING_CASCADES;
   const float one = 1;
-  for (int i = 0; i < num_cascades; i++) {
+  for (int i = 0; i < NUM_CASCADES; i++) {
     if (cascades_[i].requires_update) {
       glClearTexSubImage(fbo_->depth_texture().id(), 0, 0, 0, i, fbo_width_,
                          fbo_height_, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &one);

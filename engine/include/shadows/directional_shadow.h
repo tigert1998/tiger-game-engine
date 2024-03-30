@@ -9,16 +9,14 @@
 
 class DirectionalShadow : public Shadow {
  public:
-  static constexpr uint32_t NUM_MOVING_CASCADES = 5;
-  static constexpr uint32_t NUM_CASCADES = NUM_MOVING_CASCADES + 1;
-  static constexpr float CASCADE_PLANE_RATIOS[NUM_MOVING_CASCADES][2] = {
+  static constexpr uint32_t NUM_CASCADES = 5;
+  static constexpr float CASCADE_PLANE_RATIOS[NUM_CASCADES][2] = {
       {0.00f, 0.02f}, {0.02f, 0.05f}, {0.05f, 0.1f}, {0.1f, 0.5f}, {0.5f, 1.0f},
   };
 
  private:
   glm::vec3 direction_;
   uint32_t fbo_width_, fbo_height_;
-  std::optional<AABB> global_cascade_aabb_;
   std::unique_ptr<FrameBufferObject> fbo_;
   const Camera *camera_;
   bool update_flag_;
@@ -30,6 +28,7 @@ class DirectionalShadow : public Shadow {
     AABB ortho_param;
     OBB obb;
     bool requires_update;
+    glm::vec4 viewport;
   };
 
   mutable Cascade cascades_[NUM_CASCADES];
@@ -40,10 +39,9 @@ class DirectionalShadow : public Shadow {
       const std::vector<glm::vec3> &current_frame_frustum_corners) const;
   glm::mat4 view_matrix(
       const std::vector<glm::vec3> &current_frame_frustum_corners) const;
-  AABB ortho_param(
-      const std::vector<glm::vec3> &current_frame_frustum_corners) const;
-  glm::mat4 projection_matrix(
-      const std::vector<glm::vec3> &current_frame_frustum_corners) const;
+  AABB ortho_param(const std::vector<glm::vec3> &current_frame_frustum_corners,
+                   glm::mat4 view_matrix) const;
+  glm::mat4 projection_matrix(AABB ortho_param) const;
   OBB obb(const std::vector<glm::vec3> &current_frame_frustum_corners) const;
   void InvalidatePreviousCascades();
 
@@ -51,11 +49,7 @@ class DirectionalShadow : public Shadow {
 
  public:
   explicit DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
-                             uint32_t fbo_height,
-                             std::optional<AABB> global_cascade_aabb,
-                             const Camera *camera);
-
-  bool enable_global_cascade() const;
+                             uint32_t fbo_height, const Camera *camera);
 
   inline glm::vec3 direction() { return direction_; }
   void set_direction(glm::vec3 direction);
@@ -66,10 +60,9 @@ class DirectionalShadow : public Shadow {
   struct DirectionalShadowGLSL {
     glm::mat4 view_projection_matrices[NUM_CASCADES];
     int32_t requires_update[NUM_CASCADES];
-    float cascade_plane_distances[NUM_MOVING_CASCADES * 2];
+    float cascade_plane_distances[NUM_CASCADES * 2];
     uint64_t shadow_map;
     glm::vec3 dir;
-    alignas(4) int32_t has_global_cascade;
   };
 
   DirectionalShadowGLSL directional_shadow_glsl() const;

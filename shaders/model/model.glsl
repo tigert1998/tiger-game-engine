@@ -7,10 +7,12 @@ const float zero = 1e-6;
 uniform vec3 uCameraPosition;
 uniform mat4 uViewMatrix;
 
-in vec3 vPosition;
-in vec2 vTexCoord;
-in mat3 vTBN;
-flat in int vInstanceID;
+in vOutputs {
+    vec3 position;
+    vec2 texCoord;
+    mat3 TBN;
+    flat int instanceID;
+} vOut;
 
 #include "light_sources.glsl"
 #include "material.glsl"
@@ -41,13 +43,13 @@ void SampleForGBuffer(
         ks = vec3(0.2);
         emission = vec3(0);
         shininess = 20;
-        normal = vTBN[2];
+        normal = vOut.TBN[2];
         alpha = 1;
         flag = 1;
         return;
     }
 
-    Material material = materials[vInstanceID];
+    Material material = materials[vOut.instanceID];
 
     if (material.metalnessTexture < 0 && !uForcePBR) {
         // for Phong
@@ -59,7 +61,7 @@ void SampleForGBuffer(
         emission = material.ke;
 
         if (material.diffuseTexture >= 0) {
-            vec4 sampled = texture(textures[material.diffuseTexture], vTexCoord);
+            vec4 sampled = texture(textures[material.diffuseTexture], vOut.texCoord);
             kd = pow(sampled.rgb, vec3(2.2));
             alpha = sampled.a;
         }
@@ -67,10 +69,10 @@ void SampleForGBuffer(
         if (alpha <= zero) discard;
 
         if (material.ambientTexture >= 0) {
-            ka = texture(textures[material.ambientTexture], vTexCoord).rgb;
+            ka = texture(textures[material.ambientTexture], vOut.texCoord).rgb;
         }
         if (material.specularTexture >= 0) {
-            ks = texture(textures[material.specularTexture], vTexCoord).rgb;
+            ks = texture(textures[material.specularTexture], vOut.texCoord).rgb;
         }
 
         shininess = material.shininess;
@@ -86,7 +88,7 @@ void SampleForGBuffer(
         emission = material.emission;
 
         if (material.diffuseTexture >= 0) {
-            vec4 sampled = texture(textures[material.diffuseTexture], vTexCoord);
+            vec4 sampled = texture(textures[material.diffuseTexture], vOut.texCoord);
             albedo = pow(sampled.rgb, vec3(2.2));
             alpha = sampled.a;
         }
@@ -94,30 +96,30 @@ void SampleForGBuffer(
         if (alpha <= zero) discard;
 
         if (material.bindMetalnessAndDiffuseRoughness) {
-            vec2 sampled = texture(textures[material.metalnessTexture], vTexCoord).gb;
+            vec2 sampled = texture(textures[material.metalnessTexture], vOut.texCoord).gb;
             // https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
             metallic = sampled[1]; // blue
             roughness = sampled[0]; // green
         } else {
             if (material.metalnessTexture >= 0) {
-                metallic = texture(textures[material.metalnessTexture], vTexCoord).r;
+                metallic = texture(textures[material.metalnessTexture], vOut.texCoord).r;
             }
             if (material.diffuseRoughnessTexture >= 0) {
-                roughness = texture(textures[material.diffuseRoughnessTexture], vTexCoord).r;
+                roughness = texture(textures[material.diffuseRoughnessTexture], vOut.texCoord).r;
             }
         }
 
         if (material.ambientOcclusionTexture >= 0) {
-            ao = texture(textures[material.ambientOcclusionTexture], vTexCoord).r;
+            ao = texture(textures[material.ambientOcclusionTexture], vOut.texCoord).r;
         }
         flag = 2;
     }
 
-    normal = vTBN[2];
+    normal = vOut.TBN[2];
     if (material.normalsTexture >= 0) {
-        normal = texture(textures[material.normalsTexture], vTexCoord).xyz * 2 - 1;
+        normal = texture(textures[material.normalsTexture], vOut.texCoord).xyz * 2 - 1;
         normal = ConvertDerivativeMapToNormalMap(normal);
-        normal = normalize(vTBN * normal);
+        normal = normalize(vOut.TBN * normal);
     }
 }
 
@@ -132,7 +134,7 @@ vec4 CalcFragColor() {
         emission, normal, alpha, flag // shared variable
     );
 
-    vec3 position = vPosition;
+    vec3 position = vOut.position;
 
     vec3 color;
 

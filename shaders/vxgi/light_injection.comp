@@ -43,7 +43,7 @@ vec3 CalcDiffusePBRLighting(
 
     for (int i = 0; i < directionalLights.length(); i++) {
         float shadow = directionalLights[i].shadowEnabled ?
-            CalcDirectionalShadow(directionalLights[i].shadow, position, mat4(1), true) : 0;
+            CalcDirectionalShadow(directionalLights[i].shadow, position, mat4(1)) : 0;
 
         color += CalcDiffusePBRLightingForSingleLightSource(
             albedo, metallic, roughness,
