@@ -10,7 +10,7 @@ THIRD_PARTY_PATH = "third_party"
 
 def generate_glad_url():
     origin = "https://glad.dav1d.de"
-    data = "language=c&specification=gl&api=gl%3D4.6&api=gles1%3Dnone&api=gles2%3Dnone&api=glsc2%3Dnone&profile=core&extensions=GL_ARB_bindless_texture&extensions=GL_NV_geometry_shader_passthrough&extensions=GL_NV_shader_atomic_fp16_vector&extensions=GL_NV_viewport_array2&loader=on"
+    data = "language=c&specification=gl&api=gl%3D4.6&api=gles1%3Dnone&api=gles2%3Dnone&api=glsc2%3Dnone&profile=compatibility&extensions=GL_ARB_bindless_texture&extensions=GL_NV_geometry_shader_passthrough&extensions=GL_NV_shader_atomic_fp16_vector&extensions=GL_NV_viewport_array2&loader=on"
     response = requests.post(
         url=urllib.parse.urljoin(origin, "generate"),
         data=data,

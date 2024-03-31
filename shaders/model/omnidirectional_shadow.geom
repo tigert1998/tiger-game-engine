@@ -7,9 +7,13 @@ layout (triangle_strip, max_vertices = 18) out;
 
 #include "light_sources.glsl"
 
-in vec2 vTexCoord[3];
-in mat3 vTBN[3];
-flat in int vInstanceID[3];
+in vOutputs {
+    vec3 position;
+    vec2 texCoord;
+    mat3 TBN;
+    flat int instanceID;
+} vOut[];
+
 out vec2 gTexCoord;
 out mat3 gTBN;
 flat out int gInstanceID;
@@ -23,11 +27,11 @@ void main() {
     for (int face = 0; face < 6; face++) {
         gl_Layer = face;
         for (int i = 0; i < 3; i++) {
-            gPosition = vec3(gl_in[i].gl_Position);
-            gl_Position = omnidirectionalShadow.viewProjectionMatrices[face] * gl_in[i].gl_Position;
-            gTexCoord = vTexCoord[i];
-            gTBN = vTBN[i];
-            gInstanceID = vInstanceID[i];
+            gPosition = vOut[i].position;
+            gl_Position = omnidirectionalShadow.viewProjectionMatrices[face] * vec4(vOut[i].position, 1);
+            gTexCoord = vOut[i].texCoord;
+            gTBN = vOut[i].TBN;
+            gInstanceID = vOut[i].instanceID;
             EmitVertex();
         }
         EndPrimitive();

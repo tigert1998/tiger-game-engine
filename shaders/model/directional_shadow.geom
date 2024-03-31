@@ -30,7 +30,7 @@ void main() {
         if (directionalShadow.requiresUpdate[i]) {
             mask |= (1 << i);
         }
-    gl_ViewportMask[0] = 0;
+    gl_ViewportMask[0] = mask;
 
     gl_Layer = 0;
 }
