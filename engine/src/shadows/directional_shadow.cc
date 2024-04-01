@@ -17,6 +17,8 @@ DirectionalShadow::DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
 
   direction_ = glm::vec3(0);
   set_direction(direction);
+
+  glGetFloatv(GL_MAX_VIEWPORT_DIMS, &max_viewport_size_.x);
 }
 
 void DirectionalShadow::InvalidatePreviousCascades() {
@@ -123,7 +125,6 @@ AABB DirectionalShadow::ortho_param(
 
   // enlarge AABB
   auto extent = aabb.extents() * 1.5f;
-  extent.z = extent.z * 6;
   auto center = aabb.center();
   aabb.min = center - extent;
   aabb.max = center + extent;
@@ -184,33 +185,48 @@ void DirectionalShadow::UpdateCascades() const {
         camera_->frustum_corners(cascades_[i].cascade_plane_distances[0],
                                  cascades_[i].cascade_plane_distances[1]);
     bool should_use_previous_frame = ShouldUsePreviousFrame(i, corners);
-    cascades_[i].requires_update = !should_use_previous_frame || update_flag_;
-    if (should_use_previous_frame) continue;
+    cascades_[i].requires_update = update_flag_ || !should_use_previous_frame;
+    if (!cascades_[i].requires_update) continue;
 
-    cascades_[i].view_matrix = view_matrix(corners);
-    cascades_[i].ortho_param = ortho_param(corners, cascades_[i].view_matrix);
+    cascades_[i].view_matrix = camera_frustum_view_matrix;
+    AABB ortho_param = this->ortho_param(corners, camera_frustum_view_matrix);
+    cascades_[i].ortho_param =
+        AABB(glm::vec3(glm::vec2(ortho_param.min), camera_ortho_param.min.z),
+             glm::vec3(glm::vec2(ortho_param.max), camera_ortho_param.max.z));
     cascades_[i].projection_matrix =
         projection_matrix(cascades_[i].ortho_param);
     cascades_[i].obb = obb(corners);
-
-    {
-      AABB ortho_param = this->ortho_param(corners, camera_frustum_view_matrix);
-      glm::vec2 cascade_size = glm::vec2(ortho_param.max.x - ortho_param.min.x,
-                                         ortho_param.max.y - ortho_param.min.y);
-      glm::vec2 camera_size =
-          glm::vec2(camera_ortho_param.max.x - camera_ortho_param.min.x,
-                    camera_ortho_param.max.y - camera_ortho_param.min.y);
-      glm::vec2 ratio = glm::vec2(fbo_width_, fbo_height_) / cascade_size;
-      glm::vec2 camera_size_pixels = camera_size * ratio;
-      glm::vec2 cascade_offset =
-          glm::vec2(ortho_param.min.x - camera_ortho_param.min.x,
-                    ortho_param.min.y - camera_ortho_param.min.y);
-      glm::vec2 cascade_offset_pixels = cascade_offset * ratio;
-      glm::vec4 viewport =
-          glm::vec4(-cascade_offset_pixels, camera_size_pixels);
-      cascades_[i].viewport = viewport;
-    }
+    auto [viewport, scale_factor] =
+        this->viewport(corners, camera_ortho_param, camera_frustum_view_matrix);
+    cascades_[i].viewport = viewport;
+    cascades_[i].scale_factor = scale_factor;
   }
+}
+
+std::pair<glm::vec4, glm::vec2> DirectionalShadow::viewport(
+    const std::vector<glm::vec3> &current_frame_frustum_corners,
+    const AABB &camera_ortho_param,
+    glm::mat4 camera_frustum_view_matrix) const {
+  AABB ortho_param = this->ortho_param(current_frame_frustum_corners,
+                                       camera_frustum_view_matrix);
+  glm::vec2 cascade_size = glm::vec2(ortho_param.max.x - ortho_param.min.x,
+                                     ortho_param.max.y - ortho_param.min.y);
+  glm::vec2 camera_size =
+      glm::vec2(camera_ortho_param.max.x - camera_ortho_param.min.x,
+                camera_ortho_param.max.y - camera_ortho_param.min.y);
+  glm::vec2 ratio = glm::vec2(fbo_width_, fbo_height_) / cascade_size;
+  glm::vec2 camera_size_pixels = camera_size * ratio;
+  glm::vec2 cascade_offset =
+      glm::vec2(ortho_param.min.x - camera_ortho_param.min.x,
+                ortho_param.min.y - camera_ortho_param.min.y);
+  glm::vec2 cascade_offset_pixels = cascade_offset * ratio;
+
+  glm::vec2 scale_factor =
+      glm::min(glm::vec2(1), max_viewport_size_ / camera_size_pixels);
+
+  glm::vec4 viewport = glm::vec4(-cascade_offset_pixels * scale_factor,
+                                 camera_size_pixels * scale_factor);
+  return {viewport, scale_factor};
 }
 
 std::vector<OBB> DirectionalShadow::cascade_obbs() const {
@@ -233,7 +249,11 @@ DirectionalShadow::directional_shadow_glsl() const {
         cascades_[i].cascade_plane_distances[0];
     ret.cascade_plane_distances[i * 2 + 1] =
         cascades_[i].cascade_plane_distances[1];
-    ret.view_projection_matrices[i] =
+    ret.transformation_matrices[i] =
+        glm::translate(glm::mat4(1),
+                       glm::vec3(0.5f * cascades_[i].scale_factor, 0.5f)) *
+        glm::scale(glm::mat4(1),
+                   glm::vec3(0.5f * cascades_[i].scale_factor, 0.5f)) *
         cascades_[i].projection_matrix * cascades_[i].view_matrix;
     ret.requires_update[i] = cascades_[i].requires_update;
   }
@@ -266,4 +286,19 @@ void DirectionalShadow::Clear() {
                          fbo_height_, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &one);
     }
   }
+}
+
+void DirectionalShadow::Set(Shader *shader) {
+  auto camera_frustum_corners =
+      camera_->frustum_corners(camera_->z_near(), camera_->z_far());
+  glm::mat4 camera_frustum_view_matrix =
+      this->view_matrix(camera_frustum_corners);
+  AABB camera_ortho_param =
+      ortho_param(camera_frustum_corners, camera_frustum_view_matrix);
+  glm::mat4 camera_frustum_projection_matrix =
+      this->projection_matrix(camera_ortho_param);
+
+  shader->SetUniform<glm::mat4>("uViewMatrix", camera_frustum_view_matrix);
+  shader->SetUniform<glm::mat4>("uProjectionMatrix",
+                                camera_frustum_projection_matrix);
 }

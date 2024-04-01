@@ -5,7 +5,7 @@
 
 struct DirectionalShadow {
     // Cascaded Shadow Mapping
-    mat4 viewProjectionMatrices[NUM_CASCADES];
+    mat4 transformationMatrices[NUM_CASCADES];
     bool requiresUpdate[NUM_CASCADES];
     float cascadePlaneDistances[NUM_CASCADES * 2];
     sampler2DArray shadowMap;
@@ -25,10 +25,9 @@ layout (std430, binding = POISSON_DISK_2D_BINDING) buffer poissonDisk2DPointsBuf
 };
 
 float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow, uint layer, vec3 position) {
-    vec4 homoPosition = directionalShadow.viewProjectionMatrices[layer] * vec4(position, 1.0);
+    vec4 homoPosition = directionalShadow.transformationMatrices[layer] * vec4(position, 1.0);
 
-    position = homoPosition.xyz / homoPosition.w;
-    position = position * 0.5 + 0.5;
+    position = homoPosition.xyz;
     float currentDepth = position.z;
     currentDepth = clamp(currentDepth, 0, 1);
     // If the fragment is outside the shadow frustum, we don't care about its depth.

@@ -18,6 +18,7 @@ class DirectionalShadow : public Shadow {
   glm::vec3 direction_;
   uint32_t fbo_width_, fbo_height_;
   std::unique_ptr<FrameBufferObject> fbo_;
+  glm::vec2 max_viewport_size_;
   const Camera *camera_;
   bool update_flag_;
 
@@ -29,6 +30,7 @@ class DirectionalShadow : public Shadow {
     OBB obb;
     bool requires_update;
     glm::vec4 viewport;
+    glm::vec2 scale_factor;
   };
 
   mutable Cascade cascades_[NUM_CASCADES];
@@ -43,6 +45,10 @@ class DirectionalShadow : public Shadow {
                    glm::mat4 view_matrix) const;
   glm::mat4 projection_matrix(AABB ortho_param) const;
   OBB obb(const std::vector<glm::vec3> &current_frame_frustum_corners) const;
+  std::pair<glm::vec4, glm::vec2> viewport(
+      const std::vector<glm::vec3> &current_frame_frustum_corners,
+      const AABB &camera_ortho_param,
+      glm::mat4 camera_frustum_view_matrix) const;
   void InvalidatePreviousCascades();
 
   void UpdateCascades() const;
@@ -50,6 +56,7 @@ class DirectionalShadow : public Shadow {
  public:
   explicit DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
                              uint32_t fbo_height, const Camera *camera);
+  inline ~DirectionalShadow() {}
 
   inline glm::vec3 direction() { return direction_; }
   void set_direction(glm::vec3 direction);
@@ -58,7 +65,7 @@ class DirectionalShadow : public Shadow {
   std::vector<OBB> cascade_obbs() const;
 
   struct DirectionalShadowGLSL {
-    glm::mat4 view_projection_matrices[NUM_CASCADES];
+    glm::mat4 transformation_matrices[NUM_CASCADES];
     int32_t requires_update[NUM_CASCADES];
     float cascade_plane_distances[NUM_CASCADES * 2];
     uint64_t shadow_map;
@@ -71,6 +78,7 @@ class DirectionalShadow : public Shadow {
   void Bind() override;
   void Unbind() override;
   void Clear() override;
+  void Set(Shader *shader) override;
 
   // set this flag when the scene changes
   void set_requires_update();
