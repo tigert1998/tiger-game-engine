@@ -148,7 +148,7 @@ void Init(uint32_t width, uint32_t height) {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
   window = glfwCreateWindow(width, height, "VXGI Demo", nullptr, nullptr);
@@ -180,9 +180,8 @@ void Init(uint32_t width, uint32_t height) {
   light_sources_ptr->AddDirectional(make_unique<DirectionalLight>(
       vec3(0, -1, 0), vec3(50), camera_ptr.get()));
   light_sources_ptr->GetDirectional(0)->set_shadow(
-      std::unique_ptr<DirectionalShadow>(new DirectionalShadow(
-          vec3(0, -1, 0), 2048, 2048, AABB(glm::vec3(-20), glm::vec3(20)),
-          camera_ptr.get())));
+      std::unique_ptr<DirectionalShadow>(
+          new DirectionalShadow(vec3(0, -1, 0), 2048, 2048, camera_ptr.get())));
 
   equirectangular_map_ptr.reset(new EquirectangularMap(
       "resources/kloofendal_48d_partly_cloudy_puresky_4k.hdr", 2048));

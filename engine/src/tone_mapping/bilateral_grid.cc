@@ -30,10 +30,10 @@ BilateralGrid::BilateralGrid(uint32_t width, uint32_t height) {
   // set initial values
   scale_size_ = 16;
   scale_range_ = 16;
-  alpha_ = 0.5;
+  alpha_ = 0.65f;
   beta_ = 125;
   blend_ = 1;
-  exposure_ = 1;
+  exposure_ = 2.5f;
   set_sigma(1, 1);
 
   Resize(width, height);

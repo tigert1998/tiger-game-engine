@@ -69,7 +69,7 @@ class DirectionalShadow : public Shadow {
     int32_t requires_update[NUM_CASCADES];
     float cascade_plane_distances[NUM_CASCADES * 2];
     uint64_t shadow_map;
-    glm::vec3 dir;
+    alignas(16) glm::vec3 dir;
   };
 
   DirectionalShadowGLSL directional_shadow_glsl() const;
