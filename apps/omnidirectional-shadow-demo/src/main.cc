@@ -134,7 +134,7 @@ void Init(uint32_t width, uint32_t height) {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
   window = glfwCreateWindow(
@@ -249,14 +249,7 @@ auto UpdateObjectsAndLights(double time) {
   return std::pair{render_target_params, params};
 }
 
-int main(int argc, char *argv[]) {
-  try {
-    Init(1920, 1080);
-  } catch (const std::exception &e) {
-    fmt::print(stderr, "[error] {}\n", e.what());
-    exit(1);
-  }
-
+void RenderLoop() {
   while (!glfwWindowShouldClose(window)) {
     static uint32_t fps = 0;
     static double last_time_for_fps = glfwGetTime();
@@ -320,5 +313,16 @@ int main(int argc, char *argv[]) {
 
     glfwSwapBuffers(window);
   }
+}
+
+int main(int argc, char *argv[]) {
+  try {
+    Init(1920, 1080);
+    RenderLoop();
+  } catch (const std::exception &e) {
+    fmt::print(stderr, "[error] {}\n", e.what());
+    exit(1);
+  }
+
   return 0;
 }

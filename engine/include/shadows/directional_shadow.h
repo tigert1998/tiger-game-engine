@@ -9,11 +9,10 @@
 
 class DirectionalShadow : public Shadow {
  public:
-  static constexpr uint32_t NUM_CASCADES = 11;
+  static constexpr uint32_t NUM_CASCADES = 6;
   static constexpr uint32_t NUM_MOVING_CASCADES = NUM_CASCADES - 1;
   static constexpr float CASCADE_PLANE_RATIOS[NUM_MOVING_CASCADES][2] = {
-      {0.0f, 0.1f}, {0.1f, 0.2f}, {0.2f, 0.3f}, {0.3f, 0.4f}, {0.4f, 0.5f},
-      {0.5f, 0.6f}, {0.6f, 0.7f}, {0.7f, 0.8f}, {0.8f, 0.9f}, {0.9f, 1.0f},
+      {0.0f, 0.2f}, {0.2f, 0.4f}, {0.4f, 0.6f}, {0.6f, 0.8f}, {0.8f, 1.0f},
   };
 
  private:

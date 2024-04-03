@@ -33,7 +33,7 @@ and set "OpenGL GDI compatibility" to "Compatibility first".
 - SSAO
 - Point/Directional lights
 - Skeletal animation
-- Multi draw call
+- Multi draw indirect
 - Order Independent Transparency
 - Cascaded shadow mapping
 - Omnidirectional shadow mapping (still under improving)
