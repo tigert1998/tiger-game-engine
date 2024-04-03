@@ -38,7 +38,9 @@ void main() {
         0.05 * (1.0 - dot(normalize(vOut.TBN[2]), normalize(-directionalShadow.dir))),
         0.005, 0.1
     );
-    const float biasModifier = 0.5;
-    bias *= 1 / (directionalShadow.cascadePlaneDistances[gl_Layer * 2 + 1] * biasModifier);
+    if (gl_Layer < NUM_MOVING_CASCADES) {
+        const float biasModifier = 0.5;
+        bias *= 1 / (directionalShadow.cascadePlaneDistances[gl_Layer * 2 + 1] * biasModifier);
+    }
     gl_FragDepth = gl_FragCoord.z + (gl_FrontFacing ? bias : 0);
 }

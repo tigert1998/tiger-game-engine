@@ -9,9 +9,11 @@
 
 class DirectionalShadow : public Shadow {
  public:
-  static constexpr uint32_t NUM_CASCADES = 5;
-  static constexpr float CASCADE_PLANE_RATIOS[NUM_CASCADES][2] = {
-      {0.00f, 0.02f}, {0.02f, 0.05f}, {0.05f, 0.1f}, {0.1f, 0.5f}, {0.5f, 1.0f},
+  static constexpr uint32_t NUM_CASCADES = 11;
+  static constexpr uint32_t NUM_MOVING_CASCADES = NUM_CASCADES - 1;
+  static constexpr float CASCADE_PLANE_RATIOS[NUM_MOVING_CASCADES][2] = {
+      {0.0f, 0.1f}, {0.1f, 0.2f}, {0.2f, 0.3f}, {0.3f, 0.4f}, {0.4f, 0.5f},
+      {0.5f, 0.6f}, {0.6f, 0.7f}, {0.7f, 0.8f}, {0.8f, 0.9f}, {0.9f, 1.0f},
   };
 
  private:
@@ -21,6 +23,7 @@ class DirectionalShadow : public Shadow {
   uint32_t fbo_width_, fbo_height_;
   std::unique_ptr<FrameBufferObject> fbo_;
   glm::vec2 max_viewport_size_;
+  std::optional<AABB> global_cascade_aabb_;
   const Camera *camera_;
   bool update_flag_;
 
@@ -57,19 +60,23 @@ class DirectionalShadow : public Shadow {
 
  public:
   explicit DirectionalShadow(glm::vec3 direction, uint32_t fbo_width,
-                             uint32_t fbo_height, const Camera *camera);
+                             uint32_t fbo_height,
+                             std::optional<AABB> global_cascade_aabb,
+                             const Camera *camera);
   inline ~DirectionalShadow() {}
 
   inline glm::vec3 direction() { return direction_; }
   void set_direction(glm::vec3 direction);
   void set_camera(Camera *camera);
+  bool enable_global_cascade() const;
+  uint32_t num_cascades_in_use() const;
 
   std::vector<OBB> cascade_obbs() const;
 
   struct DirectionalShadowGLSL {
     glm::mat4 transformation_matrices[NUM_CASCADES];
     int32_t requires_update[NUM_CASCADES];
-    float cascade_plane_distances[NUM_CASCADES * 2];
+    float cascade_plane_distances[NUM_MOVING_CASCADES * 2];
     uint64_t shadow_map;
     alignas(16) glm::vec3 dir;
   };

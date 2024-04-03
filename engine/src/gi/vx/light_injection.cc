@@ -49,7 +49,6 @@ void LightInjection::Launch(const Texture& albedo, const Texture& normal,
   kInjectionShader->SetUniform<float>("uWorldSize", world_size_);
   kInjectionShader->SetUniform<glm::vec3>("uCameraPosition",
                                           camera->position());
-  kInjectionShader->SetUniform<glm::mat4>("uViewMatrix", camera->view_matrix());
   glDispatchCompute((voxel_resolution_ + 7) / 8, (voxel_resolution_ + 7) / 8,
                     (voxel_resolution_ + 7) / 8);
   glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT |

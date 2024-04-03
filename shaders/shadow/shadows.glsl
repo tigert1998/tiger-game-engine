@@ -3,11 +3,13 @@
 
 #include "common/rand.glsl"
 
+const uint NUM_MOVING_CASCADES = NUM_CASCADES - 1;
+
 struct DirectionalShadow {
     // Cascaded Shadow Mapping
     mat4 transformationMatrices[NUM_CASCADES];
     bool requiresUpdate[NUM_CASCADES];
-    float cascadePlaneDistances[NUM_CASCADES * 2];
+    float cascadePlaneDistances[NUM_MOVING_CASCADES * 2];
     sampler2DArray shadowMap;
     vec3 dir;
 };
@@ -35,9 +37,7 @@ float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow,
 
     float shadow = 0;
     const int numSamples = 25;
-    const float denom = (directionalShadow.cascadePlaneDistances[layer * 2] + 
-        directionalShadow.cascadePlaneDistances[layer * 2 + 1]) * 0.5;
-    const float offset = 0.01 / denom;
+    const float offset = 0.001;
 
     int sampleStart = int(rand(position.xy) * (poissonDisk2DPoints.length() - numSamples));
     for (int i = sampleStart; i < sampleStart + numSamples; i++) {
@@ -54,8 +54,12 @@ float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow,
 }
 
 float CalcDirectionalShadow(
-    DirectionalShadow directionalShadow, vec3 position, mat4 cameraViewMatrix
+    DirectionalShadow directionalShadow, vec3 position, mat4 cameraViewMatrix, bool useGlobalCascade
 ) {
+    if (useGlobalCascade) {
+        return CalcDirectionalShadowForSingleCascade(directionalShadow, NUM_CASCADES - 1, position);
+    }
+
     // select cascade layer
     vec4 viewSpacePosition = cameraViewMatrix * vec4(position, 1);
     float depth = -viewSpacePosition.z;
