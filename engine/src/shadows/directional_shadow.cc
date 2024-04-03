@@ -124,7 +124,7 @@ AABB DirectionalShadow::ortho_param(
   aabb.max = glm::vec3(max_x, max_y, max_z);
 
   // enlarge AABB
-  auto extent = aabb.extents() * 1.5f;
+  auto extent = aabb.extents() * ENLARGE_FACTOR;
   auto center = aabb.center();
   aabb.min = center - extent;
   aabb.max = center + extent;
@@ -179,15 +179,13 @@ void DirectionalShadow::UpdateCascades() const {
 
   for (int i = 0; i < NUM_CASCADES; i++) {
     auto [z_near, z_far] = cascade_plane_distances(i);
-    cascades_[i].cascade_plane_distances[0] = z_near;
-    cascades_[i].cascade_plane_distances[1] = z_far;
-    auto corners =
-        camera_->frustum_corners(cascades_[i].cascade_plane_distances[0],
-                                 cascades_[i].cascade_plane_distances[1]);
+    auto corners = camera_->frustum_corners(z_near, z_far);
     bool should_use_previous_frame = ShouldUsePreviousFrame(i, corners);
     cascades_[i].requires_update = update_flag_ || !should_use_previous_frame;
     if (!cascades_[i].requires_update) continue;
 
+    cascades_[i].cascade_plane_distances[0] = z_near;
+    cascades_[i].cascade_plane_distances[1] = z_far;
     cascades_[i].view_matrix = camera_frustum_view_matrix;
     AABB ortho_param = this->ortho_param(corners, camera_frustum_view_matrix);
     cascades_[i].ortho_param =

@@ -35,7 +35,9 @@ float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow,
 
     float shadow = 0;
     const int numSamples = 25;
-    const float offset = 0.001;
+    const float denom = (directionalShadow.cascadePlaneDistances[layer * 2] + 
+        directionalShadow.cascadePlaneDistances[layer * 2 + 1]) * 0.5;
+    const float offset = 0.01 / denom;
 
     int sampleStart = int(rand(position.xy) * (poissonDisk2DPoints.length() - numSamples));
     for (int i = sampleStart; i < sampleStart + numSamples; i++) {

@@ -173,7 +173,7 @@ void Init(uint32_t width, uint32_t height) {
 
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
-      -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
+      -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 100);
   camera_ptr->set_front(-camera_ptr->position());
 
   light_sources_ptr = make_unique<LightSources>();

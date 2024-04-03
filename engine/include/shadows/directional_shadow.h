@@ -15,6 +15,8 @@ class DirectionalShadow : public Shadow {
   };
 
  private:
+  static constexpr float ENLARGE_FACTOR = 1.5f;
+
   glm::vec3 direction_;
   uint32_t fbo_width_, fbo_height_;
   std::unique_ptr<FrameBufferObject> fbo_;
