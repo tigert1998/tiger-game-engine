@@ -7,12 +7,11 @@ const uint NUM_MOVING_CASCADES = NUM_CASCADES - 1;
 
 struct DirectionalShadow {
     // Cascaded Shadow Mapping
-    mat4 viewProjectionMatrices[NUM_CASCADES];
+    mat4 transformationMatrices[NUM_CASCADES];
     bool requiresUpdate[NUM_CASCADES];
     float cascadePlaneDistances[NUM_MOVING_CASCADES * 2];
     sampler2DArray shadowMap;
     vec3 dir;
-    bool hasGlobalCascade;
 };
 
 struct OmnidirectionalShadow {
@@ -28,10 +27,9 @@ layout (std430, binding = POISSON_DISK_2D_BINDING) buffer poissonDisk2DPointsBuf
 };
 
 float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow, uint layer, vec3 position) {
-    vec4 homoPosition = directionalShadow.viewProjectionMatrices[layer] * vec4(position, 1.0);
+    vec4 homoPosition = directionalShadow.transformationMatrices[layer] * vec4(position, 1.0);
 
-    position = homoPosition.xyz / homoPosition.w;
-    position = position * 0.5 + 0.5;
+    position = homoPosition.xyz;
     float currentDepth = position.z;
     currentDepth = clamp(currentDepth, 0, 1);
     // If the fragment is outside the shadow frustum, we don't care about its depth.
@@ -56,27 +54,25 @@ float CalcDirectionalShadowForSingleCascade(DirectionalShadow directionalShadow,
 }
 
 float CalcDirectionalShadow(
-    DirectionalShadow directionalShadow,
-    vec3 position, mat4 cameraViewMatrix,
-    bool useGlobalCascade
+    DirectionalShadow directionalShadow, vec3 position, mat4 cameraViewMatrix, bool useGlobalCascade
 ) {
     if (useGlobalCascade) {
         return CalcDirectionalShadowForSingleCascade(directionalShadow, NUM_CASCADES - 1, position);
-    } else {
-        // select cascade layer
-        vec4 viewSpacePosition = cameraViewMatrix * vec4(position, 1);
-        float depth = -viewSpacePosition.z;
-
-        for (int i = 0; i < NUM_MOVING_CASCADES; i++) {
-            float near = directionalShadow.cascadePlaneDistances[i * 2];
-            float far = directionalShadow.cascadePlaneDistances[i * 2 + 1]; 
-            if (near <= depth && depth < far) {
-                return CalcDirectionalShadowForSingleCascade(directionalShadow, i, position);
-            }
-        }
-
-        return 1;
     }
+
+    // select cascade layer
+    vec4 viewSpacePosition = cameraViewMatrix * vec4(position, 1);
+    float depth = -viewSpacePosition.z;
+
+    for (int i = 0; i < NUM_CASCADES; i++) {
+        float near = directionalShadow.cascadePlaneDistances[i * 2];
+        float far = directionalShadow.cascadePlaneDistances[i * 2 + 1]; 
+        if (near <= depth && depth < far) {
+            return CalcDirectionalShadowForSingleCascade(directionalShadow, i, position);
+        }
+    }
+
+    return 1;
 }
 
 float CalcOmnidirectionalShadow(OmnidirectionalShadow omnidirectionalShadow, vec3 position) {

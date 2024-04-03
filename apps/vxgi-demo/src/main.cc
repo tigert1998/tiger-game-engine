@@ -148,7 +148,7 @@ void Init(uint32_t width, uint32_t height) {
   glfwInit();
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
   window = glfwCreateWindow(width, height, "VXGI Demo", nullptr, nullptr);
@@ -173,7 +173,7 @@ void Init(uint32_t width, uint32_t height) {
 
   camera_ptr = make_unique<Camera>(
       vec3(7, 9, 0), static_cast<double>(width) / height,
-      -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 500);
+      -glm::pi<double>() / 2, 0, glm::radians(60.f), 0.1, 100);
   camera_ptr->set_front(-camera_ptr->position());
 
   light_sources_ptr = make_unique<LightSources>();

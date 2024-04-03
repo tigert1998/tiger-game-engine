@@ -289,11 +289,14 @@ void MultiDrawIndirect::DrawDepthForShadow(
     Model::kDirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
                                                           directional_index);
     auto shadow = light_sources->GetDirectional(directional_index)->shadow();
+    shadow->Set(Model::kDirectionalShadowShader.get());
   } else if (point_index >= 0) {
     Model::kOmnidirectionalShadowShader->Use();
     light_sources->Set(Model::kOmnidirectionalShadowShader.get());
     Model::kOmnidirectionalShadowShader->SetUniform<uint32_t>("uLightIndex",
                                                               point_index);
+    auto shadow = light_sources->GetPoint(point_index)->shadow();
+    shadow->Set(Model::kOmnidirectionalShadowShader.get());
   }
 
   glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr,

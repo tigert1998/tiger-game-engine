@@ -19,6 +19,7 @@ class Shadow {
   virtual void Clear() = 0;
   virtual void Bind() = 0;
   virtual void Unbind() = 0;
+  virtual void Set(Shader *shader) = 0;
   virtual void Visualize() const = 0;
   virtual ~Shadow(){};
 };
@@ -41,10 +42,11 @@ class OmnidirectionalShadow : public Shadow {
   inline float radius() { return radius_; }
   inline void set_radius(float radius) { radius_ = radius; }
   std::vector<glm::mat4> view_projection_matrices() const;
-  inline ~OmnidirectionalShadow() override {}
+  inline ~OmnidirectionalShadow() {}
 
   void Visualize() const override;
   void Clear() override;
+  void Set(Shader *shader) override;
 
   struct OmnidirectionalShadowGLSL {
     glm::mat4 view_projection_matrices[6];

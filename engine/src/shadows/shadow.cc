@@ -55,6 +55,10 @@ std::vector<glm::mat4> OmnidirectionalShadow::view_projection_matrices() const {
   return ret;
 }
 
+void OmnidirectionalShadow::Set(Shader *shader) {
+  // no need to set view/projection matrix
+}
+
 void OmnidirectionalShadow::Bind() {
   glViewport(0, 0, fbo_width_, fbo_height_);
   fbo_->Bind();

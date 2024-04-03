@@ -13,17 +13,20 @@ layout (std430, binding = 7) buffer texturesBuffer {
     sampler2D textures[];
 };
 
-in vec2 gTexCoord;
-in mat3 gTBN;
-flat in int gInstanceID;
+in vOutputs {
+    vec3 position;
+    vec2 texCoord;
+    mat3 TBN;
+    flat int instanceID;
+} vOut;
 
 uniform uint uLightIndex;
 
 void main() {
-    Material material = materials[gInstanceID];
+    Material material = materials[vOut.instanceID];
     float alpha = 1;
     if (material.diffuseTexture >= 0) {
-        vec4 sampled = texture(textures[material.diffuseTexture], gTexCoord);
+        vec4 sampled = texture(textures[material.diffuseTexture], vOut.texCoord);
         alpha = sampled.a;
     }
     AlphaTest(alpha);
@@ -32,7 +35,7 @@ void main() {
     // According to Arccch's comment in https://learnopengl.com/Advanced-Lighting/Shadows/Shadow-Mapping
     DirectionalShadow directionalShadow = directionalLights[uLightIndex].shadow;
     float bias = clamp(
-        0.05 * (1.0 - dot(normalize(gTBN[2]), normalize(-directionalShadow.dir))),
+        0.05 * (1.0 - dot(normalize(vOut.TBN[2]), normalize(-directionalShadow.dir))),
         0.005, 0.1
     );
     if (gl_Layer < NUM_MOVING_CASCADES) {
