@@ -106,6 +106,11 @@ void ReloadModel(const fs::path &path, float voxel_world_size,
                                              injection_ptr->light_injected()));
 
   revoxelization = true;
+
+  for (int i = 0; i < light_sources_ptr->SizeDirectional(); i++) {
+    auto shadow = light_sources_ptr->GetDirectional(i)->shadow();
+    if (shadow != nullptr) shadow->set_requires_update();
+  }
 }
 
 void ImGuiWindow() {

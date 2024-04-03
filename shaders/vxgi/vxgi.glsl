@@ -16,13 +16,13 @@ const vec3 CONE_DIRECTIONS[6] = vec3[]
 
 const float CONE_WEIGHTS[6] = float[](0.25, 0.15, 0.15, 0.15, 0.15, 0.15);
 
-float computeSampleLevel(float diameter, uint voxelResolution, float worldSize) {
+float ComputeSampleLevel(float diameter, uint voxelResolution, float worldSize) {
     float level = log2(max(diameter / worldSize * voxelResolution, 1));
     return min(level, 6);
 }
 
-vec4 sampleVoxel(vec3 position, float level, float worldSize, sampler3D radianceMap) {
-    return textureLod(radianceMap, position / worldSize + 0.5, level);
+vec3 PositionToTexCoord(vec3 position, float worldSize) {
+    return position / worldSize + 0.5;
 }
 
 vec4 ConeTracing(
@@ -38,8 +38,12 @@ vec4 ConeTracing(
     vec3 position = origin + t * direction;
 
     while (color.a < 1 && t < maxT) {
-        float level = computeSampleLevel(diameter, voxelResolution, worldSize);
-        vec4 sampled = sampleVoxel(position, level, worldSize, radianceMap);
+        float level = ComputeSampleLevel(diameter, voxelResolution, worldSize);
+        vec3 texCoord = PositionToTexCoord(position, worldSize);
+        if (any(lessThan(texCoord, vec3(0))) || any(greaterThan(texCoord, vec3(1)))) {
+            break;
+        }
+        vec4 sampled = textureLod(radianceMap, texCoord, level);
         color = Accumulate(color, sampled);
         t += stepSize * diameter;
         diameter = 2 * t * tan(aperture / 2);
